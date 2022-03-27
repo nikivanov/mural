@@ -1,0 +1,21 @@
+<Html>
+    <head>
+        <link rel="stylesheet" href="style.css" />
+        <script src="script.js"></script>
+        <script
+  src="https://code.jquery.com/jquery-3.4.1.min.js"
+  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+  crossorigin="anonymous"></script>
+    </head>
+    <body style="background-color: gainsboro;color: black;">
+        <button onmousedown="leftRetractDown()" ontouchstart="leftRetractDown()" onmouseup="leftRetractUp()" ontouchend="leftRetractUp()" >Left Retract</button>
+        <button onmousedown="leftExtendDown()" ontouchstart="leftExtendDown()" onmouseup="leftExtendUp()" ontouchend="leftExtendUp()">Left Extend</button>
+        <br />
+        <button onmousedown="rightRetractDown()" ontouchstart="rightRetractDown()" onmouseup="rightRetractUp()" ontouchend="rightRetractUp()">Right Retract</button>
+        <button onmousedown="rightExtendDown()" ontouchstart="rightExtendDown()"  onmouseup="rightExtendUp()" ontouchend="rightExtendUp()">Right Extends</button>
+        <br />
+        <button onclick="run1()">RUN 1</button>
+        <button onclick="run2()">RUN 2</button>
+    </body>
+    
+</Html>
