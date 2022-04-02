@@ -7,14 +7,14 @@
 
 AsyncWebServer server(80);
 
-void initSteppers();
-void moveSteppers();
+void setupMovement();
+void runSteppers();
 
 void leftStepper(int dir);
 void rightStepper(int dir);
 
-void run1();
-void run2();
+void home();
+void startDrawSquare();
 
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
@@ -67,6 +67,7 @@ void setup()
     }
 
     WiFiManager wifiManager;
+    wifiManager.setConnectTimeout(10);
     wifiManager.autoConnect("Mural");
     Serial.println("Connected to wifi");
 
@@ -91,18 +92,18 @@ void setup()
     });
 
     server.on("/run1", HTTP_POST, [](AsyncWebServerRequest *request) {
-        run1();
+        home();
     });
 
     server.on("/run2", HTTP_POST, [](AsyncWebServerRequest *request) {
-        run2();
+        startDrawSquare();
     });
 
     server.onNotFound(notFound);
 
     Serial.println("Finished setting up the server");
 
-    initSteppers();
+    setupMovement();
     Serial.println("Finished initializing steppers");
 
     server.begin();
@@ -111,5 +112,5 @@ void setup()
 
 void loop()
 {
-    moveSteppers();
+    runSteppers();
 }
