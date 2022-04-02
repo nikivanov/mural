@@ -53,16 +53,16 @@ void rightStepper(int dir) {
 }
 
 const int homeDistanceMM = 750;
-const int stepsPerRotation = 2048;
+const int stepsPerRotation = 4076 / 2;
 const auto diameterMM = 13.5;
 const auto circumference = diameterMM * PI;
-const auto extendRotations = homeDistanceMM / circumference;
+const auto extendSteps = long((homeDistanceMM / circumference) * stepsPerRotation);
 
 
-const auto topSpacingMM = 1219;
-const auto motorSpacingMM = 36.5;
+const auto topSpacingSteps = long((1219 / circumference) * stepsPerRotation);
+const auto bottomSpacingSteps = long((36.5 / circumference) * stepsPerRotation);
 
-const auto hangerLengthMM = 22;
+const auto hangerLengthSteps = long((22 / circumference) * stepsPerRotation);
 struct Position
 {
     Coordinates left;
@@ -71,26 +71,25 @@ struct Position
 
 
 Position getCoordinates() {
-    auto leftLengthMM = (leftMotor.getCurrentPositionInSteps() / stepsPerRotation) * circumference + hangerLengthMM;
-    auto rightLengthMM = (-rightMotor.getCurrentPositionInSteps() / stepsPerRotation) * circumference + hangerLengthMM;
-
-    //Serial.printf("Getting coordinates, left length: %f, right length: %f\n", leftLengthMM, rightLengthMM);
+    // everything is in steps
+    auto leftLength = leftMotor.getCurrentPositionInSteps();
+    auto rightLength = -rightMotor.getCurrentPositionInSteps();
     
     //https://www-formula.com/geometry/trapezoid/height
-    auto numerator = pow(topSpacingMM - motorSpacingMM, 2) + pow(leftLengthMM, 2) - pow(rightLengthMM, 2);
-    auto denominator = 2*(topSpacingMM - motorSpacingMM);
+    auto numerator = pow(topSpacingSteps - bottomSpacingSteps, 2) + pow(leftLength, 2) - pow(rightLength, 2);
+    auto denominator = 2*(topSpacingSteps - bottomSpacingSteps);
     auto squared = pow(numerator / denominator, 2);
-    auto diff = pow(leftLengthMM, 2) - squared;
+    auto diff = pow(leftLength, 2) - squared;
     auto height = sqrt(diff);
 
-    auto leftAngle = asin(height / leftLengthMM);
-    auto rightAngle = asin(height / rightLengthMM);
+    auto leftAngle = asin(height / leftLength);
+    auto rightAngle = asin(height / rightLength);
 
     Coordinates left = Coordinates();
-    left.fromPolar(leftLengthMM, leftAngle);
+    left.fromPolar(leftLength, leftAngle);
     
     Coordinates right = Coordinates();
-    right.fromPolar(rightLengthMM, rightAngle);
+    right.fromPolar(rightLength, rightAngle);
 
     return {left, right};
 }
@@ -101,7 +100,7 @@ void (*nextMoveFunc)();
 void extendToHome() {
     setOrigin();
 
-    Serial.printf("Position after setOrigin(): (%ld, %ld)", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
+    Serial.printf("Position after setOrigin(): (%ld, %ld)\n", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
 
     leftMotor.setSpeedInStepsPerSecond(maxSpeedSteps);
     rightMotor.setSpeedInStepsPerSecond(maxSpeedSteps);
@@ -109,11 +108,8 @@ void extendToHome() {
     leftMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
     rightMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
 
-    auto leftSteps = long(extendRotations * stepsPerRotation);
-    auto rightSteps = long(extendRotations * stepsPerRotation);
-
-    leftMotor.setupMoveInSteps(leftSteps);
-    rightMotor.setupMoveInSteps(-rightSteps);
+    leftMotor.setupMoveInSteps(extendSteps);
+    rightMotor.setupMoveInSteps(-extendSteps);
     moving = true;
     nextMoveFunc = NULL;
 }
@@ -129,7 +125,7 @@ void runSteppers() {
 
         if (leftMotor.motionComplete() && rightMotor.motionComplete()) {
             moving = false;
-            Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
+            Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
         }
     } else {
         if (nextMoveFunc != NULL) {
@@ -139,11 +135,14 @@ void runSteppers() {
 }
 
 void setupRelativeMove(int x, int y) {
+    auto xSteps = long((x / circumference) * stepsPerRotation);
+    auto ySteps = long((y / circumference) * stepsPerRotation);
+
     auto currentPosition = getCoordinates();
     Coordinates targetLeft = Coordinates();
-    targetLeft.fromCartesian(currentPosition.left.getX() + x, currentPosition.left.getY() + y);
+    targetLeft.fromCartesian(currentPosition.left.getX() + xSteps, currentPosition.left.getY() + ySteps);
     Coordinates targetRight = Coordinates();
-    targetRight.fromCartesian(currentPosition.right.getX() - x, currentPosition.right.getY() + y);
+    targetRight.fromCartesian(currentPosition.right.getX() - xSteps, currentPosition.right.getY() + ySteps);
     
     auto currentLeftLength = currentPosition.left.getR();
     auto currentRightLength = currentPosition.right.getR();
@@ -154,30 +153,28 @@ void setupRelativeMove(int x, int y) {
     auto deltaLeft = targetLeftLength - currentLeftLength;
     auto deltaRight = targetRightLength - currentRightLength;
 
-    auto deltaLeftSteps = long((deltaLeft / circumference) * stepsPerRotation);
-    auto deltaRightSteps = long((deltaRight / circumference) * stepsPerRotation);
     Serial.printf("\n=================\nNew relative move (%i, %i)\n\n", x, y);
-    Serial.printf("\nCurrent\nLeft %f (%f, %f)\nRight %f (%f, %f)\n", currentLeftLength, currentPosition.left.getX(), currentPosition.left.getY(), currentRightLength, currentPosition.right.getX(), currentPosition.right.getY());
-    Serial.printf("\nTarget\nLeft %f (%f, %f)\nRight %f (%f, %f)\n", targetLeftLength, targetLeft.getX(), targetLeft.getY(), targetRightLength, targetRight.getX(), targetRight.getY());
+    Serial.printf("\nCurrent\nLeft %f\nRight %f\n", currentLeftLength, currentRightLength);
+    Serial.printf("\nTarget\nLeft %f \nRight %f\n", targetLeftLength, targetRightLength);
 
     int leftSpeed, rightSpeed;
-    if (abs(deltaLeftSteps) >= abs(deltaRightSteps)) {
+    if (abs(deltaLeft) >= abs(deltaRight)) {
         leftSpeed = maxSpeedSteps;
-        auto moveTime = abs(double(deltaLeftSteps)) / leftSpeed;
-        rightSpeed = int(abs(deltaRightSteps) / moveTime);
+        auto moveTime = abs(double(deltaLeft)) / leftSpeed;
+        rightSpeed = int(abs(deltaRight) / moveTime);
     } else {
         rightSpeed = maxSpeedSteps;
-        auto moveTime = abs(double(deltaRightSteps) / rightSpeed);
-        leftSpeed = int(abs(deltaLeftSteps) / moveTime);
+        auto moveTime = abs(double(deltaRight) / rightSpeed);
+        leftSpeed = int(abs(deltaLeft) / moveTime);
     }
 
-    Serial.printf("\nMove\nLeft speed: %i (%ld)\nRight speed: %i (%ld)\n=================\n", leftSpeed, deltaLeftSteps, rightSpeed, deltaRightSteps);
+    Serial.printf("\nMove\nLeft speed: %i (%f)\nRight speed: %i (%f)\n=================\n", leftSpeed, deltaLeft, rightSpeed, deltaRight);
 
     leftMotor.setSpeedInStepsPerSecond(leftSpeed);
     rightMotor.setSpeedInStepsPerSecond(rightSpeed);
 
-    leftMotor.setupRelativeMoveInSteps(deltaLeftSteps);
-    rightMotor.setupRelativeMoveInSteps(-deltaRightSteps);
+    leftMotor.setupRelativeMoveInSteps(deltaLeft);
+    rightMotor.setupRelativeMoveInSteps(-deltaRight);
     
     moving = true;
 }
