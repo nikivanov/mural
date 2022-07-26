@@ -4,6 +4,7 @@
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include "SPIFFS.h"
+#include <ESP32Servo.h>
 
 AsyncWebServer server(80);
 
@@ -15,6 +16,8 @@ void rightStepper(int dir);
 
 void home();
 void startDrawSquare();
+
+Servo myservo;
 
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
@@ -108,6 +111,9 @@ void setup()
 
     server.begin();
     Serial.println("Server started");
+
+    myservo.attach(2);
+    myservo.write(170);
 }
 
 void loop()
