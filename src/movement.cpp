@@ -1,6 +1,5 @@
 #include <Coordinates.h>
 #include <TinyStepper_28BYJ_48.h>
-#include <cppQueue.h>
 
 TinyStepper_28BYJ_48 leftMotor;
 TinyStepper_28BYJ_48 rightMotor;
@@ -16,6 +15,10 @@ void setOrigin() {
 }
 
 bool moving = false;
+bool isMoving() {
+    return moving;
+}
+
 const auto maxSpeedSteps = 300;
 const auto acceleration = 500000;
 

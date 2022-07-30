@@ -1,21 +1,119 @@
-<Html>
-    <head>
-        <link rel="stylesheet" href="style.css" />
-        <script src="script.js"></script>
-        <script
-  src="https://code.jquery.com/jquery-3.4.1.min.js"
-  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
-  crossorigin="anonymous"></script>
-    </head>
-    <body style="background-color: gainsboro;color: black;">
-        <button onmousedown="leftRetractDown()" ontouchstart="leftRetractDown()" onmouseup="leftRetractUp()" ontouchend="leftRetractUp()" >Left Retract</button>
-        <button onmousedown="leftExtendDown()" ontouchstart="leftExtendDown()" onmouseup="leftExtendUp()" ontouchend="leftExtendUp()">Left Extend</button>
-        <br />
-        <button onmousedown="rightRetractDown()" ontouchstart="rightRetractDown()" onmouseup="rightRetractUp()" ontouchend="rightRetractUp()">Right Retract</button>
-        <button onmousedown="rightExtendDown()" ontouchstart="rightExtendDown()"  onmouseup="rightExtendUp()" ontouchend="rightExtendUp()">Right Extends</button>
-        <br />
-        <button onclick="run1()">RUN 1</button>
-        <button onclick="run2()">RUN 2</button>
-    </body>
-    
-</Html>
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mural</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
+  <link href="main.css" rel="stylesheet">
+  <style>
+    .bd-placeholder-img {
+      font-size: 1.125rem;
+      text-anchor: middle;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      user-select: none;
+    }
+
+    @media (min-width: 768px) {
+      .bd-placeholder-img-lg {
+        font-size: 3.5rem;
+      }
+    }
+
+    .b-example-divider {
+      height: 3rem;
+      background-color: rgba(0, 0, 0, .1);
+      border: solid rgba(0, 0, 0, .15);
+      border-width: 1px 0;
+      box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
+    }
+
+    .b-example-vr {
+      flex-shrink: 0;
+      width: 1.5rem;
+      height: 100vh;
+    }
+
+    .bi {
+      vertical-align: -.125em;
+      fill: currentColor;
+    }
+
+    .nav-scroller {
+      position: relative;
+      z-index: 2;
+      height: 2.75rem;
+      overflow-y: hidden;
+    }
+
+    .nav-scroller .nav {
+      display: flex;
+      flex-wrap: nowrap;
+      padding-bottom: 1rem;
+      margin-top: -1px;
+      overflow-x: auto;
+      text-align: center;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+  </style>
+</head>
+
+<body class="text-center">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
+    crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-throttle-debounce/1.1/jquery.ba-throttle-debounce.min.js" crossorigin="anonymous"></script>
+  <script src="client.js"></script>
+  <script src="main.js"></script>
+  <main class="form-signin w-100 m-auto">
+      <div id="retractBeltsSlide" style="display:none;">
+        <h3 class="mb-2 fw-normal">Retract belts</h3>
+        <h6 class="mb-5"><small class="text-muted">Run the motors until belt hangers retract as far as they can go and the motor stalls</small></h6>
+        <div class="form-check form-switch mb-5">
+          <input class="form-check-input" style="transform: scale(2);" type="checkbox" role="switch" id="leftMotorToggle">
+          <label class="form-check-label" for="leftMotorToggle">Left motor</label>
+        </div>
+        <div class="form-check form-switch mb-5">
+          <input class="form-check-input" style="transform: scale(2);" type="checkbox" role="switch" id="rightMotorToggle">
+          <label class="form-check-label" for="rightMotorToggle">Right motor</label>
+        </div>
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="beltsRetracted">Belts are retracted</button>
+      </div>
+      <div id="distanceBetweenAnchorsSlide" style="display:none;">
+        <h3 class="mb-2 fw-normal">Distance between hangers</h3>
+        <h6 class="mb-5"><small class="text-muted">Distance between the two nails on which you are hanging Mural, in millimeters</small></h6>
+        
+        <input type="text" class="form-control mb-5" id="distanceInput">
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="setDistance">Set distance</button>
+      </div>
+      <div id="extendToHomeSlide" style="display:none;">
+        <h3 class="mb-2 fw-normal">Extend belts</h3>
+        <h6 class="mb-5"><small class="text-muted">The belts will extend to their home position. Make sure the belts are unobstructed and the motors do not skip, or the drawing accuracy may be affected</small></h6>
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="extendToHome">Extend to home position</button>
+      </div>
+      <div id="penCalibrationSlide" style="display:none;">
+        <h3 class="mb-2 fw-normal">Pen calibration</h3>
+        <h6 class="mb-5"><small class="text-muted">Insert the pen so it's close to, but not touching the wall and secure it with the bolt. Then, adjust the actuator position so the pen is just touching the wall</small></h6>
+        <input type="range" class="form-range mb-5 text-center" min="30" max="160" id="servoRange" value="30">
+        <div class="btn-group mb-3 btn-group-lg" role="group">
+          <div class="btn-group me-2" role="group">
+            <button type="button" class="btn btn-primary fs-4" id="penMinus">-</button>
+          </div>
+          <div class="btn-group me-2" role="group">
+            <button type="button" class="btn btn-primary fs-4" id="penPlus">+</button>
+          </div>
+        </div>
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="setPenDistance">Pen is touching the wall</button>
+      </div>
+      <div class="mt-2 mb-5"><i class="bi-gear fs-2"></i></div>
+      <div><a href="https://github.com/nikivanov/mural" class="link-primary">Mural</a></div>
+  </main>
+</body>
+
+</html>

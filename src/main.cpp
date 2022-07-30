@@ -5,11 +5,14 @@
 #include <FS.h>
 #include "SPIFFS.h"
 #include <ESP32Servo.h>
+#include <ESPmDNS.h>
 
 AsyncWebServer server(80);
 
 void setupMovement();
 void runSteppers();
+
+bool isMoving();
 
 void leftStepper(int dir);
 void rightStepper(int dir);
@@ -18,6 +21,7 @@ void home();
 void startDrawSquare();
 
 Servo myservo;
+int penDistanceAngle;
 
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
@@ -58,6 +62,12 @@ void notFound(AsyncWebServerRequest *request)
     request->send(404, "text/plain", "Not found");
 }
 
+void setPenDistance(int angle) {
+    penDistanceAngle = angle;
+    Serial.printf("Pen distance angle set to %i", angle);
+    Serial.println();
+}
+
 void setup()
 {
     delay(10);
@@ -74,33 +84,56 @@ void setup()
     wifiManager.autoConnect("Mural");
     Serial.println("Connected to wifi");
 
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        handleFileRead("/index.html", request); 
+    MDNS.begin("mural");
+
+    Serial.println("Started mDNS for mural");
+
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleFileRead("/index.html", request); });
+
+    server.on("/index.html", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleFileRead("/index.html", request); });
+
+    server.on("/client.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleFileRead("/client.js", request); });
+
+    server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleFileRead("/main.js", request); });
+
+    server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleFileRead("/main.css", request); });
+
+    server.on("/command", HTTP_POST, [](AsyncWebServerRequest *request)
+              { 
+                  handleCommand(request->arg("command"), request); 
+                  request->send(200, "text/plain", "OK"); 
+              });
+
+    server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
+              { 
+                  //home(); 
+                  request->send(200, "text/plain", "OK"); 
     });
 
-    server.on("/index.html", HTTP_GET, [](AsyncWebServerRequest *request) {
-        handleFileRead("/index.html", request); 
-    });
-
-    server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-        handleFileRead("/script.js", request); 
+    server.on("/setServo", HTTP_POST, [](AsyncWebServerRequest *request) { 
+        AsyncWebParameter* p = request->getParam(0);
+        int angle = p->value().toInt();
+        myservo.write(angle); 
+        request->send(200, "text/plain", "OK"); 
     });
     
-    server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-        handleFileRead("/style.css", request); 
+    server.on("/setPenDistance", HTTP_POST, [](AsyncWebServerRequest *request) { 
+        AsyncWebParameter* p = request->getParam(0);
+        int angle = p->value().toInt();
+        setPenDistance(angle);
+        request->send(200, "text/plain", "OK"); 
     });
 
-    server.on("/command", HTTP_POST, [](AsyncWebServerRequest *request) {
-        handleCommand(request->arg("command"), request); 
-    });
+    server.on("/isMoving", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(200, "text/plain", isMoving() ? "true" : "false"); });
 
-    server.on("/run1", HTTP_POST, [](AsyncWebServerRequest *request) {
-        home();
-    });
-
-    server.on("/run2", HTTP_POST, [](AsyncWebServerRequest *request) {
-        startDrawSquare();
-    });
+    server.on("/run2", HTTP_POST, [](AsyncWebServerRequest *request)
+              { startDrawSquare(); });
 
     server.onNotFound(notFound);
 
@@ -113,7 +146,7 @@ void setup()
     Serial.println("Server started");
 
     myservo.attach(2);
-    myservo.write(170);
+    myservo.write(30);
 }
 
 void loop()
