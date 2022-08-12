@@ -1,8 +1,15 @@
 #include <Coordinates.h>
 #include <TinyStepper_28BYJ_48.h>
+#include <ESP32Servo.h>
 
 TinyStepper_28BYJ_48 leftMotor;
 TinyStepper_28BYJ_48 rightMotor;
+
+bool raisePen = false;
+
+int _penDownAngle;
+int _penUpAngle;
+Servo _servo;
 
 void setupMovement() {
     leftMotor.connectToPins(27, 14, 12, 13);
@@ -30,9 +37,9 @@ void leftStepper(int dir) {
     leftMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
 
     if (dir > 0) {
-        leftMotor.setupRelativeMoveInSteps(INFINITE_STEPS);
-    } else if (dir < 0) {
         leftMotor.setupRelativeMoveInSteps(-INFINITE_STEPS);
+    } else if (dir < 0) {
+        leftMotor.setupRelativeMoveInSteps(INFINITE_STEPS);
     } else {
         leftMotor.setupStop();
     }
@@ -45,9 +52,9 @@ void rightStepper(int dir) {
     rightMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
 
     if (dir > 0) {
-        rightMotor.setupRelativeMoveInSteps(-INFINITE_STEPS);
-    } else if (dir < 0) {
         rightMotor.setupRelativeMoveInSteps(INFINITE_STEPS);
+    } else if (dir < 0) {
+        rightMotor.setupRelativeMoveInSteps(-INFINITE_STEPS);
     } else {
         rightMotor.setupStop();
     }
@@ -111,8 +118,8 @@ void extendToHome() {
     leftMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
     rightMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
 
-    leftMotor.setupMoveInSteps(extendSteps);
-    rightMotor.setupMoveInSteps(-extendSteps);
+    leftMotor.setupMoveInSteps(-extendSteps);
+    rightMotor.setupMoveInSteps(extendSteps);
     moving = true;
     nextMoveFunc = NULL;
 }
@@ -128,6 +135,10 @@ void runSteppers() {
 
         if (leftMotor.motionComplete() && rightMotor.motionComplete()) {
             moving = false;
+            if (raisePen) {
+                raisePen = false;
+                _servo.write(_penUpAngle);
+            }
             Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
         }
     } else {
@@ -176,8 +187,8 @@ void setupRelativeMove(int x, int y) {
     leftMotor.setSpeedInStepsPerSecond(leftSpeed);
     rightMotor.setSpeedInStepsPerSecond(rightSpeed);
 
-    leftMotor.setupRelativeMoveInSteps(deltaLeft);
-    rightMotor.setupRelativeMoveInSteps(-deltaRight);
+    leftMotor.setupRelativeMoveInSteps(-deltaLeft);
+    rightMotor.setupRelativeMoveInSteps(deltaRight);
     
     moving = true;
 }
@@ -185,6 +196,7 @@ void setupRelativeMove(int x, int y) {
 const auto squareSizeMM = 100;
 void drawSquareLeftSide() {
     setupRelativeMove(0, -squareSizeMM);
+    raisePen = true;
     nextMoveFunc = NULL;
 }
 
@@ -198,8 +210,13 @@ void drawSquareRightSide() {
     nextMoveFunc = &drawSquareBottom;
 }
 
+void startDrawSquare(int penDownAngle, int penUpAngle, Servo servo) {
+    _penDownAngle = penDownAngle;
+    _penUpAngle = penUpAngle;
+    _servo = servo;
 
-void startDrawSquare() {
+    _servo.write(_penDownAngle);
+
     setupRelativeMove(squareSizeMM, 0);
     nextMoveFunc = &drawSquareRightSide;
 }

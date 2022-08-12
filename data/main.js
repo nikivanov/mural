@@ -104,6 +104,46 @@ function init() {
     $("#setPenDistance").click(function () {
         const inputValue = normalizeServoValue(parseInt($("#servoRange").val()));
         $.post("/setPenDistance", {angle: inputValue});
+
+        $("#penCalibrationSlide").hide();
+        $("#runSlide").show();
+    });
+
+    $("#leftMotorTool").on('input', function() {
+        const leftMotorDir = parseInt($("#leftMotorTool").val());
+        if (leftMotorDir <= -1) {
+            leftRetractDown(); 
+        } else if (leftMotorDir >= 1) {
+            leftExtendDown();
+        } else {
+            leftRetractUp();
+        }
+    });
+
+    $("#rightMotorTool").on('input', function() {
+        const rightMotorDir = parseInt($("#rightMotorTool").val());
+        if (rightMotorDir <= -1) {
+            rightRetractDown(); 
+        } else if (rightMotorDir >= 1) {
+            rightExtendDown();
+        } else {
+            rightRetractUp();
+        }
+    });
+
+    $("#parkServoTool").click(function() {
+        $.post("/setServo", {angle: 170});
+    });
+
+    const toolsModal = $("#toolsModal")[0];
+
+    toolsModal.addEventListener('hidden.bs.modal', function (event) {
+        rightRetractUp();
+        leftRetractUp();
+    });
+
+    $("#run").click(function() {
+        $.post("/run", {});
     });
 
     $("#retractBeltsSlide").show();

@@ -18,7 +18,7 @@ void leftStepper(int dir);
 void rightStepper(int dir);
 
 void home();
-void startDrawSquare();
+void startDrawSquare(int penDownAngle, int penUpAngle, Servo servo);
 
 Servo myservo;
 int penDistanceAngle;
@@ -80,7 +80,7 @@ void setup()
     }
 
     WiFiManager wifiManager;
-    wifiManager.setConnectTimeout(10);
+    wifiManager.setConnectTimeout(20);
     wifiManager.autoConnect("Mural");
     Serial.println("Connected to wifi");
 
@@ -111,7 +111,7 @@ void setup()
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                  //home(); 
+                  home(); 
                   request->send(200, "text/plain", "OK"); 
     });
 
@@ -132,8 +132,9 @@ void setup()
     server.on("/isMoving", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", isMoving() ? "true" : "false"); });
 
-    server.on("/run2", HTTP_POST, [](AsyncWebServerRequest *request)
-              { startDrawSquare(); });
+    server.on("/run", HTTP_POST, [](AsyncWebServerRequest *request)
+              { startDrawSquare(penDistanceAngle + 10, penDistanceAngle - 50, myservo); 
+    });
 
     server.onNotFound(notFound);
 

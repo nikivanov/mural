@@ -111,9 +111,34 @@
         </div>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="setPenDistance">Pen is touching the wall</button>
       </div>
-      <div class="mt-2 mb-5"><i class="bi-gear fs-2"></i></div>
+      <div id="runSlide" style="display:none;">
+        <h3 class="mb-2 fw-normal">Run</h3>
+        <h6 class="mb-5"><small class="text-muted">Run stub</small></h6>
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="run">RUN</button>
+      </div>
+      <div class="mt-2 mb-5" data-bs-toggle="modal" data-bs-target="#toolsModal"><i class="bi-gear fs-2"></i></div>
       <div><a href="https://github.com/nikivanov/mural" class="link-primary">Mural</a></div>
   </main>
+  <div class="modal fade" id="toolsModal" tabindex="-1" role="dialog" aria-labelledby="toolsModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="toolsModalLabel">Tools</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label for="leftMotorTool" class="form-label">Left Motor</label>
+          <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="leftMotorTool" value="0">
+          <label for="rightMotorTool" class="form-label">Right Motor</label>
+          <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="rightMotorTool" value="0">
+          <button class="w-100 btn btn-lg btn-primary mb-5" id="parkServoTool">Park Servo</button>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 
 </html>
