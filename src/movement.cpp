@@ -29,7 +29,7 @@ bool isMoving() {
 const auto maxSpeedSteps = 300;
 const auto acceleration = 500000;
 
-const auto maxUnsafeSpeed = 400;
+const auto maxUnsafeSpeed = 500;
 
 const auto INFINITE_STEPS = 999999999;
 void leftStepper(int dir) {
@@ -82,8 +82,8 @@ struct Position
 
 Position getCoordinates() {
     // everything is in steps
-    auto leftLength = leftMotor.getCurrentPositionInSteps();
-    auto rightLength = -rightMotor.getCurrentPositionInSteps();
+    auto leftLength = -leftMotor.getCurrentPositionInSteps();
+    auto rightLength = rightMotor.getCurrentPositionInSteps();
     
     //https://www-formula.com/geometry/trapezoid/height
     auto numerator = pow(topSpacingSteps - bottomSpacingSteps, 2) + pow(leftLength, 2) - pow(rightLength, 2);
