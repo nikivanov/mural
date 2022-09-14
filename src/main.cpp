@@ -18,7 +18,9 @@ void leftStepper(int dir);
 void rightStepper(int dir);
 
 void home();
-void startDrawSquare(int penDownAngle, int penUpAngle, Servo servo);
+void startDrawSquare(int penDownAngle, int penUpAngle, Servo *servo);
+
+void extend100mm();
 
 Servo myservo;
 int penDistanceAngle;
@@ -126,14 +128,20 @@ void setup()
         AsyncWebParameter* p = request->getParam(0);
         int angle = p->value().toInt();
         setPenDistance(angle);
+        myservo.write(penDistanceAngle - 30);
         request->send(200, "text/plain", "OK"); 
+    });
+
+    server.on("/estepsCalibration", HTTP_POST, [](AsyncWebServerRequest *request) { 
+        extend100mm();
+        request->send(200, "text/plain", "OK");
     });
 
     server.on("/isMoving", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", isMoving() ? "true" : "false"); });
 
     server.on("/run", HTTP_POST, [](AsyncWebServerRequest *request)
-              { startDrawSquare(penDistanceAngle + 10, penDistanceAngle - 50, myservo); 
+              { startDrawSquare(penDistanceAngle + 10, penDistanceAngle - 30, &myservo); 
     });
 
     server.onNotFound(notFound);
@@ -147,7 +155,7 @@ void setup()
     Serial.println("Server started");
 
     myservo.attach(2);
-    myservo.write(30);
+    myservo.write(50);
 }
 
 void loop()

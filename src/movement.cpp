@@ -9,7 +9,7 @@ bool raisePen = false;
 
 int _penDownAngle;
 int _penUpAngle;
-Servo _servo;
+Servo *_servo;
 
 void setupMovement() {
     leftMotor.connectToPins(27, 14, 12, 13);
@@ -64,7 +64,7 @@ void rightStepper(int dir) {
 
 const int homeDistanceMM = 750;
 const int stepsPerRotation = 4076 / 2;
-const auto diameterMM = 13.5;
+const auto diameterMM = 12.8;
 const auto circumference = diameterMM * PI;
 const auto extendSteps = long((homeDistanceMM / circumference) * stepsPerRotation);
 
@@ -137,7 +137,8 @@ void runSteppers() {
             moving = false;
             if (raisePen) {
                 raisePen = false;
-                _servo.write(_penUpAngle);
+                _servo->write(_penUpAngle);
+                Serial.printf("Servo up at %i angle", _penUpAngle);
             }
             Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
         }
@@ -194,30 +195,75 @@ void setupRelativeMove(int x, int y) {
 }
 
 const auto squareSizeMM = 100;
-void drawSquareLeftSide() {
+// void drawSquareLeftSide() {
+//     setupRelativeMove(0, -squareSizeMM);
+//     raisePen = true;
+//     nextMoveFunc = NULL;
+// }
+
+// void drawSquareBottom() {
+//     setupRelativeMove(-squareSizeMM, 0);
+//     nextMoveFunc = &drawSquareLeftSide;
+// }
+
+// void drawSquareRightSide() {
+//     setupRelativeMove(0, squareSizeMM);
+//     nextMoveFunc = &drawSquareBottom;
+// }
+
+int reps = 3;
+void drawSquareTop();
+void moveOrStop() {
+    if (reps > 0) {
+        reps = reps - 1;
+        setupRelativeMove(squareSizeMM + 20, 0);
+        nextMoveFunc = &drawSquareTop;
+    }
+}
+
+void drawSquareLeft() {
     setupRelativeMove(0, -squareSizeMM);
     raisePen = true;
-    nextMoveFunc = NULL;
+    nextMoveFunc = &moveOrStop;
 }
 
 void drawSquareBottom() {
     setupRelativeMove(-squareSizeMM, 0);
-    nextMoveFunc = &drawSquareLeftSide;
+    nextMoveFunc = &drawSquareLeft;
 }
 
-void drawSquareRightSide() {
+void drawSquareRight() {
     setupRelativeMove(0, squareSizeMM);
     nextMoveFunc = &drawSquareBottom;
 }
 
-void startDrawSquare(int penDownAngle, int penUpAngle, Servo servo) {
+void drawSquareTop() {
+    _servo->write(_penDownAngle);
+    Serial.printf("Servo down at %i angle", _penDownAngle);
+    setupRelativeMove(squareSizeMM, 0);
+    nextMoveFunc = &drawSquareRight;
+}
+
+void startDrawSquare(int penDownAngle, int penUpAngle, Servo *servo) {
     _penDownAngle = penDownAngle;
     _penUpAngle = penUpAngle;
     _servo = servo;
 
-    _servo.write(_penDownAngle);
+    //_servo.write(_penDownAngle);
 
-    setupRelativeMove(squareSizeMM, 0);
-    nextMoveFunc = &drawSquareRightSide;
+    setupRelativeMove(-((squareSizeMM + 20) * 3 / 2), -squareSizeMM / 2);
+    nextMoveFunc = &drawSquareTop;
+}
+
+void extend100mm() {
+    auto rotations = 100 / circumference;
+    auto steps = int(rotations * stepsPerRotation);
+    leftMotor.setSpeedInStepsPerSecond(maxSpeedSteps);
+    leftMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
+    leftMotor.setupRelativeMoveInSteps(-steps);
+    moving = true;
+    Serial.printf("Extending 100m with %i", steps);
+    Serial.println();
+
 }
 

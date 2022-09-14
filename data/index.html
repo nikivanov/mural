@@ -100,7 +100,7 @@
       <div id="penCalibrationSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Pen calibration</h3>
         <h6 class="mb-5"><small class="text-muted">Insert the pen so it's close to, but not touching the wall and secure it with the bolt. Then, adjust the actuator position so the pen is just touching the wall</small></h6>
-        <input type="range" class="form-range mb-5 text-center" min="30" max="160" id="servoRange" value="30">
+        <input type="range" class="form-range mb-5 text-center" min="50" max="150" id="servoRange" value="50">
         <div class="btn-group mb-3 btn-group-lg" role="group">
           <div class="btn-group me-2" role="group">
             <button type="button" class="btn btn-primary fs-4" id="penMinus">-</button>
@@ -132,6 +132,7 @@
           <label for="rightMotorTool" class="form-label">Right Motor</label>
           <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="rightMotorTool" value="0">
           <button class="w-100 btn btn-lg btn-primary mb-5" id="parkServoTool">Park Servo</button>
+          <button class="w-100 btn btn-lg btn-primary mb-5" id="estepsTool">Extend 100mm (E-steps calibration)</button>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>

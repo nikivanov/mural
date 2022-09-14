@@ -135,6 +135,10 @@ function init() {
         $.post("/setServo", {angle: 170});
     });
 
+    $("#estepsTool").click(function() {
+        $.post("/estepsCalibration", {});
+    });
+
     const toolsModal = $("#toolsModal")[0];
 
     toolsModal.addEventListener('hidden.bs.modal', function (event) {
