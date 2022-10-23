@@ -74,10 +74,10 @@ function init() {
 
     function normalizeServoValue(value) {
         let normalizedValue;
-        if (value < 30) {
-            normalizedValue = 30;
-        } else if (value > 160) {
-            normalizedValue = 160;
+        if (value < 0) {
+            normalizedValue = 0;
+        } else if (value > 180) {
+            normalizedValue = 180;
         } else {
             normalizedValue = value;
         }
@@ -132,7 +132,7 @@ function init() {
     });
 
     $("#parkServoTool").click(function() {
-        $.post("/setServo", {angle: 170});
+        $.post("/setServo", {angle: 0});
     });
 
     $("#estepsTool").click(function() {

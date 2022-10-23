@@ -113,7 +113,7 @@ void setup()
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                  home(); 
+                  //home(); 
                   request->send(200, "text/plain", "OK"); 
     });
 
@@ -155,7 +155,7 @@ void setup()
     Serial.println("Server started");
 
     myservo.attach(2);
-    myservo.write(50);
+    myservo.write(0);
 }
 
 void loop()
