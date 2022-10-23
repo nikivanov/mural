@@ -1,21 +1,3 @@
-let throttlePause;
- 
-const throttle = (callback, time) => {
-  //don't run the function if throttlePause is true
-  if (throttlePause) return;
- 
-  //set throttlePause to true after the if condition. This allows the function to be run once
-  throttlePause = true;
-   
-  //setTimeout runs the callback within the specified time
-  setTimeout(() => {
-    callback();
-     
-    //throttlePause is set to false once the function has been called, allowing the throttle function to loop
-    throttlePause = false;
-  }, time);
-};
-
 window.onload = function () {
     init();
 };
@@ -68,41 +50,43 @@ function init() {
 
             $("#extendToHomeSlide").hide();
             $("#penCalibrationSlide").show();
-            $.post("/setServo", {angle: 30});
+            $.post("/setServo", {angle: 70});
         });
     });
-
-    function normalizeServoValue(value) {
+    
+    function getServoValueFromInputValue() {
+        const inputValue = parseInt($("#servoRange").val());
+        const value = 90 - 20 - inputValue;
         let normalizedValue;
-        if (value < 0) {
-            normalizedValue = 0;
-        } else if (value > 180) {
-            normalizedValue = 180;
+        if (value < 20) {
+            normalizedValue = 20;
+        } else if (value > 70) {
+            normalizedValue = 70;
         } else {
             normalizedValue = value;
         }
+
         return normalizedValue;
     }
 
     $("#servoRange").on('input', $.throttle(250, function (e) {
-        const inputValue = normalizeServoValue(parseInt($("#servoRange").val()));
-        $.post("/setServo", {angle: inputValue});
+        const servoValue = getServoValueFromInputValue();
+        $.post("/setServo", {angle: servoValue});
     }));
 
+    const stepVaule = 5;
     $("#penMinus").click(function() {
-        const newValue = normalizeServoValue(parseInt($("#servoRange").val()) - 10);
-        $("#servoRange").val(newValue);
+        $("#servoRange")[0].stepDown(stepVaule);
         $("#servoRange").trigger('input');
     });
 
     $("#penPlus").click(function() {
-        const newValue = normalizeServoValue(parseInt($("#servoRange").val()) + 10);
-        $("#servoRange").val(newValue);
+        $("#servoRange")[0].stepUp(stepVaule);
         $("#servoRange").trigger('input');
     });
 
     $("#setPenDistance").click(function () {
-        const inputValue = normalizeServoValue(parseInt($("#servoRange").val()));
+        const inputValue = getServoValueFromInputValue();
         $.post("/setPenDistance", {angle: inputValue});
 
         $("#penCalibrationSlide").hide();

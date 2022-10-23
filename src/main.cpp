@@ -25,6 +25,8 @@ void extend100mm();
 Servo myservo;
 int penDistanceAngle;
 
+const int RETRACT_DISTANCE = 20;
+
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
     Serial.println("Serving " + path);
@@ -128,7 +130,7 @@ void setup()
         AsyncWebParameter* p = request->getParam(0);
         int angle = p->value().toInt();
         setPenDistance(angle);
-        myservo.write(penDistanceAngle - 30);
+        myservo.write(penDistanceAngle + RETRACT_DISTANCE);
         request->send(200, "text/plain", "OK"); 
     });
 
@@ -155,7 +157,7 @@ void setup()
     Serial.println("Server started");
 
     myservo.attach(2);
-    myservo.write(0);
+    myservo.write(70);
 }
 
 void loop()
