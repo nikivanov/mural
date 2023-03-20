@@ -113,7 +113,7 @@ void setup()
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                  //home(); 
+                  home(); 
                   request->send(200, "text/plain", "OK"); 
     });
 
