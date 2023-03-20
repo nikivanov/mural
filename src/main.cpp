@@ -6,26 +6,17 @@
 #include "SPIFFS.h"
 #include <ESP32Servo.h>
 #include <ESPmDNS.h>
+#include "movement.h"
+#include "runner.h"
 
 AsyncWebServer server(80);
 
-void setupMovement();
-void runSteppers();
-
-bool isMoving();
-
-void leftStepper(int dir);
-void rightStepper(int dir);
-
-void home();
-void startDrawSquare(int penDownAngle, int penUpAngle, Servo *servo);
-
-void extend100mm();
-
 Servo myservo;
 int penDistanceAngle;
-
 const int RETRACT_DISTANCE = 20;
+
+Movement *movement;
+Runner *runner;
 
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
@@ -37,27 +28,27 @@ void handleCommand(String command, AsyncWebServerRequest *request)
 {
     if (command == "l-ret")
     {
-        leftStepper(-1);
+        movement->leftStepper(-1);
     }
     else if (command == "l-ext")
     {
-        leftStepper(1);
+        movement->leftStepper(1);
     }
     else if (command == "l-0")
     {
-        leftStepper(0);
+        movement->leftStepper(0);
     }
     else if (command == "r-ret")
     {
-        rightStepper(-1);
+        movement->rightStepper(-1);
     }
     else if (command == "r-ext")
     {
-        rightStepper(1);
+        movement->rightStepper(1);
     }
     else if (command == "r-0")
     {
-        rightStepper(0);
+        movement->rightStepper(0);
     }
 }
 
@@ -92,6 +83,11 @@ void setup()
 
     Serial.println("Started mDNS for mural");
 
+    movement = new Movement();
+    Serial.println("Finished initializing steppers");
+
+    runner = new Runner(movement);
+
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleFileRead("/index.html", request); });
 
@@ -115,7 +111,7 @@ void setup()
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                  home(); 
+                  movement->extendToHome(); 
                   request->send(200, "text/plain", "OK"); 
     });
 
@@ -135,23 +131,21 @@ void setup()
     });
 
     server.on("/estepsCalibration", HTTP_POST, [](AsyncWebServerRequest *request) { 
-        extend100mm();
+        //movement->extend100mm();
         request->send(200, "text/plain", "OK");
     });
 
     server.on("/isMoving", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/plain", isMoving() ? "true" : "false"); });
+              { request->send(200, "text/plain", movement->isMoving() ? "true" : "false"); });
 
     server.on("/run", HTTP_POST, [](AsyncWebServerRequest *request)
-              { startDrawSquare(penDistanceAngle + 10, penDistanceAngle - 30, &myservo); 
-    });
+              { 
+                runner->start();
+                request->send(200, "text/plain", "OK"); });
 
     server.onNotFound(notFound);
 
     Serial.println("Finished setting up the server");
-
-    setupMovement();
-    Serial.println("Finished initializing steppers");
 
     server.begin();
     Serial.println("Server started");
@@ -162,5 +156,6 @@ void setup()
 
 void loop()
 {
-    runSteppers();
+    movement->runSteppers();
+    runner->run();
 }

@@ -1,269 +1,159 @@
-#include <Coordinates.h>
-#include <TinyStepper_28BYJ_48.h>
-#include <ESP32Servo.h>
+#include "movement.h"
+#include <stdexcept>
 
-TinyStepper_28BYJ_48 leftMotor;
-TinyStepper_28BYJ_48 rightMotor;
-
-bool raisePen = false;
-
-int _penDownAngle;
-int _penUpAngle;
-Servo *_servo;
-
-void setupMovement() {
-    leftMotor.connectToPins(27, 14, 12, 13);
-    rightMotor.connectToPins(26, 25, 33, 32);   
-}
-
-void setOrigin() {
-    leftMotor.setCurrentPositionInSteps(0);
-    rightMotor.setCurrentPositionInSteps(0);
-}
-
-bool moving = false;
-bool isMoving() {
-    return moving;
-}
-
-const auto maxSpeedSteps = 300;
-const auto acceleration = 500000;
-
-const auto maxUnsafeSpeed = 500;
-
-const auto INFINITE_STEPS = 999999999;
-void leftStepper(int dir) {
-    leftMotor.setSpeedInStepsPerSecond(maxUnsafeSpeed);
-    leftMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
-
-    if (dir > 0) {
-        leftMotor.setupRelativeMoveInSteps(-INFINITE_STEPS);
-    } else if (dir < 0) {
-        leftMotor.setupRelativeMoveInSteps(INFINITE_STEPS);
-    } else {
-        leftMotor.setupStop();
-    }
-
-    moving = true;
-}
-
-void rightStepper(int dir) {
-    rightMotor.setSpeedInStepsPerSecond(maxUnsafeSpeed);
-    rightMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
-
-    if (dir > 0) {
-        rightMotor.setupRelativeMoveInSteps(INFINITE_STEPS);
-    } else if (dir < 0) {
-        rightMotor.setupRelativeMoveInSteps(-INFINITE_STEPS);
-    } else {
-        rightMotor.setupStop();
-    }
-
-    moving = true;
-}
-
-const int homeDistanceMM = 750;
-const int stepsPerRotation = 4076 / 2;
-const auto diameterMM = 12.8;
-const auto circumference = diameterMM * PI;
-const auto extendSteps = long((homeDistanceMM / circumference) * stepsPerRotation);
-
-
-const auto topSpacingSteps = long((1219 / circumference) * stepsPerRotation);
-const auto bottomSpacingSteps = long((36.5 / circumference) * stepsPerRotation);
-
-const auto hangerLengthSteps = long((22 / circumference) * stepsPerRotation);
-struct Position
+Movement::Movement()
 {
-    Coordinates left;
-    Coordinates right;
+    leftMotor = new TinyStepper_28BYJ_48();
+    rightMotor = new TinyStepper_28BYJ_48();
+
+    topDistance = -1;
+
+    leftMotor->connectToPins(27, 14, 12, 13);
+    rightMotor->connectToPins(26, 25, 33, 32);
+
+    moving = false;
+    homed = false;
 };
 
+void Movement::setTopDistance(int distance) {
+    topDistance = distance;
 
-Position getCoordinates() {
-    // everything is in steps
-    auto leftLength = -leftMotor.getCurrentPositionInSteps();
-    auto rightLength = rightMotor.getCurrentPositionInSteps();
-    
-    //https://www-formula.com/geometry/trapezoid/height
-    auto numerator = pow(topSpacingSteps - bottomSpacingSteps, 2) + pow(leftLength, 2) - pow(rightLength, 2);
-    auto denominator = 2*(topSpacingSteps - bottomSpacingSteps);
-    auto squared = pow(numerator / denominator, 2);
-    auto diff = pow(leftLength, 2) - squared;
-    auto height = sqrt(diff);
+    minSafeY = safeYFraction * topDistance;
+    minSafeXOffset = safeXFraction * topDistance;
+    width = topDistance - 2 * minSafeXOffset;
+    height = width * 9 / 16;
+};
 
-    auto leftAngle = asin(height / leftLength);
-    auto rightAngle = asin(height / rightLength);
+void Movement::setOrigin()
+{
+    leftMotor->setCurrentPositionInSteps(-homedStepsOffset);
+    rightMotor->setCurrentPositionInSteps(homedStepsOffset);
+    homed = true;
+};
 
-    Coordinates left = Coordinates();
-    left.fromPolar(leftLength, leftAngle);
-    
-    Coordinates right = Coordinates();
-    right.fromPolar(rightLength, rightAngle);
+void Movement::leftStepper(int dir)
+{
+    leftMotor->setSpeedInStepsPerSecond(maxUnsafeSpeed);
+    leftMotor->setAccelerationInStepsPerSecondPerSecond(acceleration);
 
-    return {left, right};
-}
+    if (dir > 0)
+    {
+        leftMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
+    }
+    else if (dir < 0)
+    {
+        leftMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
+    }
+    else
+    {
+        leftMotor->setupStop();
+    }
 
-void (*nextMoveFunc)();
-
-
-void extendToHome() {
-    setOrigin();
-
-    Serial.printf("Position after setOrigin(): (%ld, %ld)\n", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
-
-    leftMotor.setSpeedInStepsPerSecond(maxSpeedSteps);
-    rightMotor.setSpeedInStepsPerSecond(maxSpeedSteps);
-
-    leftMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
-    rightMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
-
-    leftMotor.setupMoveInSteps(-extendSteps);
-    rightMotor.setupMoveInSteps(extendSteps);
     moving = true;
-    nextMoveFunc = NULL;
-}
+};
 
-void home() {
-    nextMoveFunc = &extendToHome;
-}
+void Movement::rightStepper(int dir)
+{
+    rightMotor->setSpeedInStepsPerSecond(maxUnsafeSpeed);
+    rightMotor->setAccelerationInStepsPerSecondPerSecond(acceleration);
 
-void runSteppers() {
-    if (moving) {
-        leftMotor.processMovement();
-        rightMotor.processMovement();
+    if (dir > 0)
+    {
+        rightMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
+    }
+    else if (dir < 0)
+    {
+        rightMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
+    }
+    else
+    {
+        rightMotor->setupStop();
+    }
 
-        if (leftMotor.motionComplete() && rightMotor.motionComplete()) {
+    moving = true;
+};
+
+void Movement::extendToHome()
+{
+    this->setOrigin();
+
+    this->beginTravel(width / 2, height / 2);
+};
+
+void Movement::runSteppers()
+{
+    if (moving)
+    {
+        leftMotor->processMovement();
+        rightMotor->processMovement();
+
+        if (leftMotor->motionComplete() && rightMotor->motionComplete())
+        {
             moving = false;
-            if (raisePen) {
-                raisePen = false;
-                _servo->write(_penUpAngle);
-                Serial.printf("Servo up at %i angle", _penUpAngle);
-            }
-            Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor.getCurrentPositionInSteps(), rightMotor.getCurrentPositionInSteps());
-        }
-    } else {
-        if (nextMoveFunc != NULL) {
-            nextMoveFunc();
+            Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->getCurrentPositionInSteps(), rightMotor->getCurrentPositionInSteps());
         }
     }
-}
+};
 
-void setupRelativeMove(int x, int y) {
-    auto xSteps = long((x / circumference) * stepsPerRotation);
-    auto ySteps = long((y / circumference) * stepsPerRotation);
+void Movement::beginTravel(double x, double y)
+{
+    if (topDistance == -1 || !homed) {
+        throw std::invalid_argument("not ready");
+    }
 
-    auto currentPosition = getCoordinates();
-    Coordinates targetLeft = Coordinates();
-    targetLeft.fromCartesian(currentPosition.left.getX() + xSteps, currentPosition.left.getY() + ySteps);
-    Coordinates targetRight = Coordinates();
-    targetRight.fromCartesian(currentPosition.right.getX() - xSteps, currentPosition.right.getY() + ySteps);
-    
-    auto currentLeftLength = currentPosition.left.getR();
-    auto currentRightLength = currentPosition.right.getR();
+    if (x < 0 || x > width)
+    {
+        throw std::invalid_argument("Invalid x");
+    }
 
-    auto targetLeftLength = targetLeft.getR();
-    auto targetRightLength = targetRight.getR();
+    if (y < 0 || y > height)
+    {
+        throw std::invalid_argument("Invalid y");
+    }
 
-    auto deltaLeft = targetLeftLength - currentLeftLength;
-    auto deltaRight = targetRightLength - currentRightLength;
+    auto unsafeX = x + minSafeXOffset;
+    auto unsafeY = y + minSafeY;
 
-    Serial.printf("\n=================\nNew relative move (%i, %i)\n\n", x, y);
-    Serial.printf("\nCurrent\nLeft %f\nRight %f\n", currentLeftLength, currentRightLength);
-    Serial.printf("\nTarget\nLeft %f \nRight %f\n", targetLeftLength, targetRightLength);
+    auto leftX = unsafeX - bottomDistance / 2;
+    auto rightX = unsafeX + bottomDistance / 2;
+    auto leftLeg = sqrt(pow(leftX, 2) + pow(unsafeY, 2));
+    auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(unsafeY, 2));
+    auto leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
+    auto rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
 
-    int leftSpeed, rightSpeed;
-    if (abs(deltaLeft) >= abs(deltaRight)) {
+    auto deltaLeft = int(abs(abs(leftMotor->getCurrentPositionInSteps()) - leftLegSteps));
+    auto deltaRight = int(abs(abs(rightMotor->getCurrentPositionInSteps()) - rightLegSteps));
+
+    float leftSpeed, rightSpeed;
+    if (deltaLeft >= deltaRight)
+    {
         leftSpeed = maxSpeedSteps;
-        auto moveTime = abs(double(deltaLeft)) / leftSpeed;
-        rightSpeed = int(abs(deltaRight) / moveTime);
-    } else {
+        auto moveTime = deltaLeft / leftSpeed;
+        rightSpeed = deltaRight / moveTime;
+    }
+    else
+    {
         rightSpeed = maxSpeedSteps;
-        auto moveTime = abs(double(deltaRight) / rightSpeed);
-        leftSpeed = int(abs(deltaLeft) / moveTime);
+        auto moveTime = deltaRight / rightSpeed;
+        leftSpeed = deltaLeft / moveTime;
     }
 
-    Serial.printf("\nMove\nLeft speed: %i (%f)\nRight speed: %i (%f)\n=================\n", leftSpeed, deltaLeft, rightSpeed, deltaRight);
+    leftMotor->setSpeedInStepsPerSecond(leftSpeed);
+    leftMotor->setSpeedInStepsPerSecond(rightSpeed);
+    leftMotor->setupMoveInSteps(-leftLegSteps);
+    rightMotor->setupMoveInSteps(rightLegSteps);
+};
 
-    leftMotor.setSpeedInStepsPerSecond(leftSpeed);
-    rightMotor.setSpeedInStepsPerSecond(rightSpeed);
-
-    leftMotor.setupRelativeMoveInSteps(-deltaLeft);
-    rightMotor.setupRelativeMoveInSteps(deltaRight);
-    
-    moving = true;
-}
-
-const auto squareSizeMM = 100;
-// void drawSquareLeftSide() {
-//     setupRelativeMove(0, -squareSizeMM);
-//     raisePen = true;
-//     nextMoveFunc = NULL;
-// }
-
-// void drawSquareBottom() {
-//     setupRelativeMove(-squareSizeMM, 0);
-//     nextMoveFunc = &drawSquareLeftSide;
-// }
-
-// void drawSquareRightSide() {
-//     setupRelativeMove(0, squareSizeMM);
-//     nextMoveFunc = &drawSquareBottom;
-// }
-
-int reps = 3;
-void drawSquareTop();
-void moveOrStop() {
-    if (reps > 0) {
-        reps = reps - 1;
-        setupRelativeMove(squareSizeMM + 20, 0);
-        nextMoveFunc = &drawSquareTop;
+double Movement::getWidth() {
+    if (topDistance == -1) {
+        throw std::invalid_argument("not ready");
     }
+    return width;
 }
 
-void drawSquareLeft() {
-    setupRelativeMove(0, -squareSizeMM);
-    raisePen = true;
-    nextMoveFunc = &moveOrStop;
+double Movement::getHeight() {
+    if (topDistance == -1) {
+        throw std::invalid_argument("not ready");
+    }
+    return height;
 }
-
-void drawSquareBottom() {
-    setupRelativeMove(-squareSizeMM, 0);
-    nextMoveFunc = &drawSquareLeft;
-}
-
-void drawSquareRight() {
-    setupRelativeMove(0, squareSizeMM);
-    nextMoveFunc = &drawSquareBottom;
-}
-
-void drawSquareTop() {
-    _servo->write(_penDownAngle);
-    Serial.printf("Servo down at %i angle", _penDownAngle);
-    setupRelativeMove(squareSizeMM, 0);
-    nextMoveFunc = &drawSquareRight;
-}
-
-void startDrawSquare(int penDownAngle, int penUpAngle, Servo *servo) {
-    _penDownAngle = penDownAngle;
-    _penUpAngle = penUpAngle;
-    _servo = servo;
-
-    //_servo.write(_penDownAngle);
-
-    setupRelativeMove(-((squareSizeMM + 20) * 3 / 2), -squareSizeMM / 2);
-    nextMoveFunc = &drawSquareTop;
-}
-
-void extend100mm() {
-    auto rotations = 100 / circumference;
-    auto steps = int(rotations * stepsPerRotation);
-    leftMotor.setSpeedInStepsPerSecond(maxSpeedSteps);
-    leftMotor.setAccelerationInStepsPerSecondPerSecond(acceleration);
-    leftMotor.setupRelativeMoveInSteps(-steps);
-    moving = true;
-    Serial.printf("Extending 100m with %i", steps);
-    Serial.println();
-
-}
-

@@ -10,6 +10,9 @@ function init() {
     });
 
     $("#setDistance").click(function() {
+        const inputValue = parseInt($("#distanceInput").val());
+        $.post("/setTopDistance", {angle: inputValue});
+        
         $("#distanceBetweenAnchorsSlide").hide();
         $("#extendToHomeSlide").show();
     });
