@@ -16,6 +16,7 @@ Movement::Movement()
 };
 
 void Movement::setTopDistance(int distance) {
+    Serial.printf("Top distance set to %s\n", String(distance));
     topDistance = distance;
 
     minSafeY = safeYFraction * topDistance;
@@ -75,9 +76,9 @@ void Movement::rightStepper(int dir)
 
 void Movement::extendToHome()
 {
-    this->setOrigin();
+    setOrigin();
 
-    this->beginTravel(width / 2, height / 2);
+    beginTravel(width / 2, height / 2);
 };
 
 void Movement::runSteppers()
@@ -138,10 +139,14 @@ void Movement::beginTravel(double x, double y)
         leftSpeed = deltaLeft / moveTime;
     }
 
+    Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
+
     leftMotor->setSpeedInStepsPerSecond(leftSpeed);
-    leftMotor->setSpeedInStepsPerSecond(rightSpeed);
+    rightMotor->setSpeedInStepsPerSecond(rightSpeed);
     leftMotor->setupMoveInSteps(-leftLegSteps);
     rightMotor->setupMoveInSteps(rightLegSteps);
+
+    moving = true;
 };
 
 double Movement::getWidth() {

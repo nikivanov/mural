@@ -4,19 +4,17 @@
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include "SPIFFS.h"
-#include <ESP32Servo.h>
+
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
+#include "pen.h";
 
 AsyncWebServer server(80);
 
-Servo myservo;
-int penDistanceAngle;
-const int RETRACT_DISTANCE = 20;
-
 Movement *movement;
 Runner *runner;
+Pen *pen;
 
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
@@ -57,12 +55,6 @@ void notFound(AsyncWebServerRequest *request)
     request->send(404, "text/plain", "Not found");
 }
 
-void setPenDistance(int angle) {
-    penDistanceAngle = angle;
-    Serial.printf("Pen distance angle set to %i", angle);
-    Serial.println();
-}
-
 void setup()
 {
     delay(10);
@@ -84,9 +76,13 @@ void setup()
     Serial.println("Started mDNS for mural");
 
     movement = new Movement();
-    Serial.println("Finished initializing steppers");
+    Serial.println("Initialized steppers");
 
-    runner = new Runner(movement);
+    pen = new Pen();
+    Serial.println("Initialized servo");
+
+    runner = new Runner(movement, pen);
+    Serial.println("Initialized runner");
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleFileRead("/index.html", request); });
@@ -109,24 +105,33 @@ void setup()
                   request->send(200, "text/plain", "OK"); 
               });
 
+    server.on("/setTopDistance", HTTP_POST, [](AsyncWebServerRequest *request)
+              { 
+                AsyncWebParameter* p = request->getParam(0);
+                int distance = p->value().toInt();
+                Serial.println("Setting distance");
+                movement->setTopDistance(distance); 
+                request->send(200, "text/plain", "OK"); 
+    });
+
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                  movement->extendToHome(); 
+                  //movement->extendToHome(); 
                   request->send(200, "text/plain", "OK"); 
     });
 
-    server.on("/setServo", HTTP_POST, [](AsyncWebServerRequest *request) { 
+    server.on("/setServo", HTTP_POST, [](AsyncWebServerRequest *request) {
         AsyncWebParameter* p = request->getParam(0);
         int angle = p->value().toInt();
-        myservo.write(angle); 
+        pen->setRawValue(angle);
         request->send(200, "text/plain", "OK"); 
     });
     
     server.on("/setPenDistance", HTTP_POST, [](AsyncWebServerRequest *request) { 
         AsyncWebParameter* p = request->getParam(0);
         int angle = p->value().toInt();
-        setPenDistance(angle);
-        myservo.write(penDistanceAngle + RETRACT_DISTANCE);
+        pen->setPenDistance(angle);
+        pen->up();
         request->send(200, "text/plain", "OK"); 
     });
 
@@ -150,8 +155,7 @@ void setup()
     server.begin();
     Serial.println("Server started");
 
-    myservo.attach(2);
-    myservo.write(70);
+    pen->setRawValue(70);
 }
 
 void loop()

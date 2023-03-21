@@ -4,7 +4,7 @@
 #include <TinyStepper_28BYJ_48.h>
 const auto maxSpeedSteps = 300;
 const auto acceleration = 500000;
-const auto maxUnsafeSpeed = 500;
+const auto maxUnsafeSpeed = 400;
 const auto INFINITE_STEPS = 999999999;
 const int stepsPerRotation = 4076 / 2;
 const auto diameter = 12.8;
