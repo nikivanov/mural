@@ -1,6 +1,6 @@
 #include "runner.h"
 #include "movementtask.h"
-#include "pentask.h";
+#include "pentask.h"
 #include "pen.h"
 Runner::Runner(Movement *movement, Pen *pen) {
     stopped = true;
@@ -15,7 +15,7 @@ void Runner::initTasks() {
 
     auto currentSize = 10;
     auto growBy = 10;
-    auto totalSquares = 50;
+    auto totalSquares = 23;
 
     // 975 x 548
 
@@ -47,8 +47,9 @@ void Runner::run() {
 
     auto task = tasks[currentTask];
     if (task->isDone()) {
+        Serial.printf("Task %s is done\n", String(currentTask));
         currentTask++;
-        if (currentTask < 250) {
+        if (currentTask < 207) {
             task = tasks[currentTask];
             task->startRunning();
         } else {

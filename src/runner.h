@@ -2,12 +2,12 @@
 #define Runner_h
 #include "movement.h"
 #include "task.h"
-#include "pen.h";
+#include "pen.h"
 class Runner {
     private:
     Movement *movement;
     Pen *pen;
-    Task *tasks[50*9];
+    Task *tasks[23*9];
     int currentTask;
     void initTasks();
     bool stopped;

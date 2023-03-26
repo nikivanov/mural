@@ -8,7 +8,7 @@
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
-#include "pen.h";
+#include "pen.h"
 
 AsyncWebServer server(80);
 
@@ -116,7 +116,7 @@ void setup()
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                  //movement->extendToHome(); 
+                  movement->extendToHome(); 
                   request->send(200, "text/plain", "OK"); 
     });
 

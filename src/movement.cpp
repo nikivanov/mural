@@ -13,6 +13,9 @@ Movement::Movement()
 
     moving = false;
     homed = false;
+
+    this->leftStepper(0);
+    this->rightStepper(0);
 };
 
 void Movement::setTopDistance(int distance) {
@@ -99,16 +102,19 @@ void Movement::runSteppers()
 void Movement::beginTravel(double x, double y)
 {
     if (topDistance == -1 || !homed) {
+        Serial.println("Not ready");
         throw std::invalid_argument("not ready");
     }
 
     if (x < 0 || x > width)
     {
+        Serial.println("Invalid x");
         throw std::invalid_argument("Invalid x");
     }
 
     if (y < 0 || y > height)
     {
+        Serial.println("Invalid y");
         throw std::invalid_argument("Invalid y");
     }
 
