@@ -8,10 +8,10 @@ void PenTask::startRunning() {
     Serial.println("Starting pen task " + String(up));
     if (up) {
         Serial.println("Pen is going up");
-        pen->up();
+        pen->slowUp();
     } else {
         Serial.println("Pen is going down");
-        pen->down();
+        pen->slowDown();
     }
     Serial.println("Pen task ran");
 }

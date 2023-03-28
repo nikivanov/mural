@@ -53,7 +53,7 @@ function init() {
 
             $("#extendToHomeSlide").hide();
             $("#penCalibrationSlide").show();
-            $.post("/setServo", {angle: 70});
+            $.post("/setServo", {angle: 0});
         });
     });
     
