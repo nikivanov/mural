@@ -81,7 +81,7 @@ void Movement::extendToHome()
 {
     setOrigin();
 
-    beginTravel(width / 2, height / 2);
+    beginLinearTravel(width / 2, height / 2);
 };
 
 void Movement::runSteppers()
@@ -99,8 +99,10 @@ void Movement::runSteppers()
     }
 };
 
-void Movement::beginTravel(double x, double y)
+void Movement::beginLinearTravel(double x, double y)
 {
+    X = x;
+    Y = y;
     if (topDistance == -1 || !homed) {
         Serial.println("Not ready");
         throw std::invalid_argument("not ready");
@@ -167,4 +169,17 @@ double Movement::getHeight() {
         throw std::invalid_argument("not ready");
     }
     return height;
+}
+
+Movement::Point Movement::getCoordinates() {
+    if (X == -1 || Y == -1) {
+        Serial.println("Not ready to get coordinates");
+        throw std::invalid_argument("not ready");
+    }
+
+    if (moving) {
+        Serial.println("Can't get coordinates while moving");
+        throw std::invalid_argument("not ready");
+    }
+    return Movement::Point(X, Y);
 }

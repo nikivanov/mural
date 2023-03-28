@@ -1,5 +1,6 @@
 #include "runner.h"
 #include "movementtask.h"
+#include "interpolatingmovementtask.h"
 #include "pentask.h"
 #include "pen.h"
 Runner::Runner(Movement *movement, Pen *pen) {
@@ -20,15 +21,14 @@ void Runner::initTasks() {
     // 975 x 548
 
     for (int i = 0; i < totalSquares; i++) {
-        tasks[0 + 9 * i] = new PenTask(true, pen);
-        tasks[1 + 9 * i] = new MovementTask(centerX - currentSize / 2, centerY - currentSize / 2, movement);
-        tasks[2 + 9 * i] = new PenTask(false, pen);
-        tasks[3 + 9 * i] = new MovementTask(centerX + currentSize / 2, centerY - currentSize / 2, movement);
-        tasks[4 + 9 * i] = new MovementTask(centerX + currentSize / 2, centerY + currentSize / 2, movement);
-        tasks[5 + 9 * i] = new MovementTask(centerX - currentSize / 2, centerY + currentSize / 2, movement);
-        tasks[6 + 9 * i] = new MovementTask(centerX - currentSize / 2, centerY - currentSize / 2, movement);
-        tasks[7 + 9 * i] = new MovementTask(centerX - currentSize / 2, centerY - currentSize / 2, movement);
-        tasks[8 + 9 * i] = new PenTask(true, pen);
+        tasks[0 + 8 * i] = new PenTask(true, pen);
+        tasks[1 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX - currentSize / 2, centerY - currentSize / 2));
+        tasks[2 + 8 * i] = new PenTask(false, pen);
+        tasks[3 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX + currentSize / 2, centerY - currentSize / 2));
+        tasks[4 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX + currentSize / 2, centerY + currentSize / 2));
+        tasks[5 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX - currentSize / 2, centerY + currentSize / 2));
+        tasks[6 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX - currentSize / 2, centerY - currentSize / 2));
+        tasks[7 + 8 * i] = new PenTask(true, pen);
         currentSize = currentSize + growBy;
     }
 }
@@ -49,7 +49,7 @@ void Runner::run() {
     if (task->isDone()) {
         Serial.printf("Task %s is done\n", String(currentTask));
         currentTask++;
-        if (currentTask < 207) {
+        if (currentTask < 184) {
             task = tasks[currentTask];
             task->startRunning();
         } else {

@@ -25,8 +25,8 @@ double height;
 double width;
 bool moving;
 bool homed;
-int X;
-int Y;
+int X = -1;
+int Y = -1;
 TinyStepper_28BYJ_48 *leftMotor;
 TinyStepper_28BYJ_48 *rightMotor;
 void setOrigin();
@@ -37,11 +37,23 @@ bool isMoving() {
 }
 double getWidth();
 double getHeight();
+struct Point {
+    int x;
+    int y;
+    Point(int x, int y) {
+        this->x = x;
+        this->y = y;
+    }
+    Point() {
+        
+    }
+};
+Point getCoordinates();
 void setTopDistance(int distance);
 void leftStepper(int dir);
 void rightStepper(int dir);
 void extendToHome();
 void runSteppers();
-void beginTravel(double x, double y);
+void beginLinearTravel(double x, double y);
 };
 #endif

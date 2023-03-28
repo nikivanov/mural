@@ -6,7 +6,7 @@ MovementTask::MovementTask(int x, int y, Movement *movement) {
 }
 
 void MovementTask::startRunning() {
-    movement->beginTravel(x, y);
+    movement->beginLinearTravel(x, y);
 }
 
 bool MovementTask::isDone() {
