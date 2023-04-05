@@ -2,6 +2,7 @@
 #define Movement_h
 #include "Arduino.h" 
 #include <TinyStepper_28BYJ_48.h>
+#include "display.h"
 const auto maxSpeedSteps = 300;
 const auto acceleration = 500000;
 const auto maxUnsafeSpeed = 400;
@@ -25,22 +26,23 @@ double height;
 double width;
 bool moving;
 bool homed;
-int X = -1;
-int Y = -1;
+double X = -1;
+double Y = -1;
 TinyStepper_28BYJ_48 *leftMotor;
 TinyStepper_28BYJ_48 *rightMotor;
+Display *display;
 void setOrigin();
 public:
-Movement();
+Movement(Display *display);
 bool isMoving() {
     return moving;
 }
 double getWidth();
 double getHeight();
 struct Point {
-    int x;
-    int y;
-    Point(int x, int y) {
+    double x;
+    double y;
+    Point(double x, double y) {
         this->x = x;
         this->y = y;
     }

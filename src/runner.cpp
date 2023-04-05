@@ -14,9 +14,9 @@ void Runner::initTasks() {
     auto centerX = movement->getWidth() / 2;
     auto centerY = movement->getHeight() / 2;
 
-    auto currentSize = 10;
-    auto growBy = 10;
-    auto totalSquares = 23;
+    auto currentSize = 100;
+    auto growBy = 50;
+    auto totalSquares = 5;
 
     // 975 x 548
 
@@ -49,7 +49,7 @@ void Runner::run() {
     if (task->isDone()) {
         Serial.printf("Task %s is done\n", String(currentTask));
         currentTask++;
-        if (currentTask < 184) {
+        if (currentTask < 40) {
             task = tasks[currentTask];
             task->startRunning();
         } else {

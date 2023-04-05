@@ -4,17 +4,20 @@
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include "SPIFFS.h"
+#include <Wire.h>
 
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
 #include "pen.h"
+#include "display.h"
 
 AsyncWebServer server(80);
 
 Movement *movement;
 Runner *runner;
 Pen *pen;
+Display *display;
 
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
@@ -75,7 +78,10 @@ void setup()
 
     Serial.println("Started mDNS for mural");
 
-    movement = new Movement();
+    display = new Display();
+    Serial.println("Initialized display");
+
+    movement = new Movement(display);
     Serial.println("Initialized steppers");
 
     pen = new Pen();

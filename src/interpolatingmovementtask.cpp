@@ -4,18 +4,15 @@ double distanceBetweenPoints(Movement::Point point1, Movement::Point point2) {
 }
 
 Movement::Point getNextIncrement(Movement::Point currentPosition, Movement::Point target) {
-    if (distanceBetweenPoints(currentPosition, target) <= INCREMENT) {
+    auto distanceBetween = distanceBetweenPoints(currentPosition, target);
+    if (distanceBetween <= INCREMENT) {
         return target;
     }
-    Serial.println("Distance ok");
 
-    auto slope = (double(target.y - currentPosition.y)) / (target.x - currentPosition.x);
-    Serial.println("Slope " + String(slope));
-    auto angle = atan(slope);
-    Serial.println("Angle " + String(angle));
-    auto incrementY = INCREMENT*sin(angle);
-    auto incrementX = INCREMENT*cos(angle);
-    return Movement::Point(currentPosition.x + incrementX, currentPosition.y + incrementY);
+    auto nextX = currentPosition.x + (INCREMENT / distanceBetween) * (target.x - currentPosition.x);
+    auto nextY = currentPosition.y + (INCREMENT / distanceBetween) * (target.y - currentPosition.y);
+
+    return Movement::Point(nextX, nextY);
 }
 
 bool arePointsEqual(Movement::Point point1, Movement::Point point2) {
@@ -28,12 +25,9 @@ InterpolatingMovementTask::InterpolatingMovementTask(Movement *movement, Movemen
 }
 
 void InterpolatingMovementTask::startRunning() {
-    Serial.println("We're running now!");
+    Serial.printf("Starting the move to %f, %f\n", target.x, target.y);
     auto currentCoordinates = movement->getCoordinates();
-    Serial.printf("Current coordinates (%s, %s)\n", String(currentCoordinates.x), String(currentCoordinates.y));
     auto incrementPoint = getNextIncrement(currentCoordinates, target);
-    Serial.printf("Next coordinate (%s, %s)\n", incrementPoint.x, incrementPoint.y);
-    Serial.flush();
     movement->beginLinearTravel(incrementPoint.x, incrementPoint.y);
 }
 
@@ -48,7 +42,6 @@ bool InterpolatingMovementTask::isDone() {
     }
 
     auto incrementPoint = getNextIncrement(movement->getCoordinates(), target);
-    Serial.printf("Next coordinate (%s, %s)\n", incrementPoint.x, incrementPoint.y);
     movement->beginLinearTravel(incrementPoint.x, incrementPoint.y);
     
     return false;

@@ -7,7 +7,7 @@ class Runner {
     private:
     Movement *movement;
     Pen *pen;
-    Task *tasks[23*8];
+    Task *tasks[5*8];
     int currentTask;
     void initTasks();
     bool stopped;

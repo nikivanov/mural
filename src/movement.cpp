@@ -1,8 +1,10 @@
 #include "movement.h"
+#include "display.h"
 #include <stdexcept>
 
-Movement::Movement()
+Movement::Movement(Display *display)
 {
+    this->display = display;
     leftMotor = new TinyStepper_28BYJ_48();
     rightMotor = new TinyStepper_28BYJ_48();
 
@@ -94,7 +96,7 @@ void Movement::runSteppers()
         if (leftMotor->motionComplete() && rightMotor->motionComplete())
         {
             moving = false;
-            Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->getCurrentPositionInSteps(), rightMotor->getCurrentPositionInSteps());
+            //Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->getCurrentPositionInSteps(), rightMotor->getCurrentPositionInSteps());
         }
     }
 };
@@ -147,12 +149,14 @@ void Movement::beginLinearTravel(double x, double y)
         leftSpeed = deltaLeft / moveTime;
     }
 
-    Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
+    //Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
 
     leftMotor->setSpeedInStepsPerSecond(leftSpeed);
     rightMotor->setSpeedInStepsPerSecond(rightSpeed);
     leftMotor->setupMoveInSteps(-leftLegSteps);
     rightMotor->setupMoveInSteps(rightLegSteps);
+
+    display->displayText(String(X) + ", " + String(Y));
 
     moving = true;
 };
