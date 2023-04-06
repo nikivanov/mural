@@ -14,6 +14,8 @@ const auto bottomDistance = 48;
 const auto safeYFraction = 0.2;
 const auto safeXFraction = 0.1;
 
+const auto sleepPerStep = double(1) / 300 * 1000;
+
 const auto homedStepOffsetMM = 0;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 

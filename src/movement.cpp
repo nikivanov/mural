@@ -95,6 +95,7 @@ void Movement::runSteppers()
 
         if (leftMotor->motionComplete() && rightMotor->motionComplete())
         {
+            delay(sleepPerStep); // delay the full gap between steps to let the final step complete
             moving = false;
             //Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->getCurrentPositionInSteps(), rightMotor->getCurrentPositionInSteps());
         }
@@ -155,8 +156,6 @@ void Movement::beginLinearTravel(double x, double y)
     rightMotor->setSpeedInStepsPerSecond(rightSpeed);
     leftMotor->setupMoveInSteps(-leftLegSteps);
     rightMotor->setupMoveInSteps(rightLegSteps);
-
-    display->displayText(String(X) + ", " + String(Y));
 
     moving = true;
 };
