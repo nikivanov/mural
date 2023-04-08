@@ -44,12 +44,15 @@ void doSlowMove(Pen* pen, int startDegree, int targetDegree, int speedDegPerSec)
 
 Pen::Pen()
 {
-    this->servo = new Servo();
-    this->servo->attach(2);
+    servo = new Servo();
+    servo->attach(2);
+    servo->write(90);
+    currentPosition = 90;
 }
 
 void Pen::setRawValue(int rawValue) {
     this->servo->write(rawValue);
+    currentPosition = rawValue;
 }
 
 void Pen::setPenDistance(int value) {
@@ -57,43 +60,20 @@ void Pen::setPenDistance(int value) {
     this->penDistance = value;
 }
 
-void Pen::up() {
-    Serial.println("Up called! Pen distance is "+ String(penDistance));
-    if (penDistance == -1) {
-        Serial.println("Not ready");
-        throw std::invalid_argument("not ready");
-    }
-
-    auto servoVal = penDistance + RETRACT_DISTANCE;
-    Serial.println("Writing servo value " + String(servoVal));
-    this->servo->write(servoVal);
-    Serial.println("Wrote to the servo");
-    delay(200);
-}
-
-void Pen::down() {
-    Serial.println("Down called! Pen distance is "+ String(penDistance));
-    if (penDistance == -1) {
-        Serial.println("Not ready");
-        throw std::invalid_argument("not ready");
-    }
-
-    servo->write(penDistance);
-    delay(200);
-}
-
 void Pen::slowUp() {
+    if (penDistance == -1) {
+        throw std::invalid_argument("not ready");
+    }
+
     doSlowMove(this, currentPosition, 90, slowSpeedDegPerSec);
     currentPosition = 90;
 }
 
 void Pen::slowDown() {
-    doSlowMove(this, currentPosition, 0, slowSpeedDegPerSec);
-    currentPosition = 0;
+    if (penDistance == -1) {
+        throw std::invalid_argument("not ready");
+    }
+
+    doSlowMove(this, currentPosition, penDistance, slowSpeedDegPerSec);
+    currentPosition = penDistance;
 }
-
-void Pen::home() {
-    servo->write(currentPosition);
-}
-
-

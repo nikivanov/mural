@@ -129,8 +129,7 @@ void setup()
     server.on("/setServo", HTTP_POST, [](AsyncWebServerRequest *request) {
         AsyncWebParameter* p = request->getParam(0);
         int angle = p->value().toInt();
-        //pen->setRawValue(angle);
-        pen->slowDown();
+        pen->setRawValue(angle);
         request->send(200, "text/plain", "OK"); 
     });
     
@@ -161,8 +160,6 @@ void setup()
 
     server.begin();
     Serial.println("Server started");
-
-    pen->home();
 }
 
 void loop()

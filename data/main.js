@@ -53,18 +53,18 @@ function init() {
 
             $("#extendToHomeSlide").hide();
             $("#penCalibrationSlide").show();
-            $.post("/setServo", {angle: 0});
+            $.post("/setServo", {angle: 90});
         });
     });
     
     function getServoValueFromInputValue() {
         const inputValue = parseInt($("#servoRange").val());
-        const value = 90 - 20 - inputValue;
+        const value = 90 - inputValue;
         let normalizedValue;
-        if (value < 20) {
-            normalizedValue = 20;
-        } else if (value > 70) {
-            normalizedValue = 70;
+        if (value < 0) {
+            normalizedValue = 0;
+        } else if (value > 90) {
+            normalizedValue = 90;
         } else {
             normalizedValue = value;
         }
