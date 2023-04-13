@@ -142,7 +142,8 @@ void setup()
     });
 
     server.on("/estepsCalibration", HTTP_POST, [](AsyncWebServerRequest *request) { 
-        //movement->extend100mm();
+        Serial.println("Extending 100mm");
+        movement->extend100mm();
         request->send(200, "text/plain", "OK");
     });
 

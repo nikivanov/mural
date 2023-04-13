@@ -14,7 +14,7 @@ const auto bottomDistance = 48;
 const auto safeYFraction = 0.2;
 const auto safeXFraction = 0.1;
 
-const auto sleepPerStep = double(1) / 300 * 1000;
+const auto sleepPerStep = int(ceil(double(1) / 300 * 1000));
 
 const auto homedStepOffsetMM = 0;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
@@ -59,5 +59,6 @@ void rightStepper(int dir);
 void extendToHome();
 void runSteppers();
 void beginLinearTravel(double x, double y);
+void extend100mm();
 };
 #endif

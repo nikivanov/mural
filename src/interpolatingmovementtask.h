@@ -2,7 +2,7 @@
 #define InterpolatingMovementTask_h
 #include "movement.h"
 #include "task.h"
-const double INCREMENT = 0.5;
+const double INCREMENT = 1;
 class InterpolatingMovementTask : public Task {
     private:
     Movement *movement;

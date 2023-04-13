@@ -95,7 +95,7 @@ void Movement::runSteppers()
 
         if (leftMotor->motionComplete() && rightMotor->motionComplete())
         {
-            delay(10);
+            delay(sleepPerStep); // delay the full gap between steps to let the final step complete
             moving = false;
             //Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->getCurrentPositionInSteps(), rightMotor->getCurrentPositionInSteps());
         }
@@ -185,4 +185,13 @@ Movement::Point Movement::getCoordinates() {
         throw std::invalid_argument("not ready");
     }
     return Movement::Point(X, Y);
+}
+
+void Movement::extend100mm() {
+    auto steps = int((100 / circumference) * stepsPerRotation);
+    leftMotor->setSpeedInStepsPerSecond(maxSpeedSteps);
+    rightMotor->setSpeedInStepsPerSecond(maxSpeedSteps);
+    leftMotor->setupMoveInSteps(-steps);
+    rightMotor->setupMoveInSteps(steps);
+    moving = true;
 }
