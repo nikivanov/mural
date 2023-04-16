@@ -14,7 +14,7 @@ void Runner::initTasks() {
     auto centerX = movement->getWidth() / 2;
     auto centerY = movement->getHeight() / 2;
 
-    auto currentSize = 100;
+    auto currentSize = 50;
     auto growBy = 50;
     auto totalSquares = 5;
 

@@ -1,20 +1,30 @@
 #ifndef Movement_h
 #define Movement_h
 #include "Arduino.h" 
-#include <TinyStepper_28BYJ_48.h>
+#include <AccelStepper.h>
 #include "display.h"
-const auto maxSpeedSteps = 300;
-const auto acceleration = 500000;
-const auto maxUnsafeSpeed = 400;
+const auto printSpeedSteps = 600;
+const auto maxUnsafeSpeed = 800;
 const auto INFINITE_STEPS = 999999999;
-const int stepsPerRotation = 4076 / 2;
+const auto acceleration = 500000; //essentially infinite
+const int stepsPerRotation = 4076;
 const auto diameter = 12.8;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 48;
 const auto safeYFraction = 0.2;
 const auto safeXFraction = 0.1;
 
-const auto sleepPerStep = int(ceil(double(1) / 300 * 1000));
+const auto LEFT_MOTOR_PIN_1 = 27;
+const auto LEFT_MOTOR_PIN_2 = 14;
+const auto LEFT_MOTOR_PIN_3 = 12;
+const auto LEFT_MOTOR_PIN_4 = 13;
+
+const auto RIGHT_MOTOR_PIN_1 = 26;
+const auto RIGHT_MOTOR_PIN_2 = 25;
+const auto RIGHT_MOTOR_PIN_3 = 33;
+const auto RIGHT_MOTOR_PIN_4 = 32;
+
+const auto sleepPerStep = int(ceil(double(1) / printSpeedSteps * 1000));
 
 const auto homedStepOffsetMM = 0;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
@@ -30,8 +40,8 @@ bool moving;
 bool homed;
 double X = -1;
 double Y = -1;
-TinyStepper_28BYJ_48 *leftMotor;
-TinyStepper_28BYJ_48 *rightMotor;
+AccelStepper *leftMotor;
+AccelStepper *rightMotor;
 Display *display;
 void setOrigin();
 public:
