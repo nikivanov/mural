@@ -1,14 +1,14 @@
 #ifndef Movement_h
 #define Movement_h
 #include "Arduino.h" 
-#include <AccelStepper.h>
+#include <TinyStepper_28BYJ_48.h>
 #include "display.h"
-const auto printSpeedSteps = 600;
-const auto maxUnsafeSpeed = 800;
+const auto printSpeedSteps = 300;
+const auto maxUnsafeSpeed = 400;
 const auto INFINITE_STEPS = 999999999;
 const auto acceleration = 500000; //essentially infinite
-const int stepsPerRotation = 4076;
-const auto diameter = 12.8;
+const int stepsPerRotation = 4076 / 2;
+const auto diameter = 12.65;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 48;
 const auto safeYFraction = 0.2;
@@ -24,7 +24,7 @@ const auto RIGHT_MOTOR_PIN_2 = 25;
 const auto RIGHT_MOTOR_PIN_3 = 33;
 const auto RIGHT_MOTOR_PIN_4 = 32;
 
-const auto sleepPerStep = int(ceil(double(1) / printSpeedSteps * 1000));
+const auto sleepAfterMove = int(ceil(double(1) / printSpeedSteps * 1000)) * 2;
 
 const auto homedStepOffsetMM = 0;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
@@ -36,12 +36,12 @@ double minSafeY;
 double minSafeXOffset;
 double height;
 double width;
-bool moving;
+volatile bool moving;
 bool homed;
 double X = -1;
 double Y = -1;
-AccelStepper *leftMotor;
-AccelStepper *rightMotor;
+TinyStepper_28BYJ_48 *leftMotor;
+TinyStepper_28BYJ_48 *rightMotor;
 Display *display;
 void setOrigin();
 public:
@@ -62,7 +62,19 @@ struct Point {
         
     }
 };
+struct Lengths {
+    long left;
+    long right;
+    Lengths(long left, long right) {
+        this->left = left;
+        this->right = right;
+    }
+    Lengths() {
+
+    }
+};
 Point getCoordinates();
+Lengths getLengths();
 void setTopDistance(int distance);
 void leftStepper(int dir);
 void rightStepper(int dir);

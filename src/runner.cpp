@@ -3,10 +3,12 @@
 #include "interpolatingmovementtask.h"
 #include "pentask.h"
 #include "pen.h"
-Runner::Runner(Movement *movement, Pen *pen) {
+#include "display.h"
+Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     stopped = true;
     this->movement = movement;
     this->pen = pen;
+    this->display = display;
     currentTask = 0;
 }
 
@@ -14,23 +16,24 @@ void Runner::initTasks() {
     auto centerX = movement->getWidth() / 2;
     auto centerY = movement->getHeight() / 2;
 
-    auto currentSize = 50;
-    auto growBy = 50;
-    auto totalSquares = 5;
+    // auto currentSize = 50;
+    // auto growBy = 50;
+    // auto totalSquares = 5;
 
     // 975 x 548
 
-    for (int i = 0; i < totalSquares; i++) {
-        tasks[0 + 8 * i] = new PenTask(true, pen);
-        tasks[1 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX - currentSize / 2, centerY - currentSize / 2));
-        tasks[2 + 8 * i] = new PenTask(false, pen);
-        tasks[3 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX + currentSize / 2, centerY - currentSize / 2));
-        tasks[4 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX + currentSize / 2, centerY + currentSize / 2));
-        tasks[5 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX - currentSize / 2, centerY + currentSize / 2));
-        tasks[6 + 8 * i] = new InterpolatingMovementTask(movement, Movement::Point(centerX - currentSize / 2, centerY - currentSize / 2));
-        tasks[7 + 8 * i] = new PenTask(true, pen);
-        currentSize = currentSize + growBy;
-    }
+    //auto currentSize = 300;
+    auto width = 900;
+    auto height =  500;
+
+    tasks[0] = new PenTask(true, pen);
+    tasks[1] = new InterpolatingMovementTask(movement, Movement::Point(centerX - width / 2, centerY - height / 2));
+    tasks[2] = new PenTask(false, pen);
+    tasks[3] = new InterpolatingMovementTask(movement, Movement::Point(centerX + width / 2, centerY - height / 2));
+    tasks[4] = new InterpolatingMovementTask(movement, Movement::Point(centerX + width / 2, centerY + height / 2));
+    tasks[5] = new InterpolatingMovementTask(movement, Movement::Point(centerX - width / 2, centerY + height / 2));
+    tasks[6] = new InterpolatingMovementTask(movement, Movement::Point(centerX - width / 2, centerY - height / 2));
+    tasks[7] = new PenTask(true, pen);
 }
 
 void Runner::start() {
@@ -49,11 +52,22 @@ void Runner::run() {
     if (task->isDone()) {
         Serial.printf("Task %s is done\n", String(currentTask));
         currentTask++;
-        if (currentTask < 40) {
+
+        if (currentTask == 3 || currentTask == 7) {
+            printStatus();
+        }
+
+        if (currentTask < 8) {
             task = tasks[currentTask];
             task->startRunning();
         } else {
             stopped = true;
         }
     }
+}
+
+void Runner::printStatus() {
+    // auto coordinates = movement->getCoordinates();
+    // auto lengths = movement->getLengths();
+    // display->displayText(String(coordinates.x) + ", " + coordinates.y + "; " + lengths.left + ", " + lengths.right);
 }

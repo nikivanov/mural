@@ -87,7 +87,7 @@ void setup()
     pen = new Pen();
     Serial.println("Initialized servo");
 
-    runner = new Runner(movement, pen);
+    runner = new Runner(movement, pen, display);
     Serial.println("Initialized runner");
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
