@@ -161,6 +161,8 @@ void setup()
 
     server.begin();
     Serial.println("Server started");
+
+    display->displayText("http://" + WiFi.localIP().toString());
 }
 
 void loop()

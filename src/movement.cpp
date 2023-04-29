@@ -27,7 +27,7 @@ void Movement::setTopDistance(int distance) {
     minSafeY = safeYFraction * topDistance;
     minSafeXOffset = safeXFraction * topDistance;
     width = topDistance - 2 * minSafeXOffset;
-    height = width * 9 / 16;
+    height = 609.6; // 2ft hardcoded for now
 };
 
 void Movement::setOrigin()

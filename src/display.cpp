@@ -17,7 +17,8 @@ Display::Display() {
     display->display();
 }
 
-void Display::displayText(String text) {
+void Display::displayText(String text)
+{
     int16_t x1;
     int16_t y1;
     uint16_t width;

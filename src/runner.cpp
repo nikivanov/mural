@@ -23,8 +23,8 @@ void Runner::initTasks() {
     // 975 x 548
 
     //auto currentSize = 300;
-    auto width = 900;
-    auto height =  500;
+    auto width = 1000;
+    auto height = 250;
 
     tasks[0] = new PenTask(true, pen);
     tasks[1] = new InterpolatingMovementTask(movement, Movement::Point(centerX - width / 2, centerY - height / 2));
