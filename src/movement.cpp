@@ -27,7 +27,7 @@ void Movement::setTopDistance(int distance) {
     minSafeY = safeYFraction * topDistance;
     minSafeXOffset = safeXFraction * topDistance;
     width = topDistance - 2 * minSafeXOffset;
-    height = 609.6; // 2ft hardcoded for now
+    height = 1000; //hardcoded for now
 };
 
 void Movement::setOrigin()
@@ -83,7 +83,7 @@ void Movement::extendToHome()
 {
     setOrigin();
 
-    beginLinearTravel(width / 2, height / 2);
+    beginLinearTravel(width / 2, height * 0.25);
 };
 
 void Movement::runSteppers()
@@ -196,9 +196,4 @@ void Movement::extend100mm() {
     leftMotor->setupRelativeMoveInSteps(-steps);
     rightMotor->setupRelativeMoveInSteps(steps);
     moving = true;
-}
-
-Movement::Lengths Movement::getLengths() {
-    return Movement::Lengths(leftMotor->getCurrentPositionInSteps(), rightMotor->getCurrentPositionInSteps());
-    
 }

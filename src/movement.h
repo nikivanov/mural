@@ -74,7 +74,6 @@ struct Lengths {
     }
 };
 Point getCoordinates();
-Lengths getLengths();
 void setTopDistance(int distance);
 void leftStepper(int dir);
 void rightStepper(int dir);

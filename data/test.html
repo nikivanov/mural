@@ -20,7 +20,9 @@
     <main class="form-signin w-100 m-auto">
         <label for="svgFile" class="form-label">Choose SVG File</label>
         <input class="form-control mb-2" type="file" id="svgFile">
-        <div style="display:none" class="img-thumbnail mb-2" id="svgImage"></div>
+        <img class="img-thumbnail mb-2" style="display:none;" id="svgPreview" />
+        <textarea class="form-control" id="output" rows="3"></textarea>
+        <div style="position:absolute;left: -100000px;top:auto; width:1px; height:1px;overflow: hidden;" id="svgImage"></div>
         <button class="w-100 btn btn-lg btn-primary" id="prepareSvg" style="display:none">Prepare for drawing</button>
     </main>
 </body>

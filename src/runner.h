@@ -15,8 +15,6 @@ class Runner {
     Task* currentTask;
     bool stopped;
     File openedFile;
-    bool nextPenDown = false;
-    bool finishedPenUp = false;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);
     void start();
