@@ -4,70 +4,83 @@
 #include "pentask.h"
 #include "pen.h"
 #include "display.h"
+#include "SPIFFS.h"
+
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     stopped = true;
     this->movement = movement;
     this->pen = pen;
     this->display = display;
-    currentTask = 0;
 }
 
-void Runner::initTasks() {
-    auto centerX = movement->getWidth() / 2;
-    auto centerY = movement->getHeight() / 2;
-
-    // auto currentSize = 50;
-    // auto growBy = 50;
-    // auto totalSquares = 5;
-
-    // 975 x 548
-
-    //auto currentSize = 300;
-    auto width = 1000;
-    auto height = 250;
-
-    tasks[0] = new PenTask(true, pen);
-    tasks[1] = new InterpolatingMovementTask(movement, Movement::Point(centerX - width / 2, centerY - height / 2));
-    tasks[2] = new PenTask(false, pen);
-    tasks[3] = new InterpolatingMovementTask(movement, Movement::Point(centerX + width / 2, centerY - height / 2));
-    tasks[4] = new InterpolatingMovementTask(movement, Movement::Point(centerX + width / 2, centerY + height / 2));
-    tasks[5] = new InterpolatingMovementTask(movement, Movement::Point(centerX - width / 2, centerY + height / 2));
-    tasks[6] = new InterpolatingMovementTask(movement, Movement::Point(centerX - width / 2, centerY - height / 2));
-    tasks[7] = new PenTask(true, pen);
+void Runner::initTaskProvider() {
+    openedFile = SPIFFS.open("/output.txt");
+    if (!openedFile) {
+        Serial.println("Failed to open file");
+        throw std::invalid_argument("No File");
+    }
 }
 
 void Runner::start() {
-    initTasks();
+    initTaskProvider();
     stopped = false;
-    currentTask = 0;
-    tasks[0]->startRunning();
+    currentTask = getNextTask();
+    nextPenDown = true;
+    currentTask->startRunning();
 }
 
-void Runner::run() {
-    if (stopped) {
+Task* Runner::getNextTask() {
+    if (nextPenDown) {
+        nextPenDown = false;
+        return new PenTask(false, pen);
+    } else {
+        if (openedFile.available()) {
+            auto line = openedFile.readStringUntil('\n');
+            auto x = line.substring(0, line.indexOf(" ")).toDouble();
+            auto y = line.substring(line.indexOf(" ") + 1).toDouble();
+            return new InterpolatingMovementTask(movement, Movement::Point(x, y));
+        } else {
+            if (!finishedPenUp) {
+                finishedPenUp = true;
+                return new PenTask(true, pen);
+            } else {
+                return NULL;
+            }
+        }
+    }
+}
+
+void Runner::run()
+{
+    if (stopped)
+    {
         return;
     }
 
-    auto task = tasks[currentTask];
-    if (task->isDone()) {
-        Serial.printf("Task %s is done\n", String(currentTask));
-        currentTask++;
-
-        if (currentTask == 3 || currentTask == 7) {
-            printStatus();
+    if (currentTask->isDone())
+    {
+        delete currentTask;
+        currentTask = getNextTask();
+        if (currentTask != NULL)
+        {
+            currentTask->startRunning();
         }
-
-        if (currentTask < 8) {
-            task = tasks[currentTask];
-            task->startRunning();
-        } else {
+        else
+        {
             stopped = true;
         }
     }
 }
 
-void Runner::printStatus() {
-    // auto coordinates = movement->getCoordinates();
-    // auto lengths = movement->getLengths();
-    // display->displayText(String(coordinates.x) + ", " + coordinates.y + "; " + lengths.left + ", " + lengths.right);
+void Runner::dryRun() {
+    initTaskProvider();
+    auto task = getNextTask();
+    auto index = 1;
+    while (task != NULL) {
+        Serial.println(String(index));
+        index = index + 1;
+        delete task;
+        task = getNextTask();
+    }
+    Serial.println("All done");
 }

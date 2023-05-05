@@ -4,20 +4,24 @@
 #include "task.h"
 #include "pen.h"
 #include "display.h"
+#include "SPIFFS.h"
 class Runner {
     private:
     Movement *movement;
     Pen *pen;
     Display *display;
-    Task *tasks[5*8];
-    int currentTask;
-    void initTasks();
+    void initTaskProvider();
+    Task* getNextTask();
+    Task* currentTask;
     bool stopped;
-    void printStatus();
+    File openedFile;
+    bool nextPenDown = false;
+    bool finishedPenUp = false;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);
     void start();
     void run();
+    void dryRun();
 
 };
 #endif

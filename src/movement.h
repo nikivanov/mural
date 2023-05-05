@@ -3,7 +3,7 @@
 #include "Arduino.h" 
 #include <TinyStepper_28BYJ_48.h>
 #include "display.h"
-const auto printSpeedSteps = 250;
+const auto printSpeedSteps = 2500;
 const auto maxUnsafeSpeed = 400;
 const auto INFINITE_STEPS = 999999999;
 const auto acceleration = 500000; //essentially infinite
