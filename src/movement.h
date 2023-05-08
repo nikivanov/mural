@@ -11,7 +11,7 @@ const int stepsPerRotation = 4076 / 2;
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 48;
-const auto safeYFraction = 0.3;
+const auto safeYFraction = 0.2;
 const auto safeXFraction = 0.2;
 
 const auto LEFT_MOTOR_PIN_1 = 27;
@@ -26,7 +26,7 @@ const auto RIGHT_MOTOR_PIN_4 = 32;
 
 const auto sleepAfterMove = int(ceil(double(1) / printSpeedSteps * 1000)) * 3;
 
-const auto homedStepOffsetMM = 0;
+const auto homedStepOffsetMM = 22;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 
 class Movement{
