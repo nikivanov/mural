@@ -14,11 +14,25 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
 }
 
 void Runner::initTaskProvider() {
-    openedFile = SPIFFS.open("/output.txt");
-    if (!openedFile) {
+    openedFile = SPIFFS.open("/commands");
+    if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
         throw std::invalid_argument("No File");
     }
+
+    auto line = openedFile.readStringUntil('\n');
+    if (line.charAt(0) == 'd') {
+        totalDistance = line.substring(1, line.length() - 1).toDouble();
+    } else {
+        Serial.println("Bad file - no distance");
+        throw std::invalid_argument("bad file");
+    }
+
+    Serial.println("Total distance to travel: " + String(totalDistance));
+
+    distanceSoFar = 0;
+    progress = -1; // so 0% appears right away
+    startPosition = movement->getCoordinates();
 }
 
 void Runner::start() {
@@ -37,12 +51,12 @@ Task *Runner::getNextTask()
         {
             if (line.charAt(1) == '1')
             {
-                Serial.println("Pen down");
+                //Serial.println("Pen down");
                 return new PenTask(false, pen);
             }
             else
             {
-                Serial.println("Pen up");
+                //Serial.println("Pen up");
                 return new PenTask(true, pen);
             }
         }
@@ -50,7 +64,8 @@ Task *Runner::getNextTask()
         {
             auto x = line.substring(0, line.indexOf(" ")).toDouble();
             auto y = line.substring(line.indexOf(" ") + 1).toDouble();
-            return new InterpolatingMovementTask(movement, Movement::Point(x, y));
+            targetPosition = Movement::Point(x, y);
+            return new InterpolatingMovementTask(movement, targetPosition);
         }
     }
     else
@@ -68,6 +83,21 @@ void Runner::run()
 
     if (currentTask->isDone())
     {
+        if (currentTask->name() == InterpolatingMovementTask::NAME) {
+            auto distanceCovered = Movement::distanceBetweenPoints(startPosition, targetPosition);
+            distanceSoFar += distanceCovered;
+            startPosition = targetPosition;
+            auto newProgress = int(floor(distanceSoFar / totalDistance * 100));
+            if (newProgress > 100) {
+                newProgress = 100;
+            }
+            if (progress != newProgress) {
+                Serial.println("Progress: " + String(newProgress));
+                progress = newProgress;
+                display->displayText(String(progress) + "%");
+            }
+
+        }
         delete currentTask;
         currentTask = getNextTask();
         if (currentTask != NULL)
@@ -86,7 +116,7 @@ void Runner::dryRun() {
     auto task = getNextTask();
     auto index = 1;
     while (task != NULL) {
-        Serial.println(String(index));
+        //Serial.println(String(index));
         index = index + 1;
         delete task;
         task = getNextTask();

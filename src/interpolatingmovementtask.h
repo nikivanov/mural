@@ -9,9 +9,12 @@ class InterpolatingMovementTask : public Task {
     Movement::Point target;
     Movement::Point position;
     public:
+    const static char* NAME;
     InterpolatingMovementTask(Movement *movement, Movement::Point target);
     bool isDone();
     void startRunning();
-
+    const char* name() {
+        return NAME;
+    }
 };
 #endif

@@ -4,6 +4,7 @@
 #include "task.h"
 class MovementTask : public Task {
     private:
+    const char* NAME = "MovementTask";
     Movement *movement;
     int x;
     int y;
@@ -11,6 +12,8 @@ class MovementTask : public Task {
     MovementTask(int x, int y, Movement *movement);
     bool isDone();
     void startRunning();
-
+    const char* name() {
+        return NAME;
+    }
 };
 #endif

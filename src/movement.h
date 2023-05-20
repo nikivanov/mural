@@ -29,6 +29,8 @@ const auto sleepAfterMove = int(ceil(double(1) / printSpeedSteps * 1000)) * 3;
 const auto homedStepOffsetMM = 22;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 
+
+
 class Movement{
 private:
 int topDistance;
@@ -73,6 +75,11 @@ struct Lengths {
 
     }
 };
+
+static double distanceBetweenPoints(Point point1, Point point2) {
+    return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2));
+}
+
 Point getCoordinates();
 void setTopDistance(int distance);
 void leftStepper(int dir);

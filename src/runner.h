@@ -15,6 +15,11 @@ class Runner {
     Task* currentTask;
     bool stopped;
     File openedFile;
+    double totalDistance;
+    double distanceSoFar;
+    Movement::Point startPosition;
+    Movement::Point targetPosition;
+    int progress;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);
     void start();

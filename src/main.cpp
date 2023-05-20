@@ -152,8 +152,8 @@ void setup()
 
     server.on("/run", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                runner->start();
-                request->send(200, "text/plain", "OK"); });
+                request->send(200, "text/plain", "OK");
+                runner->start(); });
 
     server.onNotFound(notFound);
 

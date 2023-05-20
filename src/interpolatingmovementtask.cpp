@@ -1,10 +1,9 @@
+#include "movement.h"
 #include "interpolatingmovementtask.h"
-double distanceBetweenPoints(Movement::Point point1, Movement::Point point2) {
-    return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2));
-}
+const char* InterpolatingMovementTask::NAME = "InterpolatingMovementTask";
 
 Movement::Point getNextIncrement(Movement::Point currentPosition, Movement::Point target) {
-    auto distanceBetween = distanceBetweenPoints(currentPosition, target);
+    auto distanceBetween = Movement::distanceBetweenPoints(currentPosition, target);
     if (distanceBetween <= INCREMENT) {
         return target;
     }
