@@ -14,7 +14,7 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
 }
 
 void Runner::initTaskProvider() {
-    openedFile = SPIFFS.open("/commands");
+    openedFile = SPIFFS.open("/output.txt");
     if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
         throw std::invalid_argument("No File");
