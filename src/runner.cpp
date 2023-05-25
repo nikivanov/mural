@@ -32,6 +32,7 @@ void Runner::initTaskProvider() {
 
     distanceSoFar = 0;
     progress = -1; // so 0% appears right away
+    sentBackToHome = false;
     startPosition = movement->getCoordinates();
 }
 
@@ -70,7 +71,14 @@ Task *Runner::getNextTask()
     }
     else
     {
-        return NULL;
+        if (sentBackToHome) {
+            return NULL;
+        } else {
+            auto homeCoordinates = movement->getHomeCoordinates();
+            sentBackToHome = true;
+            return new InterpolatingMovementTask(movement, homeCoordinates);
+        }
+        
     }
 }
 

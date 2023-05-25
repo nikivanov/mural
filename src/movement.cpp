@@ -39,16 +39,16 @@ void Movement::setOrigin()
 
 void Movement::leftStepper(int dir)
 {
-    leftMotor->setSpeedInStepsPerSecond(maxUnsafeSpeed);
+    leftMotor->setSpeedInStepsPerSecond(printSpeedSteps);
     leftMotor->setAccelerationInStepsPerSecondPerSecond(acceleration);
 
     if (dir > 0)
     {
-        leftMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
+        leftMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
     }
     else if (dir < 0)
     {
-        leftMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
+        leftMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
     }
     else
     {
@@ -60,16 +60,16 @@ void Movement::leftStepper(int dir)
 
 void Movement::rightStepper(int dir)
 {
-    rightMotor->setSpeedInStepsPerSecond(maxUnsafeSpeed);
+    rightMotor->setSpeedInStepsPerSecond(printSpeedSteps);
     rightMotor->setAccelerationInStepsPerSecondPerSecond(acceleration);
 
     if (dir > 0)
     {
-        rightMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
+        rightMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
     }
     else if (dir < 0)
     {
-        rightMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
+        rightMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
     }
     else
     {
@@ -79,11 +79,21 @@ void Movement::rightStepper(int dir)
     moving = true;
 };
 
+Movement::Point Movement::getHomeCoordinates() {
+    if (topDistance == -1) {
+        throw std::invalid_argument("not ready");
+    }
+
+    return Point(width / 2, height * 0.25);
+}
+
 void Movement::extendToHome()
 {
     setOrigin();
 
-    beginLinearTravel(width / 2, height * 0.25);
+    auto homeCoordinates = getHomeCoordinates();
+
+    beginLinearTravel(homeCoordinates.x, homeCoordinates.y);
 };
 
 void Movement::runSteppers()
@@ -153,8 +163,8 @@ void Movement::beginLinearTravel(double x, double y)
 
     leftMotor->setSpeedInStepsPerSecond(leftSpeed);
     rightMotor->setSpeedInStepsPerSecond(rightSpeed);
-    leftMotor->setupMoveInSteps(-leftLegSteps);
-    rightMotor->setupMoveInSteps(rightLegSteps);
+    leftMotor->setupMoveInSteps(leftLegSteps);
+    rightMotor->setupMoveInSteps(-rightLegSteps);
 
     //display->displayText(String(X) + ", " + String(Y));
     delay(sleepAfterMove);
@@ -193,7 +203,7 @@ void Movement::extend100mm() {
     auto steps = int((100 / circumference) * stepsPerRotation);
     leftMotor->setSpeedInStepsPerSecond(printSpeedSteps);
     rightMotor->setSpeedInStepsPerSecond(printSpeedSteps);
-    leftMotor->setupRelativeMoveInSteps(-steps);
-    rightMotor->setupRelativeMoveInSteps(steps);
+    leftMotor->setupRelativeMoveInSteps(steps);
+    rightMotor->setupRelativeMoveInSteps(-steps);
     moving = true;
 }

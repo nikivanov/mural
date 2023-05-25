@@ -20,6 +20,7 @@ class Runner {
     Movement::Point startPosition;
     Movement::Point targetPosition;
     int progress;
+    bool sentBackToHome;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);
     void start();

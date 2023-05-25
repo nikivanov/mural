@@ -10,7 +10,7 @@ const auto acceleration = 500000; //essentially infinite
 const int stepsPerRotation = 4076 / 2;
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
-const auto bottomDistance = 48;
+const auto bottomDistance = 85.6;
 const auto safeYFraction = 0.2;
 const auto safeXFraction = 0.2;
 
@@ -88,5 +88,6 @@ void extendToHome();
 void runSteppers();
 void beginLinearTravel(double x, double y);
 void extend100mm();
+Point getHomeCoordinates();
 };
 #endif

@@ -11,6 +11,7 @@ Display::Display() {
         throw std::invalid_argument("not ready");
     }
     delay(2000);
+    display->setRotation(2);
     display->clearDisplay();
     display->setTextColor(WHITE);
     display->setTextSize(1);
