@@ -135,10 +135,28 @@ void Movement::beginLinearTravel(double x, double y)
     auto unsafeX = x + minSafeXOffset;
     auto unsafeY = y + minSafeY;
 
-    auto leftX = unsafeX - bottomDistance / 2;
-    auto rightX = unsafeX + bottomDistance / 2;
-    auto leftLeg = sqrt(pow(leftX, 2) + pow(unsafeY, 2));
-    auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(unsafeY, 2));
+    auto xDev = topDistance / 2 - unsafeX;
+
+    // we're rotated 90 degrees here, so x is Y and y is X for this function
+    auto devAngle = atan2(abs(xDev), unsafeY);
+
+    auto xComp = cos(devAngle) * bottomDistance;
+    auto yComp = sin(devAngle) * bottomDistance;
+
+    auto leftX = unsafeX - xComp / 2;
+    auto rightX = unsafeX + xComp / 2;
+
+    double leftY, rightY;
+    if (xDev < 0) {
+        leftY = unsafeY - yComp / 2;
+        rightY = unsafeY + yComp / 2;
+    } else {
+        leftY = unsafeY + yComp / 2;
+        rightY = unsafeY - yComp / 2;
+    }
+
+    auto leftLeg = sqrt(pow(leftX, 2) + pow(leftY, 2));
+    auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
     auto leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
     auto rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
 
