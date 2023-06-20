@@ -46,6 +46,20 @@ TinyStepper_28BYJ_48 *leftMotor;
 TinyStepper_28BYJ_48 *rightMotor;
 Display *display;
 void setOrigin();
+
+struct Lengths {
+    int left;
+    int right;
+    Lengths(int left, int right) {
+        this->left = left;
+        this->right = right;
+    }
+    Lengths() {
+
+    }
+};
+
+Lengths getBeltLengths(double x, double y);
 public:
 Movement(Display *display);
 bool isMoving() {
@@ -64,17 +78,7 @@ struct Point {
         
     }
 };
-struct Lengths {
-    long left;
-    long right;
-    Lengths(long left, long right) {
-        this->left = left;
-        this->right = right;
-    }
-    Lengths() {
 
-    }
-};
 
 static double distanceBetweenPoints(Point point1, Point point2) {
     return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2));
@@ -82,6 +86,7 @@ static double distanceBetweenPoints(Point point1, Point point2) {
 
 Point getCoordinates();
 void setTopDistance(int distance);
+void resumeTopDistance(int distance);
 void leftStepper(int dir);
 void rightStepper(int dir);
 void extendToHome();
