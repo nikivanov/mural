@@ -1,3 +1,8 @@
+const STATE = {
+    resumeDistance: %RESUME_DISTANCE%,
+    phase: "%PHASE%",
+};
+
 window.onload = function () {
     init();
 };
@@ -137,5 +142,10 @@ function init() {
         $.post("/run", {});
     });
 
-    $("#retractBeltsSlide").show();
+    if (STATE.resumeDistance !== -1) {
+        $(".resumeDistance")
+        $("#resumeOrStartSlide").show();
+    } else {
+        $("#retractBeltsSlide").show();
+    }
 }

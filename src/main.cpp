@@ -11,6 +11,7 @@
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
+#include <string>
 
 AsyncWebServer server(80);
 
@@ -24,6 +25,34 @@ void handleFileRead(String path, AsyncWebServerRequest *request)
     Serial.println("Serving " + path);
     request->send(SPIFFS, path);
 };
+
+int readStoredDistance() {
+    auto distanceFile = SPIFFS.open("/distance");
+    if (!distanceFile || !distanceFile.available()) {
+        return -1;
+    } else {
+        auto distanceStr = distanceFile.readStringUntil('\n');
+        auto distance = atoi(distanceStr.c_str());
+        return distance;
+    }
+}
+
+String processor(const String& var)
+{
+  if(var == "RESUME_DISTANCE") {
+    auto distance = readStoredDistance();
+    return String(distance);
+  } else if (var == "PHASE") {
+      return "dummy";
+  }
+ 
+  return String();
+}
+
+void handleTemplatedReadMainJs(AsyncWebServerRequest *request) {
+    Serial.println("Serving templated main.js");
+    request->send(SPIFFS, "/main.js", "text/html", false, processor);
+}
 
 void handleCommand(String command, AsyncWebServerRequest *request)
 {
@@ -100,7 +129,7 @@ void setup()
               { handleFileRead("/client.js", request); });
 
     server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleFileRead("/main.js", request); });
+              { handleTemplatedReadMainJs(request); });
 
     server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleFileRead("/main.css", request); });
