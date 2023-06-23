@@ -20,12 +20,12 @@ class Runner {
     Movement::Point startPosition;
     Movement::Point targetPosition;
     int progress;
-    bool sentBackToHome;
+    Task *finishingSequence[3];
+    int sequenceIx = 0;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);
     void start();
     void run();
     void dryRun();
-
 };
 #endif

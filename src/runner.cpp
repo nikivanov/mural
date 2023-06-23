@@ -5,6 +5,7 @@
 #include "pen.h"
 #include "display.h"
 #include "SPIFFS.h"
+using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     stopped = true;
@@ -32,8 +33,13 @@ void Runner::initTaskProvider() {
 
     distanceSoFar = 0;
     progress = -1; // so 0% appears right away
-    sentBackToHome = false;
     startPosition = movement->getCoordinates();
+
+    auto homeCoordinates = movement->getHomeCoordinates();
+
+    finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
+    finishingSequence[1] = new PenTask(false, pen);
+    finishingSequence[2] = new PenTask(true, pen);
 }
 
 void Runner::start() {
@@ -71,14 +77,14 @@ Task *Runner::getNextTask()
     }
     else
     {
-        if (sentBackToHome) {
-            return NULL;
-        } else {
-            auto homeCoordinates = movement->getHomeCoordinates();
-            sentBackToHome = true;
-            return new InterpolatingMovementTask(movement, homeCoordinates);
-        }
         
+        if (sequenceIx < (end(finishingSequence) - begin(finishingSequence))) {
+            auto currentIx = sequenceIx;
+            sequenceIx = sequenceIx + 1;
+            return finishingSequence[currentIx];
+        } else {
+            return NULL;
+        }
     }
 }
 
