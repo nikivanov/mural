@@ -39,16 +39,16 @@ void Movement::resumeTopDistance(int distance) {
     Y = homeCoordinates.y;
 
     auto lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
-    leftMotor->setCurrentPositionInSteps(-lengths.left);
-    rightMotor->setCurrentPositionInSteps(lengths.right);
+    leftMotor->setCurrentPositionInSteps(lengths.left);
+    rightMotor->setCurrentPositionInSteps(-lengths.right);
 
     moving = false;
 }
 
 void Movement::setOrigin()
 {
-    leftMotor->setCurrentPositionInSteps(-homedStepsOffset);
-    rightMotor->setCurrentPositionInSteps(homedStepsOffset);
+    leftMotor->setCurrentPositionInSteps(homedStepsOffset);
+    rightMotor->setCurrentPositionInSteps(-homedStepsOffset);
     homed = true;
 };
 
@@ -129,6 +129,11 @@ void Movement::runSteppers()
 Movement::Lengths Movement::getBeltLengths(double x, double y) {
     auto unsafeX = x + minSafeXOffset;
     auto unsafeY = y + minSafeY;
+
+    // auto leftX = unsafeX - bottomDistance / 2;
+    // auto rightX = unsafeX + bottomDistance / 2;
+    // auto leftLeg = sqrt(pow(leftX, 2) + pow(unsafeY, 2));
+    // auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(unsafeY, 2));
 
     auto xDev = topDistance / 2 - unsafeX;
 
