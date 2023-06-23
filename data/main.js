@@ -168,6 +168,7 @@ function init() {
 
     $("#resume").click(function() {
         $.post("/resume", {});
+        $("#resumeOrStartSlide").hide();
         $("#penCalibrationSlide").show();
         $.post("/setServo", {angle: 90});
     });

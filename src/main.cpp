@@ -11,7 +11,6 @@
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
-#include <string>
 
 AsyncWebServer server(80);
 
@@ -186,7 +185,7 @@ void setup()
 
     server.on("/resume", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                runner->start(); 
+                movement->resumeTopDistance(readStoredDistance());
                 request->send(200, "text/plain", "OK");
                 });
 

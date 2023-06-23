@@ -35,9 +35,14 @@ void Movement::resumeTopDistance(int distance) {
     homed = true;
 
     auto homeCoordinates = getHomeCoordinates();
+    X = homeCoordinates.x;
+    Y = homeCoordinates.y;
+
     auto lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
     leftMotor->setCurrentPositionInSteps(-lengths.left);
     rightMotor->setCurrentPositionInSteps(lengths.right);
+
+    moving = false;
 }
 
 void Movement::setOrigin()
