@@ -25,6 +25,34 @@ void handleFileRead(String path, AsyncWebServerRequest *request)
     request->send(SPIFFS, path);
 };
 
+int readStoredDistance() {
+    auto distanceFile = SPIFFS.open("/distance");
+    if (!distanceFile || !distanceFile.available()) {
+        return -1;
+    } else {
+        auto distanceStr = distanceFile.readStringUntil('\n');
+        auto distance = atoi(distanceStr.c_str());
+        return distance;
+    }
+}
+
+String processor(const String& var)
+{
+  if(var == "RESUME_DISTANCE") {
+    auto distance = readStoredDistance();
+    return String(distance);
+  } else if (var == "PHASE") {
+      return "dummy";
+  }
+ 
+  return String();
+}
+
+void handleTemplatedReadMainJs(AsyncWebServerRequest *request) {
+    Serial.println("Serving templated main.js");
+    request->send(SPIFFS, "/main.js", "text/html", false, processor);
+}
+
 void handleCommand(String command, AsyncWebServerRequest *request)
 {
     if (command == "l-ret")
@@ -100,7 +128,7 @@ void setup()
               { handleFileRead("/client.js", request); });
 
     server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleFileRead("/main.js", request); });
+              { handleTemplatedReadMainJs(request); });
 
     server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleFileRead("/main.css", request); });
@@ -152,8 +180,14 @@ void setup()
 
     server.on("/run", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
+                runner->start();
+                request->send(200, "text/plain", "OK"); });
+
+    server.on("/resume", HTTP_POST, [](AsyncWebServerRequest *request)
+              { 
+                movement->resumeTopDistance(readStoredDistance());
                 request->send(200, "text/plain", "OK");
-                runner->start(); });
+                });
 
     server.onNotFound(notFound);
 

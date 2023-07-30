@@ -14,5 +14,6 @@ class Pen {
     void setPenDistance(int value);
     void slowUp();
     void slowDown();
+    bool isDown();
 };
 #endif

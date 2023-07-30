@@ -1,3 +1,27 @@
+const __state = {
+    resumeDistance: "%RESUME_DISTANCE%",
+    phase: "%PHASE%",
+};
+
+const STATE = {
+    get resumeDistance() {
+        const parsed = parseInt(__state.resumeDistance);
+        if (isNaN(parsed) || parsed <= 0) {
+            return -1;
+        } else {
+            return parsed;
+        }
+    },
+
+    get phase() {
+        return __state.phase;
+    },
+
+    set phase(val) {
+        __state.phase = val;
+    }
+}
+
 window.onload = function () {
     init();
 };
@@ -137,5 +161,22 @@ function init() {
         $.post("/run", {});
     });
 
-    $("#retractBeltsSlide").show();
+    $("#startOver").click(function() {
+        $("#resumeOrStartSlide").hide();
+        $("#retractBeltsSlide").show();
+    });
+
+    $("#resume").click(function() {
+        $.post("/resume", {});
+        $("#resumeOrStartSlide").hide();
+        $("#penCalibrationSlide").show();
+        $.post("/setServo", {angle: 90});
+    });
+
+    if (STATE.resumeDistance !== -1) {
+        $(".resumeDistance").text(STATE.resumeDistance);
+        $("#resumeOrStartSlide").show();
+    } else {
+        $("#retractBeltsSlide").show();
+    }
 }

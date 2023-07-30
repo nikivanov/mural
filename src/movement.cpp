@@ -30,10 +30,25 @@ void Movement::setTopDistance(int distance) {
     height = 1000; //hardcoded for now
 };
 
+void Movement::resumeTopDistance(int distance) {
+    setTopDistance(distance);
+    homed = true;
+
+    auto homeCoordinates = getHomeCoordinates();
+    X = homeCoordinates.x;
+    Y = homeCoordinates.y;
+
+    auto lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
+    leftMotor->setCurrentPositionInSteps(lengths.left);
+    rightMotor->setCurrentPositionInSteps(-lengths.right);
+
+    moving = false;
+}
+
 void Movement::setOrigin()
 {
-    leftMotor->setCurrentPositionInSteps(-homedStepsOffset);
-    rightMotor->setCurrentPositionInSteps(homedStepsOffset);
+    leftMotor->setCurrentPositionInSteps(homedStepsOffset);
+    rightMotor->setCurrentPositionInSteps(-homedStepsOffset);
     homed = true;
 };
 
@@ -111,29 +126,14 @@ void Movement::runSteppers()
     }
 };
 
-void Movement::beginLinearTravel(double x, double y)
-{
-    X = x;
-    Y = y;
-    if (topDistance == -1 || !homed) {
-        Serial.println("Not ready");
-        throw std::invalid_argument("not ready");
-    }
-
-    if (x < 0 || x > width)
-    {
-        Serial.println("Invalid x");
-        throw std::invalid_argument("Invalid x");
-    }
-
-    if (y < 0 || y > height)
-    {
-        Serial.println("Invalid y");
-        throw std::invalid_argument("Invalid y");
-    }
-
+Movement::Lengths Movement::getBeltLengths(double x, double y) {
     auto unsafeX = x + minSafeXOffset;
     auto unsafeY = y + minSafeY;
+
+    // auto leftX = unsafeX - bottomDistance / 2;
+    // auto rightX = unsafeX + bottomDistance / 2;
+    // auto leftLeg = sqrt(pow(leftX, 2) + pow(unsafeY, 2));
+    // auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(unsafeY, 2));
 
     auto xDev = topDistance / 2 - unsafeX;
 
@@ -159,6 +159,34 @@ void Movement::beginLinearTravel(double x, double y)
     auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
     auto leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
     auto rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
+
+    return Lengths(leftLegSteps, rightLegSteps);
+}
+
+void Movement::beginLinearTravel(double x, double y)
+{
+    X = x;
+    Y = y;
+    if (topDistance == -1 || !homed) {
+        Serial.println("Not ready");
+        throw std::invalid_argument("not ready");
+    }
+
+    if (x < 0 || x > width)
+    {
+        Serial.println("Invalid x");
+        throw std::invalid_argument("Invalid x");
+    }
+
+    if (y < 0 || y > height)
+    {
+        Serial.println("Invalid y");
+        throw std::invalid_argument("Invalid y");
+    }
+
+    auto lengths = getBeltLengths(x, y);
+    auto leftLegSteps = lengths.left;
+    auto rightLegSteps = lengths.right;
 
     auto deltaLeft = int(abs(abs(leftMotor->getCurrentPositionInSteps()) - leftLegSteps));
     auto deltaRight = int(abs(abs(rightMotor->getCurrentPositionInSteps()) - rightLegSteps));
@@ -224,4 +252,9 @@ void Movement::extend100mm() {
     leftMotor->setupRelativeMoveInSteps(steps);
     rightMotor->setupRelativeMoveInSteps(-steps);
     moving = true;
+}
+
+void Movement::disableMotors() {
+    leftMotor->disableMotor();
+    rightMotor->disableMotor();
 }
