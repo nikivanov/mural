@@ -253,3 +253,8 @@ void Movement::extend100mm() {
     rightMotor->setupRelativeMoveInSteps(-steps);
     moving = true;
 }
+
+void Movement::disableMotors() {
+    leftMotor->disableMotor();
+    rightMotor->disableMotor();
+}

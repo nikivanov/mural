@@ -77,3 +77,7 @@ void Pen::slowDown() {
     doSlowMove(this, currentPosition, penDistance, slowSpeedDegPerSec);
     currentPosition = penDistance;
 }
+
+bool Pen::isDown() {
+    return currentPosition == penDistance;
+}

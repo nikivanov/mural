@@ -17,6 +17,8 @@ class Runner {
     File openedFile;
     double totalDistance;
     double distanceSoFar;
+    double distanceAtLastRest = 0;
+    const double DISTANCE_BETWEEN_REST = 10000; 
     Movement::Point startPosition;
     Movement::Point targetPosition;
     int progress;

@@ -94,5 +94,6 @@ void runSteppers();
 void beginLinearTravel(double x, double y);
 void extend100mm();
 Point getHomeCoordinates();
+void disableMotors();
 };
 #endif

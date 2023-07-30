@@ -2,6 +2,7 @@
 #include "movementtask.h"
 #include "interpolatingmovementtask.h"
 #include "pentask.h"
+#include "motorresttask.h"
 #include "pen.h"
 #include "display.h"
 #include "SPIFFS.h"
@@ -51,6 +52,11 @@ void Runner::start() {
 
 Task *Runner::getNextTask()
 {
+    if ((distanceSoFar - distanceAtLastRest) >= DISTANCE_BETWEEN_REST) {
+        distanceAtLastRest = distanceSoFar;
+        return new MotorRestTask(movement, display, pen);
+    }
+    
     if (openedFile.available())
     {
         auto line = openedFile.readStringUntil('\n');
