@@ -54,7 +54,7 @@ Task *Runner::getNextTask()
 {
     if ((distanceSoFar - distanceAtLastRest) >= DISTANCE_BETWEEN_REST) {
         distanceAtLastRest = distanceSoFar;
-        return new MotorRestTask(movement, display, pen);
+        return new MotorRestTask(movement, display, pen, progress);
     }
     
     if (openedFile.available())
