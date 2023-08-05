@@ -5,8 +5,8 @@
 #include "display.h"
 const auto printSpeedSteps = 250;
 const auto maxUnsafeSpeed = 400;
-const auto INFINITE_STEPS = 999999999;
-const auto acceleration = 500000; //essentially infinite
+const long INFINITE_STEPS = 999999999999999;
+const auto acceleration = 999999999999999; //essentially infinite, causing instant stop / start
 const int stepsPerRotation = 4076 / 2;
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
