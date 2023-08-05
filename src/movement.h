@@ -3,7 +3,7 @@
 #include "Arduino.h" 
 #include <TinyStepper_28BYJ_48.h>
 #include "display.h"
-const auto printSpeedSteps = 250;
+const auto printSpeedSteps = 200;
 const auto maxUnsafeSpeed = 400;
 const long INFINITE_STEPS = 999999999999999;
 const auto acceleration = 999999999999999; //essentially infinite, causing instant stop / start
@@ -24,7 +24,7 @@ const auto RIGHT_MOTOR_PIN_2 = 25;
 const auto RIGHT_MOTOR_PIN_3 = 33;
 const auto RIGHT_MOTOR_PIN_4 = 32;
 
-const auto sleepAfterMove = int(ceil(double(1) / printSpeedSteps * 1000)) * 3;
+const auto sleepAfterMove = int(ceil(double(1) / printSpeedSteps * 1000)) * 4;
 
 const auto homedStepOffsetMM = 22;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
