@@ -6,7 +6,7 @@ class Pen {
     private:
     Servo *servo;
     int penDistance = -1;
-    int slowSpeedDegPerSec = 180;
+    int slowSpeedDegPerSec = 90;
     int currentPosition = 90;
     public:
     Pen();

@@ -1,10 +1,9 @@
 #ifndef Movement_h
 #define Movement_h
 #include "Arduino.h" 
-#include <TinyStepper_28BYJ_48.h>
 #include "display.h"
+#include "AccelStepper.h"
 const auto printSpeedSteps = 200;
-const auto maxUnsafeSpeed = 400;
 const long INFINITE_STEPS = 999999999;
 const auto acceleration = 999999999; //essentially infinite, causing instant stop / start
 const int stepsPerRotation = 4076 / 2;
@@ -42,8 +41,8 @@ volatile bool moving;
 bool homed;
 double X = -1;
 double Y = -1;
-TinyStepper_28BYJ_48 *leftMotor;
-TinyStepper_28BYJ_48 *rightMotor;
+AccelStepper *leftMotor;
+AccelStepper *rightMotor;
 Display *display;
 void setOrigin();
 
