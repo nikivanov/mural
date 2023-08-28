@@ -117,6 +117,21 @@
         </div>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="setPenDistance">Pen is touching the wall</button>
       </div>
+      <div id="svgUploadSlide">
+        <h3 class="mb-2 fw-normal">Select SVG Image</h3>
+        <h6 class="mb-5"><small class="text-muted">Use black and white line art SVGs for now</small></h6>
+        <img id="sourceSvg" class="img-thumbnail mb-5">
+        <input class="form-control form-control-lg mb-5" id="uploadSvg" type="file" accept=".svg">
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="preview" disabled>Preview drawing</button>
+      </div>
+      <div id="drawingPreviewSlide" style="display:none;">
+        <h3 class="mb-2 fw-normal">Drawing preview</h3>
+        <h6 class="mb-5"><small class="text-muted">This may take a bit...</small></h6>
+        <img id="previewSvg" class="img-thumbnail mb-5" style="display:none;">
+        <div class="spinner-border mb-5" role="status" id="loadingSpinner"></div>
+        <button class="w-100 btn btn-lg btn-primary mb-2" id="preview" disabled>Begin drawing</button>
+        <button class="w-100 btn btn-lg btn-secondary mb-5" id="preview" disabled>Back</button>
+      </div>
       <div id="runSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Run</h3>
         <h6 class="mb-5"><small class="text-muted">Run stub</small></h6>

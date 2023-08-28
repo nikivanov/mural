@@ -117,7 +117,23 @@ function init() {
         $.post("/setPenDistance", {angle: inputValue});
 
         $("#penCalibrationSlide").hide();
-        $("#runSlide").show();
+        $("#svgUploadSlide").show();
+    });
+
+    $("#uploadSvg").change(function() {
+        const [file] = this.files;
+        if (file) {
+            const localURL = URL.createObjectURL(file);
+            $("#sourceSvg").attr("src", localURL);
+            $("#preview").removeAttr("disabled");
+        } else {
+            $("#preview").attr( "disabled", "disabled" );
+        }
+    });
+
+    $("#preview").click(function() {
+        $("#svgUploadSlide").hide();
+        $("#drawingPreviewSlide").show();
     });
 
     $("#leftMotorTool").on('input', function() {
@@ -177,6 +193,6 @@ function init() {
         $(".resumeDistance").text(STATE.resumeDistance);
         $("#resumeOrStartSlide").show();
     } else {
-        $("#retractBeltsSlide").show();
+        //$("#retractBeltsSlide").show();
     }
 }
