@@ -86,6 +86,24 @@ void notFound(AsyncWebServerRequest *request)
     request->send(404, "text/plain", "Not found");
 }
 
+void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+    if (!index) {
+        request->_tempFile = SPIFFS.open("/commands", "w");
+        Serial.println("Upload started");
+    }
+    
+    if (len) {
+      // stream the incoming chunk to the opened file
+      request->_tempFile.write(data, len);
+    }
+
+    if (final) {
+      request->_tempFile.close();
+      Serial.println("Upload finished");
+      request->send(200, "text/plain", "OK");
+    }
+}
+
 void setup()
 {
     delay(10);
@@ -181,13 +199,16 @@ void setup()
     server.on("/run", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
                 runner->start();
-                request->send(200, "text/plain", "OK"); });
+                request->send(200, "text/plain", "OK"); 
+                server.end(); });
 
     server.on("/resume", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
                 movement->resumeTopDistance(readStoredDistance());
                 request->send(200, "text/plain", "OK");
                 });
+
+    server.onFileUpload(handleUpload);
 
     server.onNotFound(notFound);
 

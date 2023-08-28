@@ -25,6 +25,11 @@ const STATE = {
 window.onload = function () {
     init();
 };
+
+let uploadId = null;
+let uploadLocalURL = null;
+let uploadConvertedCommands = null;
+let convertedSvgURL = null;
 function init() {
     $("#beltsRetracted").click(function() { 
         leftRetractUp();
@@ -123,17 +128,117 @@ function init() {
     $("#uploadSvg").change(function() {
         const [file] = this.files;
         if (file) {
-            const localURL = URL.createObjectURL(file);
-            $("#sourceSvg").attr("src", localURL);
+            if (uploadLocalURL) {
+                URL.revokeObjectURL(uploadLocalURL);
+            }
+            uploadLocalURL = URL.createObjectURL(file);
+            uploadId = Date.now();
+            $("#sourceSvg").attr("src", uploadLocalURL);
             $("#preview").removeAttr("disabled");
         } else {
-            $("#preview").attr( "disabled", "disabled" );
+            $("#preview").attr("disabled", "disabled");
         }
     });
 
     $("#preview").click(function() {
         $("#svgUploadSlide").hide();
         $("#drawingPreviewSlide").show();
+        const thisUploadId = uploadId;
+        $.get(uploadLocalURL, function(data) {
+            const svgString = data.rootElement.outerHTML;
+            const requestObj = {
+                svg: svgString,
+                width: 1000,
+                height: 800,
+                start_x: 518,
+                start_y: 250,
+            };
+            const dataString = JSON.stringify(requestObj);
+            $.post("https://5ckjame5j3y4oxfrjtemod76t40khfcq.lambda-url.us-east-1.on.aws/", dataString, function(resp) {
+                if (thisUploadId === uploadId) {
+                    uploadConvertedCommands = resp.commands;
+                    const requestObj = {
+                        commands: uploadConvertedCommands,
+                        width: 1000,
+                        height: 800,
+                    };
+                    const dataString = JSON.stringify(requestObj);
+                    $.post("https://k6cpd6wdxwtvvlz3d7gbb4trne0qsoap.lambda-url.us-east-1.on.aws/", dataString, function(resp) {
+                        if (thisUploadId === uploadId) {
+                            const convertedSvg = resp.svg;
+                            const svgBlob = new Blob([convertedSvg], {
+                                type: "image/svg+xml"
+                            });
+                            convertedSvgURL = URL.createObjectURL(svgBlob);
+                            $(".loading").hide();
+                            $("#previewSvg").attr("src", convertedSvgURL);
+                            $("#previewSvg").show();
+                            $("#beginDrawing").removeAttr("disabled");
+                        }
+                    }).fail(function (err) {
+                        alert("Failed to render commands back to svg: " + err.responseText)
+                    });
+                }
+            }, ).fail(function(err) {
+                alert("Render function failed: " + err.responseText);
+            });
+        }).fail(function(err) {
+            alert("Failed to acquire upload content, somehow: " + err.responseText);
+        });
+    });
+
+    $("#backToSvgSelect").click(function() {
+        if (uploadLocalURL) {
+            URL.revokeObjectURL(uploadLocalURL);
+        }
+        if (convertedSvgURL) {
+            URL.revokeObjectURL(convertedSvgURL);
+        }
+        uploadLocalURL = null;
+        convertedSvgURL = null;
+        uploadId = null;
+        uploadConvertedCommands = null;
+
+        $(".loading").show();
+        $("#previewSvg").removeAttr("src");
+        $("#previewSvg").hide();
+        $("#beginDrawing").attr("disabled", "disabled");
+
+        $("#uploadSvg").val('');
+        $("#sourceSvg").removeAttr("src");
+        $("#preview").attr("disabled", "disabled");
+
+        $("#svgUploadSlide").show();
+        $("#drawingPreviewSlide").hide();
+    });
+    
+    $("#beginDrawing").click(function() {
+        if (!uploadConvertedCommands) {
+            throw new Error('Commands are empty');
+        }
+        $("#beginDrawing").attr("disabled", "disabled");
+
+        const commandsBlob = new Blob([uploadConvertedCommands], {
+            type: "text/plain"
+        });
+
+        const formData = new FormData();
+        formData.append("commands", commandsBlob);
+
+        $.ajax({
+            data: formData,
+            processData: false,
+            contentType: false,
+            type: 'POST',
+            success: function() {
+                $("#drawingPreviewSlide").hide();
+                $("#drawingBegan").show();
+                $.post("/run", {});
+            },
+            error: function(err) {
+                alert('Upload to Mural failed! ' + err);
+            }
+        });
     });
 
     $("#leftMotorTool").on('input', function() {
@@ -173,10 +278,6 @@ function init() {
         leftRetractUp();
     });
 
-    $("#run").click(function() {
-        $.post("/run", {});
-    });
-
     $("#startOver").click(function() {
         $("#resumeOrStartSlide").hide();
         $("#retractBeltsSlide").show();
@@ -193,6 +294,6 @@ function init() {
         $(".resumeDistance").text(STATE.resumeDistance);
         $("#resumeOrStartSlide").show();
     } else {
-        //$("#retractBeltsSlide").show();
+        $("#retractBeltsSlide").show();
     }
 }

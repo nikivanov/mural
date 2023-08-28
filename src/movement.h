@@ -23,8 +23,6 @@ const auto RIGHT_MOTOR_PIN_2 = 25;
 const auto RIGHT_MOTOR_PIN_3 = 33;
 const auto RIGHT_MOTOR_PIN_4 = 32;
 
-const auto sleepAfterMove = int(ceil(double(1) / printSpeedSteps * 1000)) * 4;
-
 const auto homedStepOffsetMM = 22;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 
