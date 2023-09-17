@@ -5,19 +5,19 @@
 Movement::Movement(Display *display)
 {
     this->display = display;
-    leftMotor = new TinyStepper_28BYJ_48();
-    rightMotor = new TinyStepper_28BYJ_48();
+   
+    leftMotor = new AccelStepper(AccelStepper::FULL4WIRE, LEFT_MOTOR_PIN_1, LEFT_MOTOR_PIN_3, LEFT_MOTOR_PIN_2, LEFT_MOTOR_PIN_4);
+    leftMotor->setMaxSpeed(printSpeedSteps);
+    leftMotor->disableOutputs();
+
+    rightMotor = new AccelStepper(AccelStepper::FULL4WIRE, RIGHT_MOTOR_PIN_1, RIGHT_MOTOR_PIN_3, RIGHT_MOTOR_PIN_2, RIGHT_MOTOR_PIN_4);
+    rightMotor->setMaxSpeed(printSpeedSteps);
+    rightMotor->disableOutputs();
 
     topDistance = -1;
-
-    leftMotor->connectToPins(27, 14, 12, 13);
-    rightMotor->connectToPins(26, 25, 33, 32);
-
+   
     moving = false;
     homed = false;
-
-    this->leftStepper(0);
-    this->rightStepper(0);
 };
 
 void Movement::setTopDistance(int distance) {
@@ -39,35 +39,35 @@ void Movement::resumeTopDistance(int distance) {
     Y = homeCoordinates.y;
 
     auto lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
-    leftMotor->setCurrentPositionInSteps(lengths.left);
-    rightMotor->setCurrentPositionInSteps(-lengths.right);
+    leftMotor->setCurrentPosition(lengths.left);
+    rightMotor->setCurrentPosition(-lengths.right);
 
     moving = false;
 }
 
 void Movement::setOrigin()
 {
-    leftMotor->setCurrentPositionInSteps(homedStepsOffset);
-    rightMotor->setCurrentPositionInSteps(-homedStepsOffset);
+    leftMotor->setCurrentPosition(homedStepsOffset);
+    rightMotor->setCurrentPosition(-homedStepsOffset);
     homed = true;
 };
 
 void Movement::leftStepper(int dir)
 {
-    leftMotor->setSpeedInStepsPerSecond(printSpeedSteps);
-    leftMotor->setAccelerationInStepsPerSecondPerSecond(acceleration);
-
     if (dir > 0)
     {
-        leftMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
+        leftMotor->move(INFINITE_STEPS);
+        leftMotor->setSpeed(printSpeedSteps);
     }
     else if (dir < 0)
     {
-        leftMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
+        leftMotor->move(-INFINITE_STEPS);
+        leftMotor->setSpeed(printSpeedSteps);
     }
     else
     {
-        leftMotor->setupStop();
+        leftMotor->setAcceleration(acceleration);
+        leftMotor->stop();
     }
 
     moving = true;
@@ -75,20 +75,20 @@ void Movement::leftStepper(int dir)
 
 void Movement::rightStepper(int dir)
 {
-    rightMotor->setSpeedInStepsPerSecond(printSpeedSteps);
-    rightMotor->setAccelerationInStepsPerSecondPerSecond(acceleration);
-
     if (dir > 0)
     {
-        rightMotor->setupRelativeMoveInSteps(-INFINITE_STEPS);
+        rightMotor->move(-INFINITE_STEPS);
+        rightMotor->setSpeed(printSpeedSteps);
     }
     else if (dir < 0)
     {
-        rightMotor->setupRelativeMoveInSteps(INFINITE_STEPS);
+        rightMotor->move(INFINITE_STEPS);
+        rightMotor->setSpeed(printSpeedSteps);
     }
     else
     {
-        rightMotor->setupStop();
+        rightMotor->setAcceleration(acceleration);
+        rightMotor->stop();
     }
 
     moving = true;
@@ -115,13 +115,13 @@ void Movement::runSteppers()
 {
     if (moving)
     {
-        leftMotor->processMovement();
-        rightMotor->processMovement();
+        leftMotor->runSpeedToPosition();
+        rightMotor->runSpeedToPosition();
 
-        if (leftMotor->motionComplete() && rightMotor->motionComplete())
+        if (leftMotor->distanceToGo() == 0 && rightMotor->distanceToGo() == 0)
         {
             moving = false;
-            //Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->getCurrentPositionInSteps(), rightMotor->getCurrentPositionInSteps());
+            //Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->currentPosition(), rightMotor->currentPosition());
         }
     }
 };
@@ -188,8 +188,8 @@ void Movement::beginLinearTravel(double x, double y)
     auto leftLegSteps = lengths.left;
     auto rightLegSteps = lengths.right;
 
-    auto deltaLeft = int(abs(abs(leftMotor->getCurrentPositionInSteps()) - leftLegSteps));
-    auto deltaRight = int(abs(abs(rightMotor->getCurrentPositionInSteps()) - rightLegSteps));
+    auto deltaLeft = int(abs(abs(leftMotor->currentPosition()) - leftLegSteps));
+    auto deltaRight = int(abs(abs(rightMotor->currentPosition()) - rightLegSteps));
 
     float leftSpeed, rightSpeed;
     if (deltaLeft >= deltaRight)
@@ -206,14 +206,14 @@ void Movement::beginLinearTravel(double x, double y)
     }
 
     //Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
-
-    leftMotor->setSpeedInStepsPerSecond(leftSpeed);
-    rightMotor->setSpeedInStepsPerSecond(rightSpeed);
-    leftMotor->setupMoveInSteps(leftLegSteps);
-    rightMotor->setupMoveInSteps(-rightLegSteps);
+    leftMotor->moveTo(leftLegSteps);
+    leftMotor->setSpeed(leftSpeed);
+    
+    rightMotor->moveTo(-rightLegSteps);
+    rightMotor->setSpeed(rightSpeed);
 
     //display->displayText(String(X) + ", " + String(Y));
-    delay(sleepAfterMove);
+    //delay(sleepAfterMove);
 
     moving = true;
 };
@@ -247,14 +247,17 @@ Movement::Point Movement::getCoordinates() {
 
 void Movement::extend100mm() {
     auto steps = int((100 / circumference) * stepsPerRotation);
-    leftMotor->setSpeedInStepsPerSecond(printSpeedSteps);
-    rightMotor->setSpeedInStepsPerSecond(printSpeedSteps);
-    leftMotor->setupRelativeMoveInSteps(steps);
-    rightMotor->setupRelativeMoveInSteps(-steps);
+    
+    leftMotor->move(steps);
+    leftMotor->setSpeed(printSpeedSteps);
+
+    rightMotor->move(-steps);
+    rightMotor->setSpeed(printSpeedSteps);
+
     moving = true;
 }
 
 void Movement::disableMotors() {
-    leftMotor->disableMotor();
-    rightMotor->disableMotor();
+    leftMotor->disableOutputs();
+    rightMotor->disableOutputs();
 }

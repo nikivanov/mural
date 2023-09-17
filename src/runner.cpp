@@ -16,7 +16,7 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
 }
 
 void Runner::initTaskProvider() {
-    openedFile = SPIFFS.open("/output.txt");
+    openedFile = SPIFFS.open("/commands");
     if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
         throw std::invalid_argument("No File");
@@ -52,11 +52,6 @@ void Runner::start() {
 
 Task *Runner::getNextTask()
 {
-    if ((distanceSoFar - distanceAtLastRest) >= DISTANCE_BETWEEN_REST) {
-        distanceAtLastRest = distanceSoFar;
-        return new MotorRestTask(movement, display, pen);
-    }
-    
     if (openedFile.available())
     {
         auto line = openedFile.readStringUntil('\n');
@@ -83,12 +78,14 @@ Task *Runner::getNextTask()
     }
     else
     {
-        
         if (sequenceIx < (end(finishingSequence) - begin(finishingSequence))) {
             auto currentIx = sequenceIx;
             sequenceIx = sequenceIx + 1;
             return finishingSequence[currentIx];
         } else {
+            delay(200);
+            ESP.restart();
+            // unreachable
             return NULL;
         }
     }

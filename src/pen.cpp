@@ -39,6 +39,7 @@ void doSlowMove(Pen* pen, int startDegree, int targetDegree, int speedDegPerSec)
         currentDegree = startDegree + progressDegrees;
     }
     pen->setRawValue(targetDegree);
+    delay(200);
 }
 
 
