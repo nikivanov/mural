@@ -15,3 +15,4 @@ All parts can be found on Amazon, AliExpress, Ebay etc. Make sure the items you'
 | USB-C male-to-male 10ft cable | ![cable](/images/bom/cable.jpg) |
 | Female-to-female breadboard jumper wire 10cm and 20cm | ![wire](/images/bom/wire.jpg) |
 | M3 hex bolt set | ![m3](/images/bom/m3.jpg) |
+| 2.54m pitch male headers | ![headers](/images/bom/header.jpg) |
