@@ -37,3 +37,5 @@
 * GND -> GND pin on ESP32
 * SLC -> 22
 * SDA -> 21
+
+You may want to use zip ties or, better yet, heatshrink to shorten the wiring for the stepper motors and the servo wires
