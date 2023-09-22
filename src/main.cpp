@@ -5,12 +5,12 @@
 #include <FS.h>
 #include "SPIFFS.h"
 #include <Wire.h>
-
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
+#include "distancestate.h"
 
 AsyncWebServer server(80);
 
@@ -25,21 +25,10 @@ void handleFileRead(String path, AsyncWebServerRequest *request)
     request->send(SPIFFS, path);
 };
 
-int readStoredDistance() {
-    auto distanceFile = SPIFFS.open("/distance");
-    if (!distanceFile || !distanceFile.available()) {
-        return -1;
-    } else {
-        auto distanceStr = distanceFile.readStringUntil('\n');
-        auto distance = atoi(distanceStr.c_str());
-        return distance;
-    }
-}
-
 String processor(const String& var)
 {
   if(var == "RESUME_DISTANCE") {
-    auto distance = readStoredDistance();
+    auto distance = DistanceState::readStoredDistance();
     return String(distance);
   } else if (var == "PHASE") {
       return "dummy";
@@ -114,6 +103,8 @@ void setup()
         Serial.println("An Error has occurred while mounting SPIFFS");
         return;
     }
+
+
 
     WiFiManager wifiManager;
     wifiManager.setConnectTimeout(20);
@@ -204,7 +195,7 @@ void setup()
 
     server.on("/resume", HTTP_POST, [](AsyncWebServerRequest *request)
               { 
-                movement->resumeTopDistance(readStoredDistance());
+                movement->resumeTopDistance(DistanceState::readStoredDistance());
                 request->send(200, "text/plain", "OK");
                 });
 
