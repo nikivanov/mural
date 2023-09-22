@@ -13,6 +13,7 @@ class NotSupportedPhase : public Phase {
     void setPenDistance(AsyncWebServerRequest *request);
     void isMoving(AsyncWebServerRequest *request);
     void resumeTopDistance(AsyncWebServerRequest *request);
+    void startOver(AsyncWebServerRequest *request);
     void run(AsyncWebServerRequest *request);
 };
 #endif

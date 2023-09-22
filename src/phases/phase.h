@@ -11,6 +11,7 @@ class Phase {
     virtual void setPenDistance(AsyncWebServerRequest *request) = 0;
     virtual void isMoving(AsyncWebServerRequest *request) = 0;
     virtual void resumeTopDistance(AsyncWebServerRequest *request) = 0;
+    virtual void startOver(AsyncWebServerRequest *request) = 0;
     virtual void run(AsyncWebServerRequest *request) = 0;
 };
 #endif

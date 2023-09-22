@@ -31,6 +31,10 @@ void NotSupportedPhase::resumeTopDistance(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 
+void NotSupportedPhase::startOver(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
 void NotSupportedPhase::run(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
