@@ -34,11 +34,3 @@ function rightExtendUp() {
 function postCommand(command) {
     $.post("/command", {command});
 }
-
-function run1() {
-    $.post("/run1", {});
-}
-
-function run2() {
-    $.post("/run2", {});
-}

@@ -23,20 +23,24 @@ void NotSupportedPhase::setPenDistance(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 
-void NotSupportedPhase::isMoving(AsyncWebServerRequest *request) {
-    handleNotSupported(request);
-}
-
 void NotSupportedPhase::resumeTopDistance(AsyncWebServerRequest *request) {
-    handleNotSupported(request);
-}
-
-void NotSupportedPhase::startOver(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 
 void NotSupportedPhase::run(AsyncWebServerRequest *request) {
     handleNotSupported(request);
+}
+
+void NotSupportedPhase::doneWithPhase(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
+void NotSupportedPhase::estepsCalibration(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
+const char* NotSupportedPhase::getName() {
+    throw std::invalid_argument("should be overridden");
 }
 
 void NotSupportedPhase::handleNotSupported(AsyncWebServerRequest *request) {

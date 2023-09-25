@@ -59,11 +59,6 @@ struct Lengths {
 Lengths getBeltLengths(double x, double y);
 public:
 Movement(Display *display);
-bool isMoving() {
-    return moving;
-}
-double getWidth();
-double getHeight();
 struct Point {
     double x;
     double y;
@@ -76,14 +71,17 @@ struct Point {
     }
 };
 
-
 static double distanceBetweenPoints(Point point1, Point point2) {
     return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2));
 }
 
+bool isMoving();
+double getWidth();
+double getHeight();
 Point getCoordinates();
 void setTopDistance(int distance);
 void resumeTopDistance(int distance);
+int getTopDistance();
 void leftStepper(int dir);
 void rightStepper(int dir);
 void extendToHome();

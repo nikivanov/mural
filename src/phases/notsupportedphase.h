@@ -11,9 +11,10 @@ class NotSupportedPhase : public Phase {
     void extendToHome(AsyncWebServerRequest *request);
     void setServo(AsyncWebServerRequest *request);
     void setPenDistance(AsyncWebServerRequest *request);
-    void isMoving(AsyncWebServerRequest *request);
     void resumeTopDistance(AsyncWebServerRequest *request);
-    void startOver(AsyncWebServerRequest *request);
     void run(AsyncWebServerRequest *request);
+    void doneWithPhase(AsyncWebServerRequest *request);
+    void estepsCalibration(AsyncWebServerRequest *request);
+    const char* getName();
 };
 #endif
