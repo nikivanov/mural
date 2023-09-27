@@ -1,26 +1,4 @@
-const __state = {
-    resumeDistance: "%RESUME_DISTANCE%",
-    phase: "%PHASE%",
-};
-
-const STATE = {
-    get resumeDistance() {
-        const parsed = parseInt(__state.resumeDistance);
-        if (isNaN(parsed) || parsed <= 0) {
-            return -1;
-        } else {
-            return parsed;
-        }
-    },
-
-    get phase() {
-        return __state.phase;
-    },
-
-    set phase(val) {
-        __state.phase = val;
-    }
-}
+let currentState = null;
 
 window.onload = function () {
     init();
@@ -31,19 +9,28 @@ let uploadLocalURL = null;
 let uploadConvertedCommands = null;
 let convertedSvgURL = null;
 function init() {
-    $("#beltsRetracted").click(function() { 
-        leftRetractUp();
-        rightRetractUp();
-        $("#retractBeltsSlide").hide();
-        $("#distanceBetweenAnchorsSlide").show();
+    function doneWithPhase() {
+        $(".muralSlide").hide();
+        $("#loadingSlide").show();
+        $.post("/doneWithPhase", {}, function(state) {
+            adaptToState(state);
+        }).fail(function() {
+            alert("Done With Phase command failed");
+            location.reload();
+        });
+    }
+
+    $("#beltsRetracted").click(async function() { 
+        await leftRetractUp();
+        await rightRetractUp();
+        doneWithPhase();
     });
 
     $("#setDistance").click(function() {
         const inputValue = parseInt($("#distanceInput").val());
-        $.post("/setTopDistance", {angle: inputValue});
-        
-        $("#distanceBetweenAnchorsSlide").hide();
-        $("#extendToHomeSlide").show();
+        $.post("/setTopDistance", {angle: inputValue}, function(state) {
+            adaptToState(state);
+        });
     });
 
     $("#leftMotorToggle").change(function() {
@@ -290,10 +277,38 @@ function init() {
         $.post("/setServo", {angle: 90});
     });
 
-    if (STATE.resumeDistance !== -1) {
-        $(".resumeDistance").text(STATE.resumeDistance);
-        $("#resumeOrStartSlide").show();
-    } else {
-        $("#retractBeltsSlide").show();
+    $("#loadingSlide").show();
+
+    $.get("/getState", function(data) {
+        adaptToState(data);
+    }).fail(function() {
+        alert("Failed to retrieve state");
+    });
+}
+
+function adaptToState(state) {
+    $(".muralSlide").hide();
+    switch(state.phase) {
+        case "ResumeOrStartOver":
+            $(".resumeDistance").text(state.resumeDistance);
+            $("#resumeOrStartSlide").show();
+            break;
+        case "RetractBelts":
+            $("#retractBeltsSlide").show();
+            break;
+        case "SetTopDistance":
+            $("#distanceBetweenAnchorsSlide").show();
+            break;
+        case "ExtendToHome":
+            $("#extendToHomeSlide").show();
+            break;
+        case "PenCalibration":
+            $("#penCalibrationSlide").show();
+            break;
+        case "SvgSelect":
+            $("#svgUploadSlide").show();
+            break;
+        default:
+            alert("Unrecognized phase");
     }
 }

@@ -28,23 +28,6 @@ void handleFileRead(String path, AsyncWebServerRequest *request)
     request->send(SPIFFS, path);
 };
 
-String processor(const String& var)
-{
-  if(var == "RESUME_DISTANCE") {
-    auto distance = DistanceState::readStoredDistance();
-    return String(distance);
-  } else if (var == "PHASE") {
-      return phaseManager->getCurrentPhase()->getName();
-  } else {
-    throw std::invalid_argument(var.c_str());
-  }
-}
-
-void handleTemplatedReadMainJs(AsyncWebServerRequest *request) {
-    Serial.println("Serving templated main.js");
-    request->send(SPIFFS, "/main.js", "text/html", false, processor);
-}
-
 void notFound(AsyncWebServerRequest *request)
 {
     request->send(404, "text/plain", "Not found");
@@ -52,6 +35,10 @@ void notFound(AsyncWebServerRequest *request)
 
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     phaseManager->getCurrentPhase()->handleUpload(request, filename, index, data, len, final);
+}
+
+void handleGetState(AsyncWebServerRequest *request) {
+    phaseManager->respondWithState(request);
 }
 
 void setup()
@@ -96,7 +83,7 @@ void setup()
               { handleFileRead("/client.js", request); });
 
     server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleTemplatedReadMainJs(request); });
+              { handleFileRead("/main.js", request); });
 
     server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleFileRead("/main.css", request); });
@@ -128,6 +115,9 @@ void setup()
     server.on("/resume", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->resumeTopDistance(request); });
 
+    server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleGetState(request); });
+
     server.onFileUpload(handleUpload);
 
     server.onNotFound(notFound);
@@ -135,8 +125,13 @@ void setup()
     Serial.println("Finished setting up the server");
 
     phaseManager = new PhaseManager(movement, pen, runner, &server);
-
-    Serial.println("Phase manager initialized");
+    if (DistanceState::readStoredDistance() == -1) {
+        phaseManager->setPhase(PhaseManager::RetractBelts);
+        Serial.println("Phase manager initialized with Retract Belts as the first phase");
+    } else {
+        phaseManager->setPhase(PhaseManager::ResumeOrStartOver);
+        Serial.println("Phase manager initialized with Resume Or Start Over as the first phase");
+    }
 
     server.begin();
     Serial.println("Server started");

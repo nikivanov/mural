@@ -72,13 +72,16 @@
   <script src="client.js"></script>
   <script src="main.js"></script>
   <main class="form-signin w-100 m-auto">
-      <div id="resumeOrStartSlide" style="display:none;">
+      <div id="loadingSlide" class="muralSlide" style="display:none;">
+        <div class="spinner-border mb-5 loading" role="status"></div>
+      </div>
+      <div id="resumeOrStartSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Resume or Recalibrate?</h3>
         <h6 class="mb-5"><small class="text-muted">Looks like Mural is calibrated for hangers <span class="resumeDistance"></span> mm apart. Would you like to resume or start over?</small></h6>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="resume">Resume (<span class="resumeDistance"></span> mm)</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5" id="startOver">Start over</button>
       </div>
-      <div id="retractBeltsSlide" style="display:none;">
+      <div id="retractBeltsSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Retract belts</h3>
         <h6 class="mb-5"><small class="text-muted">Run the motors until belt hangers retract as far as they can go and the motor stalls</small></h6>
         <div class="form-check form-switch mb-5">
@@ -92,19 +95,19 @@
         <button class="w-100 btn btn-lg btn-primary mb-5" id="beltsRetracted">Belts are retracted</button>
         <div class="mt-2 mb-5" data-bs-toggle="modal" data-bs-target="#toolsModal"><i class="bi-gear fs-2"></i></div>
       </div>
-      <div id="distanceBetweenAnchorsSlide" style="display:none;">
+      <div id="distanceBetweenAnchorsSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Distance between hangers</h3>
         <h6 class="mb-5"><small class="text-muted">Distance between the two nails on which you are hanging Mural, in millimeters</small></h6>
         
         <input type="text" class="form-control mb-5" id="distanceInput">
         <button class="w-100 btn btn-lg btn-primary mb-5" id="setDistance">Set distance</button>
       </div>
-      <div id="extendToHomeSlide" style="display:none;">
+      <div id="extendToHomeSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Extend belts</h3>
         <h6 class="mb-5"><small class="text-muted">The belts will extend to their home position. Make sure the belts are unobstructed and the motors do not skip, or the drawing accuracy may be affected</small></h6>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="extendToHome">Extend to home position</button>
       </div>
-      <div id="penCalibrationSlide" style="display:none;">
+      <div id="penCalibrationSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Pen calibration</h3>
         <h6 class="mb-5"><small class="text-muted">Insert the pen so it's close to, but not touching the wall and secure it with the bolt. Then, adjust the actuator position so the pen is touching the wall</small></h6>
         <input type="range" class="form-range mb-5 text-center" min="0" max="90" id="servoRange" value="0">
@@ -118,14 +121,14 @@
         </div>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="setPenDistance">Pen is touching the wall</button>
       </div>
-      <div id="svgUploadSlide" style="display:none;">
+      <div id="svgUploadSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Select SVG Image</h3>
         <h6 class="mb-5"><small class="text-muted">Use black and white line art SVGs for now</small></h6>
         <img id="sourceSvg" class="img-thumbnail mb-5">
         <input class="form-control form-control-lg mb-5" id="uploadSvg" type="file" accept=".svg">
         <button class="w-100 btn btn-lg btn-primary mb-5" id="preview" disabled>Preview drawing</button>
       </div>
-      <div id="drawingPreviewSlide" style="display:none;">
+      <div id="drawingPreviewSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Drawing preview</h3>
         <h6 class="mb-5 loading"><small class="text-muted">This may take a bit...</small></h6>
         <img id="previewSvg" class="img-thumbnail mb-5" style="display:none;">
@@ -133,7 +136,7 @@
         <button class="w-100 btn btn-lg btn-primary mb-2" id="beginDrawing" disabled>Begin drawing</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5" id="backToSvgSelect">Back</button>
       </div>
-      <div id="drawingBegan" style="display: none;">
+      <div id="drawingBegan" class="muralSlide" style="display: none;">
         <h3 class="mb-2 fw-normal">Drawing Started</h3>
         <h6 class="mb-5"><small class="text-muted">Mural will not be accessible via your browser while the drawing is in progress. Please refresh the page once the drawing is finished.</small></h6>
       </div>

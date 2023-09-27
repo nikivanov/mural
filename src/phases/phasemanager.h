@@ -19,5 +19,6 @@ class PhaseManager {
     PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server);
     Phase* getCurrentPhase();
     void setPhase(PhaseNames name);
+    void respondWithState(AsyncWebServerRequest *request);
 };
 #endif

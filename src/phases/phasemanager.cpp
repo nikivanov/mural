@@ -5,6 +5,7 @@
 #include "extendtohomephase.h"
 #include "pencalibrationphase.h"
 #include "svgselectphase.h"
+#include "distancestate.h"
 #include <stdexcept>
 PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server) {
     resumeOrStartOverPhase = new ResumeOrStartOverPhase(this, movement);
@@ -42,4 +43,13 @@ void PhaseManager::setPhase(PhaseNames name) {
         default:
             throw std::invalid_argument("Invalid Phase");
     }
+}
+
+void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
+    auto currentPhase = getCurrentPhase()->getName();
+    auto resumeDistance = DistanceState::readStoredDistance();
+    auto responseJsonTemplate = "{\"phase\": \"%s\", \"resumeDistance\": %i}";
+    char formattedString[1024];
+    snprintf(formattedString, sizeof(formattedString), responseJsonTemplate, currentPhase, resumeDistance);
+    request->send(200, "application/json", formattedString);
 }
