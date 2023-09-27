@@ -14,6 +14,9 @@ PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWe
     extendToHomePhase = new ExtendToHomePhase(this, movement);
     penCalibrationPhase = new PenCalibrationPhase(this, pen);
     svgSelectPhase = new SvgSelectPhase(this, runner, server);
+
+    this->movement = movement;
+    _reset();
 }
 
 Phase* PhaseManager::getCurrentPhase() {
@@ -48,8 +51,27 @@ void PhaseManager::setPhase(PhaseNames name) {
 void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     auto currentPhase = getCurrentPhase()->getName();
     auto resumeDistance = DistanceState::readStoredDistance();
-    auto responseJsonTemplate = "{\"phase\": \"%s\", \"resumeDistance\": %i}";
+    auto moving = movement->isMoving();
+    auto movingBoolStr = moving ? "true" : "false";
+
+    auto responseJsonTemplate = "{\"phase\": \"%s\", \"resumeDistance\": %i, \"moving\": %s}";
+    
     char formattedString[1024];
-    snprintf(formattedString, sizeof(formattedString), responseJsonTemplate, currentPhase, resumeDistance);
+    snprintf(formattedString, sizeof(formattedString), responseJsonTemplate, currentPhase, resumeDistance, movingBoolStr);
     request->send(200, "application/json", formattedString);
+}
+
+void PhaseManager::_reset() {
+    if (DistanceState::readStoredDistance() == -1) {
+        setPhase(PhaseManager::RetractBelts);
+        Serial.println("Phase manager reset with Retract Belts as the first phase");
+    } else {
+        setPhase(PhaseManager::ResumeOrStartOver);
+        Serial.println("Phase manager reset with Resume Or Start Over as the first phase");
+    }
+}
+
+void PhaseManager::reset(AsyncWebServerRequest *request) {
+    _reset();
+    request->send(200, "text/plain", "OK");
 }

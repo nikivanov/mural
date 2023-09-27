@@ -17,7 +17,7 @@ void PenCalibrationPhase::setPenDistance(AsyncWebServerRequest *request) {
     pen->setPenDistance(angle);
     pen->slowUp();
     manager->setPhase(PhaseManager::SvgSelect);
-    request->send(200, "text/plain", "OK"); 
+    manager->respondWithState(request);
 }
 
 const char* PenCalibrationPhase::getName() {

@@ -10,7 +10,7 @@ void SetTopDistancePhase::setTopDistance(AsyncWebServerRequest *request) {
     Serial.println("Setting distance");
     movement->setTopDistance(distance); 
     manager->setPhase(PhaseManager::ExtendToHome);
-    request->send(200, "text/plain", "OK"); 
+    manager->respondWithState(request);
 }
 
 const char* SetTopDistancePhase::getName() {

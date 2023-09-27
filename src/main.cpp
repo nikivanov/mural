@@ -118,6 +118,9 @@ void setup()
     server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleGetState(request); });
 
+    server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->reset(request); });
+
     server.onFileUpload(handleUpload);
 
     server.onNotFound(notFound);
@@ -125,13 +128,6 @@ void setup()
     Serial.println("Finished setting up the server");
 
     phaseManager = new PhaseManager(movement, pen, runner, &server);
-    if (DistanceState::readStoredDistance() == -1) {
-        phaseManager->setPhase(PhaseManager::RetractBelts);
-        Serial.println("Phase manager initialized with Retract Belts as the first phase");
-    } else {
-        phaseManager->setPhase(PhaseManager::ResumeOrStartOver);
-        Serial.println("Phase manager initialized with Resume Or Start Over as the first phase");
-    }
 
     server.begin();
     Serial.println("Server started");

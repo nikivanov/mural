@@ -14,11 +14,14 @@ class PhaseManager {
     Phase* extendToHomePhase;
     Phase* penCalibrationPhase;
     Phase* svgSelectPhase;
+    Movement* movement;
+    void _reset();
     public:
     enum PhaseNames {ResumeOrStartOver, RetractBelts, SetTopDistance, ExtendToHome, PenCalibration, SvgSelect};
     PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server);
     Phase* getCurrentPhase();
     void setPhase(PhaseNames name);
     void respondWithState(AsyncWebServerRequest *request);
+    void reset(AsyncWebServerRequest *request);
 };
 #endif

@@ -53,25 +53,31 @@ function init() {
         $(this).prop( "disabled", true);
         $.post("/extendToHome", {})
         .always(async function() {
-            await new Promise(r => setTimeout(r, 1000));
-            while (true) {
-                try{
-                    const moving = (await $.get("/isMoving")) == 'true';
-                    if (!moving) {
-                        break;
-                    }
-                } catch (e) {
-                    console.log(e);
-                }
-
-                await new Promise(r => setTimeout(r, 1000));
-            }
-
-            $("#extendToHomeSlide").hide();
-            $("#penCalibrationSlide").show();
-            $.post("/setServo", {angle: 90});
+            await checkIfExtendedToHome();
         });
     });
+
+    async function checkIfExtendedToHome() {
+        await new Promise(r => setTimeout(r, 1000));
+        let done = false;
+        while (!done) {
+            await $.post("/doneWithPhase", {}, function (state, status, xhr) {
+                if (xhr.status === 200) {
+                    //movement ended, proceed
+                    adaptToState(state);
+                    $.post("/setServo", { angle: 90 });
+                    done = true;
+                } else if (xhr.status === 202) {
+                    // still moving, retry
+                }
+            }).fail(function () {
+                alert("Done With Phase command failed");
+                location.reload();
+            });
+
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
     
     function getServoValueFromInputValue() {
         const inputValue = parseInt($("#servoRange").val());
@@ -106,10 +112,12 @@ function init() {
 
     $("#setPenDistance").click(function () {
         const inputValue = getServoValueFromInputValue();
-        $.post("/setPenDistance", {angle: inputValue});
-
-        $("#penCalibrationSlide").hide();
-        $("#svgUploadSlide").show();
+        $.post("/setPenDistance", {angle: inputValue}, function(state) {
+            adaptToState(state);
+        }).fail(function() {
+            alert("Failed to set pen distance");
+            location.reload();
+        });
     });
 
     $("#uploadSvg").change(function() {
@@ -301,6 +309,10 @@ function adaptToState(state) {
             break;
         case "ExtendToHome":
             $("#extendToHomeSlide").show();
+            if (state.moving) {
+                $(this).prop( "disabled", true);
+                checkIfExtendedToHome();
+            }
             break;
         case "PenCalibration":
             $("#penCalibrationSlide").show();
