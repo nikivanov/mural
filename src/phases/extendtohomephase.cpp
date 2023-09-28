@@ -11,7 +11,7 @@ void ExtendToHomePhase::doneWithPhase(AsyncWebServerRequest *request) {
     } else {
         DistanceState::storeDistance(movement->getTopDistance());
         manager->setPhase(PhaseManager::PenCalibration);
-        request->send(200, "text/plain", "OK");
+        manager->respondWithState(request);
     }
 }
 

@@ -9,13 +9,21 @@ let uploadLocalURL = null;
 let uploadConvertedCommands = null;
 let convertedSvgURL = null;
 function init() {
-    function doneWithPhase() {
+    function doneWithPhase(custom) {
         $(".muralSlide").hide();
         $("#loadingSlide").show();
-        $.post("/doneWithPhase", {}, function(state) {
+        if (!custom) {
+            custom = {
+                url: "/doneWithPhase",
+                data: {},
+                commandName: "Done With Phase",
+            };
+        }
+
+        $.post(custom.url, custom.data || {}, function(state) {
             adaptToState(state);
         }).fail(function() {
-            alert("Done With Phase command failed");
+            alert(`${commandName} command failed`);
             location.reload();
         });
     }
@@ -28,8 +36,10 @@ function init() {
 
     $("#setDistance").click(function() {
         const inputValue = parseInt($("#distanceInput").val());
-        $.post("/setTopDistance", {angle: inputValue}, function(state) {
-            adaptToState(state);
+        doneWithPhase({
+            url: "/setTopDistance",
+            data: {distance: inputValue},
+            commandName: "Set Top Distance",
         });
     });
 
@@ -51,6 +61,7 @@ function init() {
 
     $("#extendToHome").click(function() {
         $(this).prop( "disabled", true);
+        $("#extendingSpinner").css('visibility', 'visible');
         $.post("/extendToHome", {})
         .always(async function() {
             await checkIfExtendedToHome();
@@ -65,7 +76,6 @@ function init() {
                 if (xhr.status === 200) {
                     //movement ended, proceed
                     adaptToState(state);
-                    $.post("/setServo", { angle: 90 });
                     done = true;
                 } else if (xhr.status === 202) {
                     // still moving, retry
@@ -112,11 +122,11 @@ function init() {
 
     $("#setPenDistance").click(function () {
         const inputValue = getServoValueFromInputValue();
-        $.post("/setPenDistance", {angle: inputValue}, function(state) {
-            adaptToState(state);
-        }).fail(function() {
-            alert("Failed to set pen distance");
-            location.reload();
+        
+        doneWithPhase({
+            url: "/setPenDistance",
+            data: {angle: inputValue},
+            commandName: "Set Pen Distance",
         });
     });
 
@@ -274,15 +284,14 @@ function init() {
     });
 
     $("#startOver").click(function() {
-        $("#resumeOrStartSlide").hide();
-        $("#retractBeltsSlide").show();
+        doneWithPhase();
     });
 
     $("#resume").click(function() {
-        $.post("/resume", {});
-        $("#resumeOrStartSlide").hide();
-        $("#penCalibrationSlide").show();
-        $.post("/setServo", {angle: 90});
+        doneWithPhase({
+            url: "/resume",
+            commandName: "Resume",
+        }); 
     });
 
     $("#loadingSlide").show();
@@ -310,11 +319,13 @@ function adaptToState(state) {
         case "ExtendToHome":
             $("#extendToHomeSlide").show();
             if (state.moving) {
-                $(this).prop( "disabled", true);
+                $("#extendToHome").prop( "disabled", true);
+                $("#extendingSpinner").css('visibility', 'visible');
                 checkIfExtendedToHome();
             }
             break;
         case "PenCalibration":
+            $.post("/setServo", {angle: 90});
             $("#penCalibrationSlide").show();
             break;
         case "SvgSelect":

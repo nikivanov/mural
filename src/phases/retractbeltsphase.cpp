@@ -54,7 +54,7 @@ void RetractBeltsPhase::estepsCalibration(AsyncWebServerRequest* request) {
 
 void RetractBeltsPhase::doneWithPhase(AsyncWebServerRequest *request) {
     manager->setPhase(PhaseManager::SetTopDistance);
-    request->send(200, "text/plain", "OK");
+    manager->respondWithState(request);
 }
 
 const char* RetractBeltsPhase::getName() {

@@ -98,7 +98,6 @@
       <div id="distanceBetweenAnchorsSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Distance between hangers</h3>
         <h6 class="mb-5"><small class="text-muted">Distance between the two nails on which you are hanging Mural, in millimeters</small></h6>
-        
         <input type="text" class="form-control mb-5" id="distanceInput">
         <button class="w-100 btn btn-lg btn-primary mb-5" id="setDistance">Set distance</button>
       </div>
@@ -106,6 +105,7 @@
         <h3 class="mb-2 fw-normal">Extend belts</h3>
         <h6 class="mb-5"><small class="text-muted">The belts will extend to their home position. Make sure the belts are unobstructed and the motors do not skip, or the drawing accuracy may be affected</small></h6>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="extendToHome">Extend to home position</button>
+        <div class="spinner-border mb-5 loading" id="extendingSpinner" role="status" style="visibility:hidden;"></div>
       </div>
       <div id="penCalibrationSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Pen calibration</h3>

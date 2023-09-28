@@ -24,23 +24,30 @@ Phase* PhaseManager::getCurrentPhase() {
 }
 
 void PhaseManager::setPhase(PhaseNames name) {
+    Serial.print("Switching current phase to ");
     switch (name) {
         case PhaseNames::ResumeOrStartOver:
+            Serial.println("ResumeOrStartOver");
             currentPhase = resumeOrStartOverPhase;
             break;
         case PhaseNames::RetractBelts:
+            Serial.println("RetractBelts");
             currentPhase = retractBeltsPhase;
             break;
         case PhaseNames::SetTopDistance:
+            Serial.println("SetTopDistance");
             currentPhase = setTopDistancePhase;
             break;
         case PhaseNames::ExtendToHome:
+            Serial.println("ExtendToHome");
             currentPhase = extendToHomePhase;
             break;
         case PhaseNames::PenCalibration:
+            Serial.println("PenCalibration");
             currentPhase = penCalibrationPhase;
             break;
         case PhaseNames::SvgSelect:
+            Serial.println("SvgSelect");
             currentPhase = svgSelectPhase;
             break;
         default:
@@ -58,6 +65,7 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     
     char formattedString[1024];
     snprintf(formattedString, sizeof(formattedString), responseJsonTemplate, currentPhase, resumeDistance, movingBoolStr);
+
     request->send(200, "application/json", formattedString);
 }
 
