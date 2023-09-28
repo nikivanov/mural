@@ -8,6 +8,28 @@ let uploadId = null;
 let uploadLocalURL = null;
 let uploadConvertedCommands = null;
 let convertedSvgURL = null;
+
+async function checkIfExtendedToHome() {
+    await new Promise(r => setTimeout(r, 1000));
+    let done = false;
+    while (!done) {
+        await $.post("/doneWithPhase", {}, function (state, status, xhr) {
+            if (xhr.status === 200) {
+                //movement ended, proceed
+                adaptToState(state);
+                done = true;
+            } else if (xhr.status === 202) {
+                // still moving, retry
+            }
+        }).fail(function () {
+            alert("Done With Phase command failed");
+            location.reload();
+        });
+
+        await new Promise(r => setTimeout(r, 1000));
+    }
+}
+
 function init() {
     function doneWithPhase(custom) {
         $(".muralSlide").hide();
@@ -68,26 +90,7 @@ function init() {
         });
     });
 
-    async function checkIfExtendedToHome() {
-        await new Promise(r => setTimeout(r, 1000));
-        let done = false;
-        while (!done) {
-            await $.post("/doneWithPhase", {}, function (state, status, xhr) {
-                if (xhr.status === 200) {
-                    //movement ended, proceed
-                    adaptToState(state);
-                    done = true;
-                } else if (xhr.status === 202) {
-                    // still moving, retry
-                }
-            }).fail(function () {
-                alert("Done With Phase command failed");
-                location.reload();
-            });
-
-            await new Promise(r => setTimeout(r, 1000));
-        }
-    }
+    
     
     function getServoValueFromInputValue() {
         const inputValue = parseInt($("#servoRange").val());
