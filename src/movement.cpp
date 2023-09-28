@@ -261,3 +261,11 @@ void Movement::disableMotors() {
     leftMotor->disableOutputs();
     rightMotor->disableOutputs();
 }
+
+bool Movement::isMoving() {
+    return moving;
+}
+
+int Movement::getTopDistance() {
+    return topDistance;
+}

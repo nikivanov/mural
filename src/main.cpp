@@ -5,12 +5,13 @@
 #include <FS.h>
 #include "SPIFFS.h"
 #include <Wire.h>
-
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
+#include "distancestate.h"
+#include "phases/phasemanager.h"
 
 AsyncWebServer server(80);
 
@@ -19,67 +20,13 @@ Runner *runner;
 Pen *pen;
 Display *display;
 
+PhaseManager* phaseManager;
+
 void handleFileRead(String path, AsyncWebServerRequest *request)
 {
     Serial.println("Serving " + path);
     request->send(SPIFFS, path);
 };
-
-int readStoredDistance() {
-    auto distanceFile = SPIFFS.open("/distance");
-    if (!distanceFile || !distanceFile.available()) {
-        return -1;
-    } else {
-        auto distanceStr = distanceFile.readStringUntil('\n');
-        auto distance = atoi(distanceStr.c_str());
-        return distance;
-    }
-}
-
-String processor(const String& var)
-{
-  if(var == "RESUME_DISTANCE") {
-    auto distance = readStoredDistance();
-    return String(distance);
-  } else if (var == "PHASE") {
-      return "dummy";
-  }
- 
-  return String();
-}
-
-void handleTemplatedReadMainJs(AsyncWebServerRequest *request) {
-    Serial.println("Serving templated main.js");
-    request->send(SPIFFS, "/main.js", "text/html", false, processor);
-}
-
-void handleCommand(String command, AsyncWebServerRequest *request)
-{
-    if (command == "l-ret")
-    {
-        movement->leftStepper(-1);
-    }
-    else if (command == "l-ext")
-    {
-        movement->leftStepper(1);
-    }
-    else if (command == "l-0")
-    {
-        movement->leftStepper(0);
-    }
-    else if (command == "r-ret")
-    {
-        movement->rightStepper(-1);
-    }
-    else if (command == "r-ext")
-    {
-        movement->rightStepper(1);
-    }
-    else if (command == "r-0")
-    {
-        movement->rightStepper(0);
-    }
-}
 
 void notFound(AsyncWebServerRequest *request)
 {
@@ -87,21 +34,11 @@ void notFound(AsyncWebServerRequest *request)
 }
 
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    if (!index) {
-        request->_tempFile = SPIFFS.open("/commands", "w");
-        Serial.println("Upload started");
-    }
-    
-    if (len) {
-      // stream the incoming chunk to the opened file
-      request->_tempFile.write(data, len);
-    }
+    phaseManager->getCurrentPhase()->handleUpload(request, filename, index, data, len, final);
+}
 
-    if (final) {
-      request->_tempFile.close();
-      Serial.println("Upload finished");
-      request->send(200, "text/plain", "OK");
-    }
+void handleGetState(AsyncWebServerRequest *request) {
+    phaseManager->respondWithState(request);
 }
 
 void setup()
@@ -146,73 +83,51 @@ void setup()
               { handleFileRead("/client.js", request); });
 
     server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleTemplatedReadMainJs(request); });
+              { handleFileRead("/main.js", request); });
 
     server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleFileRead("/main.css", request); });
 
     server.on("/command", HTTP_POST, [](AsyncWebServerRequest *request)
-              { 
-                  handleCommand(request->arg("command"), request); 
-                  request->send(200, "text/plain", "OK"); 
-              });
+              { phaseManager->getCurrentPhase()->handleCommand(request); });
 
     server.on("/setTopDistance", HTTP_POST, [](AsyncWebServerRequest *request)
-              { 
-                AsyncWebParameter* p = request->getParam(0);
-                int distance = p->value().toInt();
-                Serial.println("Setting distance");
-                movement->setTopDistance(distance); 
-                request->send(200, "text/plain", "OK"); 
-    });
+              { phaseManager->getCurrentPhase()->setTopDistance(request); });
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
-              { 
-                  movement->extendToHome(); 
-                  request->send(200, "text/plain", "OK"); 
-    });
+              { phaseManager->getCurrentPhase()->extendToHome(request); });
 
-    server.on("/setServo", HTTP_POST, [](AsyncWebServerRequest *request) {
-        AsyncWebParameter* p = request->getParam(0);
-        int angle = p->value().toInt();
-        pen->setRawValue(angle);
-        request->send(200, "text/plain", "OK"); 
-    });
-    
-    server.on("/setPenDistance", HTTP_POST, [](AsyncWebServerRequest *request) { 
-        AsyncWebParameter* p = request->getParam(0);
-        int angle = p->value().toInt();
-        pen->setPenDistance(angle);
-        pen->slowUp();
-        request->send(200, "text/plain", "OK"); 
-    });
+    server.on("/setServo", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->setServo(request); });
 
-    server.on("/estepsCalibration", HTTP_POST, [](AsyncWebServerRequest *request) { 
-        Serial.println("Extending 100mm");
-        movement->extend100mm();
-        request->send(200, "text/plain", "OK");
-    });
+    server.on("/setPenDistance", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->setPenDistance(request); });
 
-    server.on("/isMoving", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/plain", movement->isMoving() ? "true" : "false"); });
+    server.on("/estepsCalibration", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->estepsCalibration(request); });
+
+    server.on("/doneWithPhase", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->doneWithPhase(request); });
 
     server.on("/run", HTTP_POST, [](AsyncWebServerRequest *request)
-              { 
-                runner->start();
-                request->send(200, "text/plain", "OK"); 
-                server.end(); });
+              { phaseManager->getCurrentPhase()->run(request); });
 
     server.on("/resume", HTTP_POST, [](AsyncWebServerRequest *request)
-              { 
-                movement->resumeTopDistance(readStoredDistance());
-                request->send(200, "text/plain", "OK");
-                });
+              { phaseManager->getCurrentPhase()->resumeTopDistance(request); });
+
+    server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleGetState(request); });
+
+    server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->reset(request); });
 
     server.onFileUpload(handleUpload);
 
     server.onNotFound(notFound);
 
     Serial.println("Finished setting up the server");
+
+    phaseManager = new PhaseManager(movement, pen, runner, &server);
 
     server.begin();
     Serial.println("Server started");

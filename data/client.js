@@ -1,44 +1,39 @@
-function leftRetractDown() {
-    postCommand("l-ret");
+async function leftRetractDown() {
+    await postCommand("l-ret");
 }
 
-function leftExtendDown() {
-    postCommand("l-ext");
+async function leftExtendDown() {
+    await postCommand("l-ext");
 }
 
-function rightRetractDown() {
-    postCommand("r-ret");
+async function rightRetractDown() {
+    await postCommand("r-ret");
 }
 
-function rightExtendDown() {
-    postCommand("r-ext");
+async function rightExtendDown() {
+    await postCommand("r-ext");
 }
 
-function leftRetractUp() {
-    postCommand("l-0");
+async function leftRetractUp() {
+    await postCommand("l-0");
 }
 
-function leftExtendUp() {
-    postCommand("l-0");
+async function leftExtendUp() {
+    await postCommand("l-0");
 }
 
-function rightRetractUp() {
-    postCommand("r-0");
+async function rightRetractUp() {
+    await postCommand("r-0");
 }
 
-function rightExtendUp() {
-    postCommand("r-0");
+async function rightExtendUp() {
+    await postCommand("r-0");
 }
 
 
-function postCommand(command) {
-    $.post("/command", {command});
-}
-
-function run1() {
-    $.post("/run1", {});
-}
-
-function run2() {
-    $.post("/run2", {});
+async function postCommand(command) {
+    $.post("/command", {command}).fail(function() {
+        alert("Command failed");
+        location.reload();
+    });
 }

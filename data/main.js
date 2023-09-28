@@ -1,26 +1,4 @@
-const __state = {
-    resumeDistance: "%RESUME_DISTANCE%",
-    phase: "%PHASE%",
-};
-
-const STATE = {
-    get resumeDistance() {
-        const parsed = parseInt(__state.resumeDistance);
-        if (isNaN(parsed) || parsed <= 0) {
-            return -1;
-        } else {
-            return parsed;
-        }
-    },
-
-    get phase() {
-        return __state.phase;
-    },
-
-    set phase(val) {
-        __state.phase = val;
-    }
-}
+let currentState = null;
 
 window.onload = function () {
     init();
@@ -31,19 +9,38 @@ let uploadLocalURL = null;
 let uploadConvertedCommands = null;
 let convertedSvgURL = null;
 function init() {
-    $("#beltsRetracted").click(function() { 
-        leftRetractUp();
-        rightRetractUp();
-        $("#retractBeltsSlide").hide();
-        $("#distanceBetweenAnchorsSlide").show();
+    function doneWithPhase(custom) {
+        $(".muralSlide").hide();
+        $("#loadingSlide").show();
+        if (!custom) {
+            custom = {
+                url: "/doneWithPhase",
+                data: {},
+                commandName: "Done With Phase",
+            };
+        }
+
+        $.post(custom.url, custom.data || {}, function(state) {
+            adaptToState(state);
+        }).fail(function() {
+            alert(`${commandName} command failed`);
+            location.reload();
+        });
+    }
+
+    $("#beltsRetracted").click(async function() { 
+        await leftRetractUp();
+        await rightRetractUp();
+        doneWithPhase();
     });
 
     $("#setDistance").click(function() {
         const inputValue = parseInt($("#distanceInput").val());
-        $.post("/setTopDistance", {angle: inputValue});
-        
-        $("#distanceBetweenAnchorsSlide").hide();
-        $("#extendToHomeSlide").show();
+        doneWithPhase({
+            url: "/setTopDistance",
+            data: {distance: inputValue},
+            commandName: "Set Top Distance",
+        });
     });
 
     $("#leftMotorToggle").change(function() {
@@ -64,27 +61,33 @@ function init() {
 
     $("#extendToHome").click(function() {
         $(this).prop( "disabled", true);
+        $("#extendingSpinner").css('visibility', 'visible');
         $.post("/extendToHome", {})
         .always(async function() {
-            await new Promise(r => setTimeout(r, 1000));
-            while (true) {
-                try{
-                    const moving = (await $.get("/isMoving")) == 'true';
-                    if (!moving) {
-                        break;
-                    }
-                } catch (e) {
-                    console.log(e);
-                }
-
-                await new Promise(r => setTimeout(r, 1000));
-            }
-
-            $("#extendToHomeSlide").hide();
-            $("#penCalibrationSlide").show();
-            $.post("/setServo", {angle: 90});
+            await checkIfExtendedToHome();
         });
     });
+
+    async function checkIfExtendedToHome() {
+        await new Promise(r => setTimeout(r, 1000));
+        let done = false;
+        while (!done) {
+            await $.post("/doneWithPhase", {}, function (state, status, xhr) {
+                if (xhr.status === 200) {
+                    //movement ended, proceed
+                    adaptToState(state);
+                    done = true;
+                } else if (xhr.status === 202) {
+                    // still moving, retry
+                }
+            }).fail(function () {
+                alert("Done With Phase command failed");
+                location.reload();
+            });
+
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
     
     function getServoValueFromInputValue() {
         const inputValue = parseInt($("#servoRange").val());
@@ -119,10 +122,12 @@ function init() {
 
     $("#setPenDistance").click(function () {
         const inputValue = getServoValueFromInputValue();
-        $.post("/setPenDistance", {angle: inputValue});
-
-        $("#penCalibrationSlide").hide();
-        $("#svgUploadSlide").show();
+        
+        doneWithPhase({
+            url: "/setPenDistance",
+            data: {angle: inputValue},
+            commandName: "Set Pen Distance",
+        });
     });
 
     $("#uploadSvg").change(function() {
@@ -279,21 +284,54 @@ function init() {
     });
 
     $("#startOver").click(function() {
-        $("#resumeOrStartSlide").hide();
-        $("#retractBeltsSlide").show();
+        doneWithPhase();
     });
 
     $("#resume").click(function() {
-        $.post("/resume", {});
-        $("#resumeOrStartSlide").hide();
-        $("#penCalibrationSlide").show();
-        $.post("/setServo", {angle: 90});
+        doneWithPhase({
+            url: "/resume",
+            commandName: "Resume",
+        }); 
     });
 
-    if (STATE.resumeDistance !== -1) {
-        $(".resumeDistance").text(STATE.resumeDistance);
-        $("#resumeOrStartSlide").show();
-    } else {
-        $("#retractBeltsSlide").show();
+    $("#loadingSlide").show();
+
+    $.get("/getState", function(data) {
+        adaptToState(data);
+    }).fail(function() {
+        alert("Failed to retrieve state");
+    });
+}
+
+function adaptToState(state) {
+    $(".muralSlide").hide();
+    switch(state.phase) {
+        case "ResumeOrStartOver":
+            $(".resumeDistance").text(state.resumeDistance);
+            $("#resumeOrStartSlide").show();
+            break;
+        case "RetractBelts":
+            $("#retractBeltsSlide").show();
+            break;
+        case "SetTopDistance":
+            $("#distanceBetweenAnchorsSlide").show();
+            break;
+        case "ExtendToHome":
+            $("#extendToHomeSlide").show();
+            if (state.moving) {
+                $("#extendToHome").prop( "disabled", true);
+                $("#extendingSpinner").css('visibility', 'visible');
+                checkIfExtendedToHome();
+            }
+            break;
+        case "PenCalibration":
+            $.post("/setServo", {angle: 90});
+            $("#penCalibrationSlide").show();
+            break;
+        case "SvgSelect":
+            $("#svgUploadSlide").show();
+            break;
+        default:
+            alert("Unrecognized phase");
     }
 }
