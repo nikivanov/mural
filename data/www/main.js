@@ -134,6 +134,7 @@ function init() {
     });
 
     $("#uploadSvg").change(async function() {
+        resetTransform();
         const [file] = this.files;
         if (file) {
             if (uploadLocalURL) {
@@ -217,10 +218,6 @@ function init() {
         $("#previewSvg").hide();
         $("#beginDrawing").attr("disabled", "disabled");
 
-        $("#uploadSvg").val('');
-        $("#sourceSvg").removeAttr("src");
-        $("#preview").attr("disabled", "disabled");
-
         $("#svgUploadSlide").show();
         $("#drawingPreviewSlide").hide();
     });
@@ -301,6 +298,8 @@ function init() {
             commandName: "Resume",
         }); 
     });
+
+    initSvgControl();
 
     $("#svgUploadSlide").show();
 

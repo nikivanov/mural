@@ -131,7 +131,7 @@
         <img id="sourceSvg" class="img-thumbnail mb-5 svg-control" style="display:none;">
         <div class="container svg-control mb-5" style="display: none;">
           <div class="row">
-            <div class="col-10">
+            <div class="col-10 align-self-center">
               <div class="set blue">
                 <nav class="d-pad">
                   <a class="up" href="#"></a>
@@ -141,7 +141,11 @@
                 </nav>
               </div>
             </div>
-            <div class="col-2"><button type="button" class="btn btn-primary"><i class="bi-arrow-up-circle-fill fs-2"></i></button></div>
+            <div class="col-2 align-self-center">
+              <button type="button" class="btn btn-primary mb-2" id="zoomIn"><i class="bi-zoom-in fs-2"></i></button>
+              <button type="button" class="btn btn-primary mb-2" id="zoomOut"><i class="bi-zoom-out fs-2"></i></button>
+              <button type="button" class="btn btn-primary" id="resetTransform"><i class="bi-arrow-counterclockwise fs-2"></i></button>
+            </div>
           </div>
         </div>
         <input class="form-control form-control-lg mb-5" id="uploadSvg" type="file" accept=".svg">
