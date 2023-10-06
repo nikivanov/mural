@@ -133,7 +133,7 @@ function init() {
         });
     });
 
-    $("#uploadSvg").change(function() {
+    $("#uploadSvg").change(async function() {
         const [file] = this.files;
         if (file) {
             if (uploadLocalURL) {
@@ -141,7 +141,10 @@ function init() {
             }
             uploadLocalURL = URL.createObjectURL(file);
             uploadId = Date.now();
-            $("#sourceSvg").attr("src", uploadLocalURL);
+            const svgData = await $.get(uploadLocalURL);
+            const svgString = svgData.rootElement.outerHTML;
+            setSvgString(svgString);
+
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
         } else {
