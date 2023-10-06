@@ -142,9 +142,11 @@ function init() {
             uploadLocalURL = URL.createObjectURL(file);
             uploadId = Date.now();
             $("#sourceSvg").attr("src", uploadLocalURL);
+            $(".svg-control").show();
             $("#preview").removeAttr("disabled");
         } else {
             $("#preview").attr("disabled", "disabled");
+            $(".svg-control").hide();
         }
     });
 
@@ -297,7 +299,7 @@ function init() {
         }); 
     });
 
-    $("#loadingSlide").show();
+    $("#svgUploadSlide").show();
 
     $.get("/getState", function(data) {
         adaptToState(data);

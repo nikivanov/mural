@@ -124,7 +124,24 @@
       <div id="svgUploadSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Select SVG Image</h3>
         <h6 class="mb-5"><small class="text-muted">Use black and white line art SVGs for now</small></h6>
-        <img id="sourceSvg" class="img-thumbnail mb-5">
+        <img id="sourceSvg" class="img-thumbnail mb-5 svg-control" style="display:none;">
+        <div class="container svg-control mb-5" style="display: none;">
+          <div class="row">
+            <div class="col"></div>
+            <div class="col"><button type="button" class="btn btn-primary"><i class="bi-arrow-up-circle-fill fs-2"></i></button></div>
+            <div class="col"></div>
+          </div>
+          <div class="row">
+            <div class="col"><button type="button" class="btn btn-primary"><i class="bi-arrow-left-circle-fill fs-2"></i></button></div>
+            <div class="col"></div>
+            <div class="col"><button type="button" class="btn btn-primary"><i class="bi-arrow-right-circle-fill fs-2"></i></button></div>
+          </div>
+          <div class="row">
+            <div class="col"></div>
+            <div class="col"><button type="button" class="btn btn-primary"><i class="bi-arrow-down-circle-fill fs-2"></i></button></div>
+            <div class="col"></div>
+          </div>
+        </div>
         <input class="form-control form-control-lg mb-5" id="uploadSvg" type="file" accept=".svg">
         <button class="w-100 btn btn-lg btn-primary mb-5" id="preview" disabled>Preview drawing</button>
       </div>
