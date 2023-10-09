@@ -29,6 +29,15 @@ void Runner::initTaskProvider() {
         throw std::invalid_argument("bad file");
     }
 
+    auto heightLine = openedFile.readStringUntil('\n');
+    if (heightLine.charAt(0) == 'h') {
+        auto height = heightLine.substring(1, heightLine.length() - 1).toDouble();
+        // we actually dont need it, just validating
+    } else {
+        Serial.println("Bad file - no height");
+        throw std::invalid_argument("bad file");
+    }
+
     Serial.println("Total distance to travel: " + String(totalDistance));
 
     distanceSoFar = 0;

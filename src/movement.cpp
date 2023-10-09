@@ -27,7 +27,6 @@ void Movement::setTopDistance(int distance) {
     minSafeY = safeYFraction * topDistance;
     minSafeXOffset = safeXFraction * topDistance;
     width = topDistance - 2 * minSafeXOffset;
-    height = 1000; //hardcoded for now
 };
 
 void Movement::resumeTopDistance(int distance) {
@@ -99,7 +98,7 @@ Movement::Point Movement::getHomeCoordinates() {
         throw std::invalid_argument("not ready");
     }
 
-    return Point(width / 2, height * 0.25);
+    return Point(width / 2, HOME_Y_OFFSET);
 }
 
 void Movement::extendToHome()
@@ -178,7 +177,7 @@ void Movement::beginLinearTravel(double x, double y)
         throw std::invalid_argument("Invalid x");
     }
 
-    if (y < 0 || y > height)
+    if (y < 0)
     {
         Serial.println("Invalid y");
         throw std::invalid_argument("Invalid y");
@@ -223,13 +222,6 @@ double Movement::getWidth() {
         throw std::invalid_argument("not ready");
     }
     return width;
-}
-
-double Movement::getHeight() {
-    if (topDistance == -1) {
-        throw std::invalid_argument("not ready");
-    }
-    return height;
 }
 
 Movement::Point Movement::getCoordinates() {

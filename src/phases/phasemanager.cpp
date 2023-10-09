@@ -6,7 +6,10 @@
 #include "pencalibrationphase.h"
 #include "svgselectphase.h"
 #include "distancestate.h"
+#include "AsyncJson.h"
+#include "ArduinoJson.h"
 #include <stdexcept>
+
 PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server) {
     resumeOrStartOverPhase = new ResumeOrStartOverPhase(this, movement);
     retractBeltsPhase = new RetractBeltsPhase(this, movement, pen);
@@ -59,14 +62,23 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     auto currentPhase = getCurrentPhase()->getName();
     auto resumeDistance = DistanceState::readStoredDistance();
     auto moving = movement->isMoving();
-    auto movingBoolStr = moving ? "true" : "false";
 
-    auto responseJsonTemplate = "{\"phase\": \"%s\", \"resumeDistance\": %i, \"moving\": %s}";
-    
-    char formattedString[1024];
-    snprintf(formattedString, sizeof(formattedString), responseJsonTemplate, currentPhase, resumeDistance, movingBoolStr);
+    auto topDistance = movement->getTopDistance();
+    auto safeWidth = topDistance != -1 ? movement->getWidth() : -1;
 
-    request->send(200, "application/json", formattedString);
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.createObject();
+
+    root["phase"] = currentPhase;
+    root["resumeDistance"] = resumeDistance;
+    root["moving"] = moving;
+    root["topDistance"] = topDistance;
+    root["safeWidth"] = safeWidth;
+    root["homeYOffset"] = movement->HOME_Y_OFFSET;
+
+    root.printTo(*response);
+    request->send(response);
 }
 
 void PhaseManager::_reset() {

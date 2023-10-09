@@ -21,123 +21,114 @@ function initSvgControl() {
     });
 }
 
-function resetTransform() {
-    xOffset = 0;
-    yOffset = 0;
-    zoom = 1;
-}
-
-let xOffset = 0, yOffset = 0, zoom = 1;
 function getTransform() {
     return {
-        xOffset,
-        yOffset,
-        zoom
+        xOffset: currentSvg.matrix.tx,
+        yOffset: currentSvg.matrix.ty,
+        zoom: currentSvg.matrix.a,
     };
 }
 
 const nudgeBy = 5;
 const zoomBy = 0.05;
 function requestChangeInTransform(direction) {
-    let proposedTransform;
     switch (direction) {
         case "up":
-            proposedTransform = {
-                xOffset,
-                yOffset: yOffset - nudgeBy,
-                zoom,
-            }
+            currentSvg.translate({x: 0, y: -nudgeBy});
             break;
         case "down":
-            proposedTransform = {
-                xOffset,
-                yOffset: yOffset + nudgeBy,
-                zoom,
-            }
+            currentSvg.translate({x: 0, y: nudgeBy});
             break;
         case "left":
-            proposedTransform = {
-                xOffset: xOffset - nudgeBy,
-                yOffset,
-                zoom,
-            }
+            currentSvg.translate({x: -nudgeBy, y: 0});
             break;
         case "right":
-            proposedTransform = {
-                xOffset: xOffset + nudgeBy,
-                yOffset,
-                zoom,
-            }
+            currentSvg.translate({x: nudgeBy, y: 0});
             break;
         case "in":
-            proposedTransform = {
-                xOffset,
-                yOffset,
-                zoom: zoom + zoomBy,
+            {
+                const currentScaling = currentSvg.scaling.x;
+                const targetScaling = currentScaling + zoomBy;
+                currentSvg.scale(targetScaling / currentScaling);
             }
             break;
         case "out":
-            proposedTransform = {
-                xOffset,
-                yOffset,
-                zoom: zoom - zoomBy,
+            {
+                const currentScaling = currentSvg.scaling.x;
+                const targetScaling = currentScaling - zoomBy;
+                currentSvg.scale(targetScaling / currentScaling);
             }
             break;
         case "reset":
-            proposedTransform = {
-                xOffset: 0,
-                yOffset: 0,
-                zoom: 1,
-            }
+            currentSvg.matrix = new paper.Matrix(1, 0, 0, 1, 0, 0);
             break;
         default:
             console.log("Unrecognized transform direction");
             return;
     }
-    if (isValidTransform(proposedTransform)) {
-        xOffset = proposedTransform.xOffset;
-        yOffset = proposedTransform.yOffset;
-        zoom = proposedTransform.zoom;
 
-        setCurrentSvg();
-    }
-}
-
-function isValidTransform(proposedTransform) {
-    // TODO
-    return true;
+    setCurrentSvg();
 }
 
 let currentSvg;
 function setSvgString(svgString) {
-    const width = 1000;
-    const height = 800;
+    const fullWidth = currentState.topDistance;
+    const width = currentState.safeWidth;
 
+    const height = getHeight(svgString, width);
+    
     const size = new paper.Size(width, height);
     paper.setup(size);
     
-    const newSvg = paper.project.importSVG(svgString, {
+    currentSvg = paper.project.importSVG(svgString, {
         expandShapes: true,
         applyMatrix: true,
     });
 
-    newSvg.fitBounds({
+    currentSvg.fitBounds({
         x: 0,
         y: 0,
         width,
         height,
     });
 
+    toggleApplyMatrix(currentSvg, false);
+
+    setCurrentSvg();
+}
+
+function toggleApplyMatrix(item, on) {
+    item.applyMatrix = on;
+    if (Array.isArray(item.children)) {
+        for (const child of item.children) {
+            toggleApplyMatrix(child, on);
+        }
+    }
+}
+
+function setCurrentSvg() {
     const transformedSvgString = paper.project.exportSVG({
         asString: true,
     });
 
-    currentSvg = $(transformedSvgString);
-    setCurrentSvg();
+    $("#sourceSvg")[0].src = "data:image/svg+xml;base64," + btoa(transformedSvgString);
 }
 
-function setCurrentSvg() {
-    currentSvg.attr("transform", `translate(${xOffset} ${yOffset}) scale(${zoom} ${zoom})`);
-    var xml = (new XMLSerializer()).serializeToString(currentSvg[0]);
-    $("#sourceSvg")[0].src = "data:image/svg+xml;base64," + btoa(xml);
+function getHeight(svgString, width) {
+    const sizeBeforeFitting = new paper.Size(width, Number.MAX_SAFE_INTEGER);
+    paper.setup(sizeBeforeFitting);
+    const svgBeforeFitting = paper.project.importSVG(svgString, {
+        expandShapes: true,
+        applyMatrix: true,
+    });
+    svgBeforeFitting.fitBounds({
+        x: 0,
+        y: 0,
+        width: sizeBeforeFitting.width,
+        height: sizeBeforeFitting.height,
+    });
+    const height = Math.floor(svgBeforeFitting.bounds.height);
+    paper.project.remove();
+
+    return height;
 }
