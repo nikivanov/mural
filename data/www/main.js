@@ -179,9 +179,12 @@ function init() {
 
                     const heightCommand = splitCommands[1];
                     const heightMatches = heightCommand.match(/h[0-9]+/);
+
+                    
                     if (distanceMatches[0] && heightMatches[0]) {
                         const height = parseInt(heightMatches[0].slice(1));
-                        if (height) {
+                        const distance = parseInt(distanceMatches[0].slice(1));
+                        if (height && distance) {
                             const requestObj = {
                                 commands: uploadConvertedCommands,
                                 width: currentState.safeWidth,
@@ -197,7 +200,8 @@ function init() {
                                     convertedSvgURL = URL.createObjectURL(svgBlob);
                                     $(".loading").hide();
                                     $("#previewSvg").attr("src", convertedSvgURL);
-                                    $("#previewSvg").show();
+                                    $("#totalDistance").text(distance);
+                                    $(".svg-preview").show();
                                     $("#beginDrawing").removeAttr("disabled");
                                 }
                             }).fail(function (err) {
@@ -228,7 +232,7 @@ function init() {
 
         $(".loading").show();
         $("#previewSvg").removeAttr("src");
-        $("#previewSvg").hide();
+        $(".svg-preview").hide();
         $("#beginDrawing").attr("disabled", "disabled");
 
         $("#svgUploadSlide").show();
@@ -315,6 +319,10 @@ function init() {
     initSvgControl();
 
     $("#loadingSlide").show();
+    // currentState = {
+    //     safeWidth: 1000,
+    // };
+    // $("#svgUploadSlide").show();
 
     $.get("/getState", function(data) {
         adaptToState(data);
