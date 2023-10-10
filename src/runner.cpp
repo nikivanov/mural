@@ -54,10 +54,10 @@ void Runner::initTaskProvider() {
 
 void Runner::start() {
     initTaskProvider();
-    stopped = false;
     DistanceState::deleteStoredDistance();
     currentTask = getNextTask();
     currentTask->startRunning();
+    stopped = false;
 }
 
 Task *Runner::getNextTask()
