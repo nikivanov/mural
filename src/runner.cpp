@@ -5,6 +5,7 @@
 #include "pen.h"
 #include "display.h"
 #include "SPIFFS.h"
+#include "distancestate.h"
 using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
@@ -54,6 +55,7 @@ void Runner::initTaskProvider() {
 void Runner::start() {
     initTaskProvider();
     stopped = false;
+    DistanceState::deleteStoredDistance();
     currentTask = getNextTask();
     currentTask->startRunning();
 }
@@ -91,6 +93,7 @@ Task *Runner::getNextTask()
             sequenceIx = sequenceIx + 1;
             return finishingSequence[currentIx];
         } else {
+            DistanceState::storeDistance(movement->getTopDistance());
             delay(200);
             ESP.restart();
             // unreachable
