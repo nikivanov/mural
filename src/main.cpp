@@ -22,12 +22,6 @@ Display *display;
 
 PhaseManager* phaseManager;
 
-void handleFileRead(String path, AsyncWebServerRequest *request)
-{
-    Serial.println("Serving " + path);
-    request->send(SPIFFS, path);
-};
-
 void notFound(AsyncWebServerRequest *request)
 {
     request->send(404, "text/plain", "Not found");
@@ -73,20 +67,7 @@ void setup()
     runner = new Runner(movement, pen, display);
     Serial.println("Initialized runner");
 
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleFileRead("/index.html", request); });
-
-    server.on("/index.html", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleFileRead("/index.html", request); });
-
-    server.on("/client.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleFileRead("/client.js", request); });
-
-    server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleFileRead("/main.js", request); });
-
-    server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { handleFileRead("/main.css", request); });
+    server.serveStatic("/", SPIFFS, "/www/").setDefaultFile("index.html");
 
     server.on("/command", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->handleCommand(request); });

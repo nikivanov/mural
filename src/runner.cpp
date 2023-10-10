@@ -5,6 +5,7 @@
 #include "pen.h"
 #include "display.h"
 #include "SPIFFS.h"
+#include "distancestate.h"
 using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
@@ -29,6 +30,15 @@ void Runner::initTaskProvider() {
         throw std::invalid_argument("bad file");
     }
 
+    auto heightLine = openedFile.readStringUntil('\n');
+    if (heightLine.charAt(0) == 'h') {
+        auto height = heightLine.substring(1, heightLine.length() - 1).toDouble();
+        // we actually dont need it, just validating
+    } else {
+        Serial.println("Bad file - no height");
+        throw std::invalid_argument("bad file");
+    }
+
     Serial.println("Total distance to travel: " + String(totalDistance));
 
     distanceSoFar = 0;
@@ -44,9 +54,10 @@ void Runner::initTaskProvider() {
 
 void Runner::start() {
     initTaskProvider();
-    stopped = false;
+    DistanceState::deleteStoredDistance();
     currentTask = getNextTask();
     currentTask->startRunning();
+    stopped = false;
 }
 
 Task *Runner::getNextTask()
@@ -82,6 +93,7 @@ Task *Runner::getNextTask()
             sequenceIx = sequenceIx + 1;
             return finishingSequence[currentIx];
         } else {
+            DistanceState::storeDistance(movement->getTopDistance());
             delay(200);
             ESP.restart();
             // unreachable

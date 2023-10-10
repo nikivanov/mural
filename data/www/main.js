@@ -133,7 +133,7 @@ function init() {
         });
     });
 
-    $("#uploadSvg").change(function() {
+    $("#uploadSvg").change(async function() {
         const [file] = this.files;
         if (file) {
             if (uploadLocalURL) {
@@ -141,10 +141,15 @@ function init() {
             }
             uploadLocalURL = URL.createObjectURL(file);
             uploadId = Date.now();
-            $("#sourceSvg").attr("src", uploadLocalURL);
+            const svgData = await $.get(uploadLocalURL);
+            const svgString = svgData.rootElement.outerHTML;
+            setSvgString(svgString);
+
+            $(".svg-control").show();
             $("#preview").removeAttr("disabled");
         } else {
             $("#preview").attr("disabled", "disabled");
+            $(".svg-control").hide();
         }
     });
 
@@ -154,38 +159,60 @@ function init() {
         const thisUploadId = uploadId;
         $.get(uploadLocalURL, function(data) {
             const svgString = data.rootElement.outerHTML;
+            const transform = getTransform();
+
             const requestObj = {
                 svg: svgString,
-                width: 1000,
-                height: 800,
-                start_x: 518,
-                start_y: 250,
+                scale: transform.zoom,
+                x: transform.xOffset,
+                y: transform.yOffset,
+                width: currentState.safeWidth,
             };
             const dataString = JSON.stringify(requestObj);
             $.post("https://5ckjame5j3y4oxfrjtemod76t40khfcq.lambda-url.us-east-1.on.aws/", dataString, function(resp) {
                 if (thisUploadId === uploadId) {
                     uploadConvertedCommands = resp.commands;
-                    const requestObj = {
-                        commands: uploadConvertedCommands,
-                        width: 1000,
-                        height: 800,
-                    };
-                    const dataString = JSON.stringify(requestObj);
-                    $.post("https://k6cpd6wdxwtvvlz3d7gbb4trne0qsoap.lambda-url.us-east-1.on.aws/", dataString, function(resp) {
-                        if (thisUploadId === uploadId) {
-                            const convertedSvg = resp.svg;
-                            const svgBlob = new Blob([convertedSvg], {
-                                type: "image/svg+xml"
+                    const splitCommands = uploadConvertedCommands.split('\n');
+
+                    const distanceCommand = splitCommands[0];
+                    const distanceMatches = distanceCommand.match(/d[0-9]+/);
+
+                    const heightCommand = splitCommands[1];
+                    const heightMatches = heightCommand.match(/h[0-9]+/);
+
+                    
+                    if (distanceMatches[0] && heightMatches[0]) {
+                        const height = parseInt(heightMatches[0].slice(1));
+                        const distance = parseInt(distanceMatches[0].slice(1));
+                        if (height && distance) {
+                            const requestObj = {
+                                commands: uploadConvertedCommands,
+                                width: currentState.safeWidth,
+                                height,
+                            };
+                            const dataString = JSON.stringify(requestObj);
+                            $.post("https://k6cpd6wdxwtvvlz3d7gbb4trne0qsoap.lambda-url.us-east-1.on.aws/", dataString, function(resp) {
+                                if (thisUploadId === uploadId) {
+                                    const convertedSvg = resp.svg;
+                                    const svgBlob = new Blob([convertedSvg], {
+                                        type: "image/svg+xml"
+                                    });
+                                    convertedSvgURL = URL.createObjectURL(svgBlob);
+                                    $(".loading").hide();
+                                    $("#previewSvg").attr("src", convertedSvgURL);
+                                    $("#totalDistance").text(distance);
+                                    $(".svg-preview").show();
+                                    $("#beginDrawing").removeAttr("disabled");
+                                }
+                            }).fail(function (err) {
+                                alert("Failed to render commands back to svg: " + err.responseText)
                             });
-                            convertedSvgURL = URL.createObjectURL(svgBlob);
-                            $(".loading").hide();
-                            $("#previewSvg").attr("src", convertedSvgURL);
-                            $("#previewSvg").show();
-                            $("#beginDrawing").removeAttr("disabled");
+                        } else {
+                            alert("Invalid file returned by lambda");
                         }
-                    }).fail(function (err) {
-                        alert("Failed to render commands back to svg: " + err.responseText)
-                    });
+                    } else {
+                        alert("Invalid file returned by lambda");
+                    }
                 }
             }, ).fail(function(err) {
                 alert("Render function failed: " + err.responseText);
@@ -196,25 +223,17 @@ function init() {
     });
 
     $("#backToSvgSelect").click(function() {
-        if (uploadLocalURL) {
-            URL.revokeObjectURL(uploadLocalURL);
-        }
         if (convertedSvgURL) {
             URL.revokeObjectURL(convertedSvgURL);
         }
-        uploadLocalURL = null;
         convertedSvgURL = null;
         uploadId = null;
         uploadConvertedCommands = null;
 
         $(".loading").show();
         $("#previewSvg").removeAttr("src");
-        $("#previewSvg").hide();
+        $(".svg-preview").hide();
         $("#beginDrawing").attr("disabled", "disabled");
-
-        $("#uploadSvg").val('');
-        $("#sourceSvg").removeAttr("src");
-        $("#preview").attr("disabled", "disabled");
 
         $("#svgUploadSlide").show();
         $("#drawingPreviewSlide").hide();
@@ -297,7 +316,13 @@ function init() {
         }); 
     });
 
+    initSvgControl();
+
     $("#loadingSlide").show();
+    // currentState = {
+    //     safeWidth: 1000,
+    // };
+    // $("#svgUploadSlide").show();
 
     $.get("/getState", function(data) {
         adaptToState(data);
@@ -308,6 +333,7 @@ function init() {
 
 function adaptToState(state) {
     $(".muralSlide").hide();
+    currentState = state;
     switch(state.phase) {
         case "ResumeOrStartOver":
             $(".resumeDistance").text(state.resumeDistance);

@@ -1,0 +1,134 @@
+document.body.addEventListener("click", function(e) {
+	if(e.target && e.target.nodeName == "A" && e.target.parentElement.className == 'd-pad') {
+        const validDirection = ["up", "down", "left", "right"];
+        if (validDirection.includes(e.target.className)) {
+            requestChangeInTransform(e.target.className);
+        }
+	}
+});
+
+function initSvgControl() {
+    $("#zoomIn").click(function() {
+        requestChangeInTransform("in");
+    });
+    
+    $("#zoomOut").click(function() {
+        requestChangeInTransform("out");
+    });
+    
+    $("#resetTransform").click(function() {
+        requestChangeInTransform("reset");
+    });
+}
+
+function getTransform() {
+    return {
+        xOffset: currentSvg.matrix.tx,
+        yOffset: currentSvg.matrix.ty,
+        zoom: currentSvg.matrix.a,
+    };
+}
+
+const nudgeBy = 5;
+const zoomBy = 0.05;
+function requestChangeInTransform(direction) {
+    switch (direction) {
+        case "up":
+            currentSvg.translate({x: 0, y: -nudgeBy});
+            break;
+        case "down":
+            currentSvg.translate({x: 0, y: nudgeBy});
+            break;
+        case "left":
+            currentSvg.translate({x: -nudgeBy, y: 0});
+            break;
+        case "right":
+            currentSvg.translate({x: nudgeBy, y: 0});
+            break;
+        case "in":
+            {
+                const currentScaling = currentSvg.scaling.x;
+                const targetScaling = currentScaling + zoomBy;
+                currentSvg.scale(targetScaling / currentScaling);
+            }
+            break;
+        case "out":
+            {
+                const currentScaling = currentSvg.scaling.x;
+                const targetScaling = currentScaling - zoomBy;
+                currentSvg.scale(targetScaling / currentScaling);
+            }
+            break;
+        case "reset":
+            currentSvg.matrix = new paper.Matrix(1, 0, 0, 1, 0, 0);
+            break;
+        default:
+            console.log("Unrecognized transform direction");
+            return;
+    }
+
+    setCurrentSvg();
+}
+
+let currentSvg;
+function setSvgString(svgString) {
+    const fullWidth = currentState.topDistance;
+    const width = currentState.safeWidth;
+
+    const height = getHeight(svgString, width);
+    
+    const size = new paper.Size(width, height);
+    paper.setup(size);
+    
+    currentSvg = paper.project.importSVG(svgString, {
+        expandShapes: true,
+        applyMatrix: true,
+    });
+
+    currentSvg.fitBounds({
+        x: 0,
+        y: 0,
+        width,
+        height,
+    });
+
+    toggleApplyMatrix(currentSvg, false);
+
+    setCurrentSvg();
+}
+
+function toggleApplyMatrix(item, on) {
+    item.applyMatrix = on;
+    if (Array.isArray(item.children)) {
+        for (const child of item.children) {
+            toggleApplyMatrix(child, on);
+        }
+    }
+}
+
+function setCurrentSvg() {
+    const transformedSvgString = paper.project.exportSVG({
+        asString: true,
+    });
+
+    $("#sourceSvg")[0].src = "data:image/svg+xml;base64," + btoa(transformedSvgString);
+}
+
+function getHeight(svgString, width) {
+    const sizeBeforeFitting = new paper.Size(width, Number.MAX_SAFE_INTEGER);
+    paper.setup(sizeBeforeFitting);
+    const svgBeforeFitting = paper.project.importSVG(svgString, {
+        expandShapes: true,
+        applyMatrix: true,
+    });
+    svgBeforeFitting.fitBounds({
+        x: 0,
+        y: 0,
+        width: sizeBeforeFitting.width,
+        height: sizeBeforeFitting.height,
+    });
+    const height = Math.floor(svgBeforeFitting.bounds.height);
+    paper.project.remove();
+
+    return height;
+}

@@ -33,7 +33,6 @@ private:
 int topDistance;
 double minSafeY;
 double minSafeXOffset;
-double height;
 double width;
 volatile bool moving;
 bool homed;
@@ -43,6 +42,8 @@ AccelStepper *leftMotor;
 AccelStepper *rightMotor;
 Display *display;
 void setOrigin();
+
+
 
 struct Lengths {
     int left;
@@ -71,13 +72,14 @@ struct Point {
     }
 };
 
+const int HOME_Y_OFFSET = 500;
+
 static double distanceBetweenPoints(Point point1, Point point2) {
     return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2));
 }
 
 bool isMoving();
 double getWidth();
-double getHeight();
 Point getCoordinates();
 void setTopDistance(int distance);
 void resumeTopDistance(int distance);
