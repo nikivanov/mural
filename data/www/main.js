@@ -4,7 +4,7 @@ window.onload = function () {
     init();
 };
 
-let uploadId = null;
+let previewId = null;
 let uploadLocalURL = null;
 let uploadConvertedCommands = null;
 let convertedSvgURL = null;
@@ -140,7 +140,6 @@ function init() {
                 URL.revokeObjectURL(uploadLocalURL);
             }
             uploadLocalURL = URL.createObjectURL(file);
-            uploadId = Date.now();
             const svgData = await $.get(uploadLocalURL);
             const svgString = svgData.rootElement.outerHTML;
             setSvgString(svgString);
@@ -150,76 +149,94 @@ function init() {
         } else {
             $("#preview").attr("disabled", "disabled");
             $(".svg-control").hide();
+            $("#infillDensity").val(0);
         }
     });
 
-    $("#preview").click(function() {
+    async function renderPreview() {
+        const thisPreviewId = previewId;
+        const data = await $.get(uploadLocalURL);
+        
+        const svgString = data.rootElement.outerHTML;
+        const transform = getTransform();
+        const infillDensity = getInfillDensity();
+
+        const requestObj = {
+            svg: svgString,
+            scale: transform.zoom,
+            x: transform.xOffset,
+            y: transform.yOffset,
+            width: currentState.safeWidth,
+            infillDensity,
+        };
+        const dataString = JSON.stringify(requestObj);
+        console.log("Posting to lambda");
+        const resp = await $.post("https://5ckjame5j3y4oxfrjtemod76t40khfcq.lambda-url.us-east-1.on.aws/", dataString);
+           
+        if (thisPreviewId !== previewId) {
+            return;
+        }
+            
+        uploadConvertedCommands = resp.commands;
+        const splitCommands = uploadConvertedCommands.split('\n');
+
+        const distanceCommand = splitCommands[0];
+        const distanceMatches = distanceCommand.match(/d[0-9]+/);
+
+        const heightCommand = splitCommands[1];
+        const heightMatches = heightCommand.match(/h[0-9]+/);
+
+        
+        if (distanceMatches[0] && heightMatches[0]) {
+            const height = parseInt(heightMatches[0].slice(1));
+            const distance = parseInt(distanceMatches[0].slice(1));
+            if (height && distance) {
+                const requestObj = {
+                    commands: uploadConvertedCommands,
+                    width: currentState.safeWidth,
+                    height,
+                };
+                const dataString = JSON.stringify(requestObj);
+                const previewResp = await $.post("https://k6cpd6wdxwtvvlz3d7gbb4trne0qsoap.lambda-url.us-east-1.on.aws/", dataString);
+                if (thisPreviewId !== previewId) {
+                    return;
+                }
+                const convertedSvg = previewResp.svg;
+                const svgBlob = new Blob([convertedSvg], {
+                    type: "image/svg+xml"
+                });
+                convertedSvgURL = URL.createObjectURL(svgBlob);
+                $(".loading").hide();
+                $("#previewSpinner").css('visibility', 'hidden');
+                $("#previewSvg").attr("src", convertedSvgURL);
+                $("#totalDistance").text(distance);
+                $(".svg-preview").show();
+                $("#beginDrawing").removeAttr("disabled");
+            } else {
+                alert("Invalid file returned by lambda");
+            }
+        } else {
+            alert("Invalid file returned by lambda");
+        }
+        
+    }
+
+    const debouncedRenderPreview = $.debounce(3000, function(e) {
+        renderPreview();
+    });
+
+    $("#infillDensity").on('input', async function() {
+        $("#previewSpinner").css('visibility', 'visible');
+        $("#beginDrawing").attr("disabled", "disabled");
+        previewId = Date.now();
+        debouncedRenderPreview();  
+    });
+
+    $("#preview").click(async function() {
         $("#svgUploadSlide").hide();
         $("#drawingPreviewSlide").show();
-        const thisUploadId = uploadId;
-        $.get(uploadLocalURL, function(data) {
-            const svgString = data.rootElement.outerHTML;
-            const transform = getTransform();
-
-            const requestObj = {
-                svg: svgString,
-                scale: transform.zoom,
-                x: transform.xOffset,
-                y: transform.yOffset,
-                width: currentState.safeWidth,
-            };
-            const dataString = JSON.stringify(requestObj);
-            $.post("https://5ckjame5j3y4oxfrjtemod76t40khfcq.lambda-url.us-east-1.on.aws/", dataString, function(resp) {
-                if (thisUploadId === uploadId) {
-                    uploadConvertedCommands = resp.commands;
-                    const splitCommands = uploadConvertedCommands.split('\n');
-
-                    const distanceCommand = splitCommands[0];
-                    const distanceMatches = distanceCommand.match(/d[0-9]+/);
-
-                    const heightCommand = splitCommands[1];
-                    const heightMatches = heightCommand.match(/h[0-9]+/);
-
-                    
-                    if (distanceMatches[0] && heightMatches[0]) {
-                        const height = parseInt(heightMatches[0].slice(1));
-                        const distance = parseInt(distanceMatches[0].slice(1));
-                        if (height && distance) {
-                            const requestObj = {
-                                commands: uploadConvertedCommands,
-                                width: currentState.safeWidth,
-                                height,
-                            };
-                            const dataString = JSON.stringify(requestObj);
-                            $.post("https://k6cpd6wdxwtvvlz3d7gbb4trne0qsoap.lambda-url.us-east-1.on.aws/", dataString, function(resp) {
-                                if (thisUploadId === uploadId) {
-                                    const convertedSvg = resp.svg;
-                                    const svgBlob = new Blob([convertedSvg], {
-                                        type: "image/svg+xml"
-                                    });
-                                    convertedSvgURL = URL.createObjectURL(svgBlob);
-                                    $(".loading").hide();
-                                    $("#previewSvg").attr("src", convertedSvgURL);
-                                    $("#totalDistance").text(distance);
-                                    $(".svg-preview").show();
-                                    $("#beginDrawing").removeAttr("disabled");
-                                }
-                            }).fail(function (err) {
-                                alert("Failed to render commands back to svg: " + err.responseText)
-                            });
-                        } else {
-                            alert("Invalid file returned by lambda");
-                        }
-                    } else {
-                        alert("Invalid file returned by lambda");
-                    }
-                }
-            }, ).fail(function(err) {
-                alert("Render function failed: " + err.responseText);
-            });
-        }).fail(function(err) {
-            alert("Failed to acquire upload content, somehow: " + err.responseText);
-        });
+        previewId = Date.now();
+        debouncedRenderPreview();
     });
 
     $("#backToSvgSelect").click(function() {
@@ -227,10 +244,11 @@ function init() {
             URL.revokeObjectURL(convertedSvgURL);
         }
         convertedSvgURL = null;
-        uploadId = null;
+        previewId = null;
         uploadConvertedCommands = null;
 
         $(".loading").show();
+        $("#previewSpinner").css('visibility', 'visible');
         $("#previewSvg").removeAttr("src");
         $(".svg-preview").hide();
         $("#beginDrawing").attr("disabled", "disabled");
@@ -362,5 +380,14 @@ function adaptToState(state) {
             break;
         default:
             alert("Unrecognized phase");
+    }
+}
+
+function getInfillDensity() {
+    const density = parseInt($("#infillDensity").val());
+    if ([0, 1, 2, 3, 4].includes(density)) {
+        return density;
+    } else {
+        throw new Error('Invalid density');
     }
 }

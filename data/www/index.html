@@ -155,8 +155,10 @@
         <h3 class="mb-2 fw-normal">Drawing preview</h3>
         <h6 class="mb-5 loading"><small class="text-muted">This may take a bit...</small></h6>
         <img id="previewSvg" class="img-thumbnail mb-2 svg-preview" style="display:none;">
-        <h6 class="mb-5 fw-normal svg-preview" style="display: none;">Total Distance: <span id="totalDistance"></span>mm</h6>
-        <div class="spinner-border mb-5 loading" role="status"></div>
+        <h6 class="mb-2 fw-normal svg-preview" style="display: none;">Total Distance: <span id="totalDistance"></span>mm</h6>
+        <div class="spinner-border mb-2" id="previewSpinner" role="status"></div><br />
+        <label for="infillDensity" class="form-label">Infill Density</label>
+        <input type="range" class="form-range mb-2 text-center" min="0" max="4" step="1" id="infillDensity" value="0">
         <button class="w-100 btn btn-lg btn-primary mb-2" id="beginDrawing" disabled>Begin drawing</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5" id="backToSvgSelect">Back</button>
       </div>
