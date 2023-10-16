@@ -20,3 +20,8 @@ bool PenTask::isDone() {
     Serial.println("Pen task is done");
     return true;
 }
+
+bool PenTask::validate() {
+    // this task cant fail
+    return true;
+}

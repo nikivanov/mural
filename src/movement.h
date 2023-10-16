@@ -88,7 +88,7 @@ void leftStepper(int dir);
 void rightStepper(int dir);
 void extendToHome();
 void runSteppers();
-void beginLinearTravel(double x, double y);
+bool beginLinearTravel(double x, double y, bool dryRun);
 void extend100mm();
 Point getHomeCoordinates();
 void disableMotors();

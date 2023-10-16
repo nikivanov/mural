@@ -14,5 +14,6 @@ class PenTask : public Task {
     const char* name() {
         return NAME;
     }
+    bool validate();
 };
 #endif

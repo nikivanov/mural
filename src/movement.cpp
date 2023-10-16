@@ -107,7 +107,7 @@ void Movement::extendToHome()
 
     auto homeCoordinates = getHomeCoordinates();
 
-    beginLinearTravel(homeCoordinates.x, homeCoordinates.y);
+    beginLinearTravel(homeCoordinates.x, homeCoordinates.y, false);
 };
 
 void Movement::runSteppers()
@@ -162,25 +162,25 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     return Lengths(leftLegSteps, rightLegSteps);
 }
 
-void Movement::beginLinearTravel(double x, double y)
+bool Movement::beginLinearTravel(double x, double y, bool dryRun)
 {
     X = x;
     Y = y;
     if (topDistance == -1 || !homed) {
         Serial.println("Not ready");
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     if (x < 0 || x > width)
     {
         Serial.println("Invalid x");
-        throw std::invalid_argument("Invalid x");
+        return false;
     }
 
     if (y < 0)
     {
         Serial.println("Invalid y");
-        throw std::invalid_argument("Invalid y");
+        return false;
     }
 
     auto lengths = getBeltLengths(x, y);
@@ -204,17 +204,20 @@ void Movement::beginLinearTravel(double x, double y)
         leftSpeed = deltaLeft / moveTime;
     }
 
-    //Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
-    leftMotor->moveTo(leftLegSteps);
-    leftMotor->setSpeed(leftSpeed);
-    
-    rightMotor->moveTo(-rightLegSteps);
-    rightMotor->setSpeed(rightSpeed);
+    if (!dryRun) {
+        leftMotor->moveTo(leftLegSteps);
+        leftMotor->setSpeed(leftSpeed);
+        
+        rightMotor->moveTo(-rightLegSteps);
+        rightMotor->setSpeed(rightSpeed);
 
-    //display->displayText(String(X) + ", " + String(Y));
-    //delay(sleepAfterMove);
+        //display->displayText(String(X) + ", " + String(Y));
+        //delay(sleepAfterMove);
 
-    moving = true;
+        moving = true;    
+    }
+
+    return true;
 };
 
 double Movement::getWidth() {

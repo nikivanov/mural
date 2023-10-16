@@ -15,28 +15,33 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     this->display = display;
 }
 
-void Runner::initTaskProvider() {
-    openedFile = SPIFFS.open("/commands");
-    if (!openedFile || !openedFile.available()) {
-        Serial.println("Failed to open file");
-        throw std::invalid_argument("No File");
+bool Runner::initTaskProvider() {
+    if (openedFile != NULL) {
+        openedFile->close();
+        delete openedFile;
     }
 
-    auto line = openedFile.readStringUntil('\n');
+    openedFile = &SPIFFS.open("/commands");
+    if (openedFile == NULL || !openedFile->available()) {
+        Serial.println("Failed to open file");
+        return false;
+    }
+
+    auto line = openedFile->readStringUntil('\n');
     if (line.charAt(0) == 'd') {
         totalDistance = line.substring(1, line.length() - 1).toDouble();
     } else {
         Serial.println("Bad file - no distance");
-        throw std::invalid_argument("bad file");
+        return false;
     }
 
-    auto heightLine = openedFile.readStringUntil('\n');
+    auto heightLine = openedFile->readStringUntil('\n');
     if (heightLine.charAt(0) == 'h') {
         auto height = heightLine.substring(1, heightLine.length() - 1).toDouble();
         // we actually dont need it, just validating
     } else {
         Serial.println("Bad file - no height");
-        throw std::invalid_argument("bad file");
+        return false;
     }
 
     Serial.println("Total distance to travel: " + String(totalDistance));
@@ -53,18 +58,20 @@ void Runner::initTaskProvider() {
 }
 
 void Runner::start() {
-    initTaskProvider();
+    if (!initTaskProvider()) {
+        throw std::invalid_argument("bad file");
+    };
     DistanceState::deleteStoredDistance();
-    currentTask = getNextTask();
+    currentTask = getNextTask(false);
     currentTask->startRunning();
     stopped = false;
 }
 
-Task *Runner::getNextTask()
+Task *Runner::getNextTask(bool dryRun)
 {
-    if (openedFile.available())
+    if (openedFile->available())
     {
-        auto line = openedFile.readStringUntil('\n');
+        auto line = openedFile->readStringUntil('\n');
         if (line.charAt(0) == 'p')
         {
             if (line.charAt(1) == '1')
@@ -86,7 +93,7 @@ Task *Runner::getNextTask()
             return new InterpolatingMovementTask(movement, targetPosition);
         }
     }
-    else
+    else if (!dryRun)
     {
         if (sequenceIx < (end(finishingSequence) - begin(finishingSequence))) {
             auto currentIx = sequenceIx;
@@ -99,6 +106,8 @@ Task *Runner::getNextTask()
             // unreachable
             return NULL;
         }
+    } else {
+        return NULL;
     }
 }
 
@@ -127,7 +136,7 @@ void Runner::run()
 
         }
         delete currentTask;
-        currentTask = getNextTask();
+        currentTask = getNextTask(false);
         if (currentTask != NULL)
         {
             currentTask->startRunning();
@@ -139,15 +148,25 @@ void Runner::run()
     }
 }
 
-void Runner::dryRun() {
-    initTaskProvider();
-    auto task = getNextTask();
-    auto index = 1;
+bool Runner::validate() {
+    auto validCommands = initTaskProvider();
+    if (!validCommands) {
+        return false;
+    }
+
+    auto task = getNextTask(true);
+    auto index = 0;
+    auto valid = true;
     while (task != NULL) {
-        //Serial.println(String(index));
+        if (!task->validate()) {
+            Serial.printf("Task %i is not valid\n", index);
+            valid = false;
+        }
+
         index = index + 1;
         delete task;
-        task = getNextTask();
+        task = getNextTask(true);
     }
-    Serial.println("All done");
+
+    return valid;
 }

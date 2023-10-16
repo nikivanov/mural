@@ -10,8 +10,8 @@ class Runner {
     Movement *movement;
     Pen *pen;
     Display *display;
-    void initTaskProvider();
-    Task* getNextTask();
+    bool initTaskProvider();
+    Task* getNextTask(bool dryRun);
     Task* currentTask;
     bool stopped;
     File openedFile;
@@ -26,6 +26,6 @@ class Runner {
     Runner(Movement *movement, Pen *pen, Display *display);
     void start();
     void run();
-    void dryRun();
+    bool validate();
 };
 #endif

@@ -6,9 +6,15 @@ MovementTask::MovementTask(int x, int y, Movement *movement) {
 }
 
 void MovementTask::startRunning() {
-    movement->beginLinearTravel(x, y);
+    if (!movement->beginLinearTravel(x, y, false)) {
+        throw std::invalid_argument("movement validation failure");
+    };
 }
 
 bool MovementTask::isDone() {
     return !(movement->isMoving());
+}
+
+bool MovementTask::validate() {
+    return movement->beginLinearTravel(x, y, true);
 }

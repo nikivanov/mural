@@ -27,7 +27,9 @@ void InterpolatingMovementTask::startRunning() {
     Serial.printf("Starting the move to %f, %f\n", target.x, target.y);
     auto currentCoordinates = movement->getCoordinates();
     auto incrementPoint = getNextIncrement(currentCoordinates, target);
-    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y);
+    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, false)) {
+        throw std::invalid_argument("movement validation failure");
+    };
 }
 
 bool InterpolatingMovementTask::isDone() {
@@ -41,8 +43,18 @@ bool InterpolatingMovementTask::isDone() {
     }
 
     auto incrementPoint = getNextIncrement(movement->getCoordinates(), target);
-    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y);
+    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, false)) {
+        throw std::invalid_argument("movement validation failure");
+    };
     
     return false;
+}
+
+bool InterpolatingMovementTask::validate() {
+    auto currentCoordinates = movement->getCoordinates();
+    auto incrementPoint = getNextIncrement(currentCoordinates, target);
+    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, true)) {
+        return false;
+    };
 }
 

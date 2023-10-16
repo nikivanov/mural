@@ -15,5 +15,6 @@ class MovementTask : public Task {
     const char* name() {
         return NAME;
     }
+    bool validate();
 };
 #endif

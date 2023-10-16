@@ -5,5 +5,6 @@ class Task {
     virtual void startRunning() = 0;
     virtual bool isDone() = 0;
     virtual const char* name() = 0;
+    virtual bool validate() = 0;
 };
 #endif
