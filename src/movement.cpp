@@ -171,7 +171,7 @@ void Movement::beginLinearTravel(double x, double y)
         throw std::invalid_argument("not ready");
     }
 
-    if (x < 0 || x > width)
+    if (x < 0 || (x - 1) > width)
     {
         Serial.println("Invalid x");
         throw std::invalid_argument("Invalid x");
