@@ -21,7 +21,15 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
     if (final) {
       request->_tempFile.close();
       Serial.println("Upload finished");
-      request->send(200, "text/plain", "OK");
+      auto validationResult = runner->validate();
+      if (validationResult) {
+        Serial.println("Validation passed");
+        request->send(200, "text/plain", "OK");
+      } else {
+        Serial.println("Validation failed");
+        request->send(400, "text/plain", "Validation failed");
+      }
+      
     }
 }
 

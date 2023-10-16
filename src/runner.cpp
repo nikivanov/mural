@@ -13,21 +13,18 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     this->movement = movement;
     this->pen = pen;
     this->display = display;
+    this->position = 0;
 }
 
 bool Runner::initTaskProvider() {
-    if (openedFile != NULL) {
-        openedFile->close();
-        delete openedFile;
-    }
-
-    openedFile = &SPIFFS.open("/commands");
-    if (openedFile == NULL || !openedFile->available()) {
+    auto openedFile = SPIFFS.open("/commands");
+    this->position = 0;
+    if (!openedFile.available()) {
         Serial.println("Failed to open file");
         return false;
     }
 
-    auto line = openedFile->readStringUntil('\n');
+    auto line = openedFile.readStringUntil('\n');
     if (line.charAt(0) == 'd') {
         totalDistance = line.substring(1, line.length() - 1).toDouble();
     } else {
@@ -35,7 +32,7 @@ bool Runner::initTaskProvider() {
         return false;
     }
 
-    auto heightLine = openedFile->readStringUntil('\n');
+    auto heightLine = openedFile.readStringUntil('\n');
     if (heightLine.charAt(0) == 'h') {
         auto height = heightLine.substring(1, heightLine.length() - 1).toDouble();
         // we actually dont need it, just validating
@@ -43,6 +40,9 @@ bool Runner::initTaskProvider() {
         Serial.println("Bad file - no height");
         return false;
     }
+
+    this->position = openedFile.position();
+    openedFile.close();
 
     Serial.println("Total distance to travel: " + String(totalDistance));
 
@@ -55,6 +55,8 @@ bool Runner::initTaskProvider() {
     finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
     finishingSequence[1] = new PenTask(false, pen);
     finishingSequence[2] = new PenTask(true, pen);
+
+    return true;
 }
 
 void Runner::start() {
@@ -69,9 +71,13 @@ void Runner::start() {
 
 Task *Runner::getNextTask(bool dryRun)
 {
-    if (openedFile->available())
+    auto openedFile = SPIFFS.open("/commands");
+    openedFile.seek(this->position);
+    if (openedFile.available())
     {
-        auto line = openedFile->readStringUntil('\n');
+        auto line = openedFile.readStringUntil('\n');
+        this->position = openedFile.position();
+        openedFile.close();
         if (line.charAt(0) == 'p')
         {
             if (line.charAt(1) == '1')

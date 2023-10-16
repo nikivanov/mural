@@ -16,5 +16,6 @@ bool MovementTask::isDone() {
 }
 
 bool MovementTask::validate() {
+    Serial.println("")
     return movement->beginLinearTravel(x, y, true);
 }

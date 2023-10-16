@@ -14,7 +14,7 @@ class Runner {
     Task* getNextTask(bool dryRun);
     Task* currentTask;
     bool stopped;
-    File* openedFile;
+    size_t position;
     double totalDistance;
     double distanceSoFar;
     Movement::Point startPosition;
