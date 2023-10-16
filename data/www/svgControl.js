@@ -76,9 +76,10 @@ function setSvgString(svgString) {
     const width = currentState.safeWidth;
 
     const height = getHeight(svgString, width);
+    $("#hiddencanvas").remove();
+    $(document.body).append(`<canvas id="hiddencanvas" width="${width}" height="${height}"></canvas>`);
     
-    const size = new paper.Size(width, height);
-    paper.setup(size);
+    paper.setup($("#hiddencanvas")[0]);
     
     currentSvg = paper.project.importSVG(svgString, {
         expandShapes: true,
@@ -107,11 +108,8 @@ function toggleApplyMatrix(item, on) {
 }
 
 function setCurrentSvg() {
-    const transformedSvgString = paper.project.exportSVG({
-        asString: true,
-    });
-
-    $("#sourceSvg")[0].src = "data:image/svg+xml;base64," + btoa(transformedSvgString);
+    paper.view.draw();
+    $("#sourceSvg")[0].src = $("#hiddencanvas")[0].toDataURL();
 }
 
 function getHeight(svgString, width) {
