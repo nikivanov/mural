@@ -15,9 +15,3 @@ body {
   max-width: 330px;
   padding: 15px;
 }
-
-#hiddencanvas {
-  position: fixed;
-  top: 0;
-  left: -10000px;
-}
