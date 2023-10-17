@@ -26,6 +26,7 @@ function getTransform() {
         xOffset: currentSvg.matrix.tx,
         yOffset: currentSvg.matrix.ty,
         zoom: currentSvg.matrix.a,
+        height: currentSvg.view.viewSize.height,
     };
 }
 
@@ -35,9 +36,11 @@ function requestChangeInTransform(direction) {
     switch (direction) {
         case "up":
             currentSvg.translate({x: 0, y: -nudgeBy});
+            adjustCanvasHeight();
             break;
         case "down":
             currentSvg.translate({x: 0, y: nudgeBy});
+            adjustCanvasHeight();
             break;
         case "left":
             currentSvg.translate({x: -nudgeBy, y: 0});
@@ -51,6 +54,7 @@ function requestChangeInTransform(direction) {
                 const targetScaling = currentScaling + zoomBy;
                 currentSvg.scale(targetScaling / currentScaling);
             }
+            adjustCanvasHeight();
             break;
         case "out":
             {
@@ -58,9 +62,11 @@ function requestChangeInTransform(direction) {
                 const targetScaling = currentScaling - zoomBy;
                 currentSvg.scale(targetScaling / currentScaling);
             }
+            adjustCanvasHeight();
             break;
         case "reset":
             currentSvg.matrix = new paper.Matrix(1, 0, 0, 1, 0, 0);
+            adjustCanvasHeight();
             break;
         default:
             console.log("Unrecognized transform direction");
@@ -70,14 +76,24 @@ function requestChangeInTransform(direction) {
     setCurrentSvg();
 }
 
+function adjustCanvasHeight() {
+    const heightNeeded = currentSvg.bounds.y + currentSvg.bounds.height;
+    if (heightNeeded > currentSvgHeight) {
+        currentSvg.view.viewSize.height = heightNeeded;
+    } else {
+        currentSvg.view.viewSize.height = currentSvgHeight;
+    }
+}
+
 let currentSvg;
+let currentSvgHeight;
 function setSvgString(svgString) {
     const fullWidth = currentState.topDistance;
     const width = currentState.safeWidth;
 
-    const height = getHeight(svgString, width);
+    currentSvgHeight = getHeight(svgString, width);
     $("#hiddencanvas").remove();
-    $(document.body).append(`<canvas id="hiddencanvas" width="${width}" height="${height}"></canvas>`);
+    $(document.body).append(`<canvas id="hiddencanvas" width="${width}" height="${currentSvgHeight}" style="display: none;"></canvas>`);
     
     paper.setup($("#hiddencanvas")[0]);
     
@@ -90,7 +106,7 @@ function setSvgString(svgString) {
         x: 0,
         y: 0,
         width,
-        height,
+        height: currentSvgHeight,
     });
 
     toggleApplyMatrix(currentSvg, false);
