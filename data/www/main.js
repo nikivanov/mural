@@ -169,10 +169,15 @@ function init() {
             width: currentState.safeWidth,
             infillDensity,
         };
-        const dataString = JSON.stringify(requestObj);
+        
         console.log("Posting to lambda");
-        const resp = await $.post("https://5ckjame5j3y4oxfrjtemod76t40khfcq.lambda-url.us-east-1.on.aws/", dataString);
-           
+        const resp = await $.post({
+            url: "https://xbo80tmrf1.execute-api.us-east-1.amazonaws.com/svg-to-commands",
+            data: JSON.stringify(requestObj),
+            dataType: "json",
+            contentType: "application/json"
+        });
+                   
         if (thisPreviewId !== previewId) {
             return;
         }
@@ -196,8 +201,12 @@ function init() {
                     width: currentState.safeWidth,
                     height,
                 };
-                const dataString = JSON.stringify(requestObj);
-                const previewResp = await $.post("https://k6cpd6wdxwtvvlz3d7gbb4trne0qsoap.lambda-url.us-east-1.on.aws/", dataString);
+                const previewResp = await $.post({
+                    url: "https://xbo80tmrf1.execute-api.us-east-1.amazonaws.com/commands-to-svg",
+                    data: JSON.stringify(requestObj),
+                    dataType: "json",
+                    contentType: "application/json"
+                });
                 if (thisPreviewId !== previewId) {
                     return;
                 }
