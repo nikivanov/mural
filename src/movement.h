@@ -10,8 +10,8 @@ const int stepsPerRotation = 4076 / 2;
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 85.6;
-const auto safeYFraction = 0.2;
-const auto safeXFraction = 0.2;
+const auto safeYFraction = 0.3;
+const auto safeXFraction = 0.1;
 
 const auto LEFT_MOTOR_PIN_1 = 27;
 const auto LEFT_MOTOR_PIN_2 = 14;
@@ -72,7 +72,7 @@ struct Point {
     }
 };
 
-const int HOME_Y_OFFSET = 500;
+const int HOME_Y_OFFSET = 350;
 
 static double distanceBetweenPoints(Point point1, Point point2) {
     return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2));
