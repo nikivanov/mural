@@ -129,29 +129,44 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     auto unsafeX = x + minSafeXOffset;
     auto unsafeY = y + minSafeY;
 
-    // auto leftX = unsafeX - bottomDistance / 2;
-    // auto rightX = unsafeX + bottomDistance / 2;
-    // auto leftLeg = sqrt(pow(leftX, 2) + pow(unsafeY, 2));
-    // auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(unsafeY, 2));
+    // we are rotating around the middle of bottomDistance
+    auto halfBottom = bottomDistance / 2;
 
+    // Flat coordinates of the left and right belt points before compensation for tilt
+    auto flatLeftX = unsafeX - halfBottom;
+    auto flatRightX = unsafeX + halfBottom;
+    auto flatLeftY = unsafeY;
+    auto flatRightY = unsafeY;
+
+    // x deviation from the middle - the farther from the middle we go, the more extreme
+    // the angle of Mural gets
     auto xDev = topDistance / 2 - unsafeX;
 
+    // The angle of tilt of Mural based on deviation from the middle
     // we're rotated 90 degrees here, so x is Y and y is X for this function
     auto devAngle = atan2(abs(xDev), unsafeY);
 
-    auto xComp = cos(devAngle) * bottomDistance;
-    auto yComp = sin(devAngle) * bottomDistance;
+    // x compensation is 0 when angle is 0 (in the middle) and grows as the angle grows. The maximum theoretical compensation
+    // is halfBottom if Mural is tilted 90 degrees, which it would never be in practice.
+    // This is an absolute value of compensation - we'll change the sign later
+    auto xComp = halfBottom - cos(devAngle) * halfBottom;
 
-    auto leftX = unsafeX - xComp / 2;
-    auto rightX = unsafeX + xComp / 2;
+    auto yComp = sin(devAngle) * halfBottom;
 
-    double leftY, rightY;
+    double leftX, leftY, rightX, rightY;
+
     if (xDev < 0) {
-        leftY = unsafeY - yComp / 2;
-        rightY = unsafeY + yComp / 2;
+        // we're to the right of the middle axis, Mural is going to be tilting counterclockwise 
+        leftX = flatLeftX + xComp;
+        leftY = flatLeftY + yComp;
+        rightX = flatRightX - xComp;
+        rightY = flatRightY - yComp;  
     } else {
-        leftY = unsafeY + yComp / 2;
-        rightY = unsafeY - yComp / 2;
+        // we're to the left of the middle axis, Mural is going to be tilting clockwise
+        leftX = flatLeftX + xComp;
+        leftY = flatLeftY - yComp;
+        rightX = flatRightX - xComp;
+        rightY = flatRightY + yComp;
     }
 
     auto leftLeg = sqrt(pow(leftX, 2) + pow(leftY, 2));
