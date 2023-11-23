@@ -7,7 +7,7 @@ document.body.addEventListener("click", function(e) {
 	}
 });
 
-function initSvgControl() {
+export function initSvgControl() {
     $("#zoomIn").click(function() {
         requestChangeInTransform("in");
     });
@@ -21,7 +21,7 @@ function initSvgControl() {
     });
 }
 
-function getTransform() {
+export function getTransform() {
     return {
         xOffset: currentSvg.matrix.tx,
         yOffset: currentSvg.matrix.ty,
@@ -87,7 +87,7 @@ function adjustCanvasHeight() {
 
 let currentSvg;
 let currentSvgHeight;
-function setSvgString(svgString) {
+export function setSvgString(svgString, currentState) {
     const fullWidth = currentState.topDistance;
     const width = currentState.safeWidth;
 

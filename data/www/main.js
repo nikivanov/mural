@@ -1,3 +1,6 @@
+import * as svgControl from './svgControl.js';
+import * as client from './client.js';
+
 let currentState = null;
 
 window.onload = function () {
@@ -5,7 +8,6 @@ window.onload = function () {
 };
 
 let previewId = null;
-let uploadLocalURL = null;
 let uploadConvertedCommands = null;
 let convertedSvgURL = null;
 
@@ -51,8 +53,8 @@ function init() {
     }
 
     $("#beltsRetracted").click(async function() { 
-        await leftRetractUp();
-        await rightRetractUp();
+        await client.leftRetractUp();
+        await client.rightRetractUp();
         doneWithPhase();
     });
 
@@ -67,17 +69,17 @@ function init() {
 
     $("#leftMotorToggle").change(function() {
         if (this.checked) {
-            leftRetractDown(); 
+            client.leftRetractDown(); 
         } else {
-            leftRetractUp();
+            client.leftRetractUp();
         }
     });
 
     $("#rightMotorToggle").change(function() {
         if (this.checked) {
-            rightRetractDown(); 
+            client.rightRetractDown(); 
         } else {
-            rightRetractUp();
+            client.rightRetractUp();
         }
     });
 
@@ -133,16 +135,19 @@ function init() {
         });
     });
 
-    $("#uploadSvg").change(async function() {
-        const [file] = this.files;
+    async function getUploadedSvgString() {
+        const [file] = $("#uploadSvg")[0].files;
         if (file) {
-            if (uploadLocalURL) {
-                URL.revokeObjectURL(uploadLocalURL);
-            }
-            uploadLocalURL = URL.createObjectURL(file);
-            const svgData = await $.get(uploadLocalURL);
-            const svgString = svgData.rootElement.outerHTML;
-            setSvgString(svgString);
+            return await file.text();
+        } else {
+            return null;
+        }
+    }
+
+    $("#uploadSvg").change(async function() {
+        const svgString = await getUploadedSvgString();
+        if (svgString) {
+            svgControl.setSvgString(svgString, currentState);
 
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
@@ -155,10 +160,13 @@ function init() {
 
     async function renderPreview() {
         const thisPreviewId = previewId;
-        const data = await $.get(uploadLocalURL);
+        const svgString = await getUploadedSvgString();
+
+        if (!svgString) {
+            throw new Error('No SVG string');
+        }
         
-        const svgString = data.rootElement.outerHTML;
-        const transform = getTransform();
+        const transform = svgControl.getTransform();
         const infillDensity = getInfillDensity();
 
         const requestObj = {
@@ -298,22 +306,22 @@ function init() {
     $("#leftMotorTool").on('input', function() {
         const leftMotorDir = parseInt($("#leftMotorTool").val());
         if (leftMotorDir <= -1) {
-            leftRetractDown(); 
+            client.leftRetractDown(); 
         } else if (leftMotorDir >= 1) {
-            leftExtendDown();
+            client.leftExtendDown();
         } else {
-            leftRetractUp();
+            client.leftRetractUp();
         }
     });
 
     $("#rightMotorTool").on('input', function() {
         const rightMotorDir = parseInt($("#rightMotorTool").val());
         if (rightMotorDir <= -1) {
-            rightRetractDown(); 
+            client.rightRetractDown(); 
         } else if (rightMotorDir >= 1) {
-            rightExtendDown();
+            client.rightExtendDown();
         } else {
-            rightRetractUp();
+            client.rightRetractUp();
         }
     });
 
@@ -328,8 +336,8 @@ function init() {
     const toolsModal = $("#toolsModal")[0];
 
     toolsModal.addEventListener('hidden.bs.modal', function (event) {
-        rightRetractUp();
-        leftRetractUp();
+        client.rightRetractUp();
+        client.leftRetractUp();
     });
 
     $("#startOver").click(function() {
@@ -343,13 +351,9 @@ function init() {
         }); 
     });
 
-    initSvgControl();
+    svgControl.initSvgControl();
 
     $("#loadingSlide").show();
-    // currentState = {
-    //     safeWidth: 1000,
-    // };
-    // $("#svgUploadSlide").show();
 
     $.get("/getState", function(data) {
         adaptToState(data);

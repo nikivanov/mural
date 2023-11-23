@@ -1,35 +1,34 @@
-async function leftRetractDown() {
+export async function leftRetractDown() {
     await postCommand("l-ret");
 }
 
-async function leftExtendDown() {
+export async function leftExtendDown() {
     await postCommand("l-ext");
 }
 
-async function rightRetractDown() {
+export async function rightRetractDown() {
     await postCommand("r-ret");
 }
 
-async function rightExtendDown() {
+export async function rightExtendDown() {
     await postCommand("r-ext");
 }
 
-async function leftRetractUp() {
+export async function leftRetractUp() {
     await postCommand("l-0");
 }
 
-async function leftExtendUp() {
+export async function leftExtendUp() {
     await postCommand("l-0");
 }
 
-async function rightRetractUp() {
+export async function rightRetractUp() {
     await postCommand("r-0");
 }
 
-async function rightExtendUp() {
+export async function rightExtendUp() {
     await postCommand("r-0");
 }
-
 
 async function postCommand(command) {
     $.post("/command", {command}).fail(function() {
