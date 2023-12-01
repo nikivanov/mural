@@ -4,3 +4,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+data/www/worker/*
+tsc/node_modules
+tsc/package-lock.json
+tsc/dist

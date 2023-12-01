@@ -1,13 +1,15 @@
+import * as svgControl from './svgControl.js';
+import * as client from './client.js';
+
 let currentState = null;
+
+let currentWorker = null;
 
 window.onload = function () {
     init();
 };
 
-let previewId = null;
-let uploadLocalURL = null;
 let uploadConvertedCommands = null;
-let convertedSvgURL = null;
 
 async function checkIfExtendedToHome() {
     await new Promise(r => setTimeout(r, 1000));
@@ -51,8 +53,8 @@ function init() {
     }
 
     $("#beltsRetracted").click(async function() { 
-        await leftRetractUp();
-        await rightRetractUp();
+        await client.leftRetractUp();
+        await client.rightRetractUp();
         doneWithPhase();
     });
 
@@ -67,17 +69,17 @@ function init() {
 
     $("#leftMotorToggle").change(function() {
         if (this.checked) {
-            leftRetractDown(); 
+            client.leftRetractDown(); 
         } else {
-            leftRetractUp();
+            client.leftRetractUp();
         }
     });
 
     $("#rightMotorToggle").change(function() {
         if (this.checked) {
-            rightRetractDown(); 
+            client.rightRetractDown(); 
         } else {
-            rightRetractUp();
+            client.rightRetractUp();
         }
     });
 
@@ -89,8 +91,6 @@ function init() {
             await checkIfExtendedToHome();
         });
     });
-
-    
     
     function getServoValueFromInputValue() {
         const inputValue = parseInt($("#servoRange").val());
@@ -133,16 +133,19 @@ function init() {
         });
     });
 
-    $("#uploadSvg").change(async function() {
-        const [file] = this.files;
+    async function getUploadedSvgString() {
+        const [file] = $("#uploadSvg")[0].files;
         if (file) {
-            if (uploadLocalURL) {
-                URL.revokeObjectURL(uploadLocalURL);
-            }
-            uploadLocalURL = URL.createObjectURL(file);
-            const svgData = await $.get(uploadLocalURL);
-            const svgString = svgData.rootElement.outerHTML;
-            setSvgString(svgString);
+            return await file.text();
+        } else {
+            return null;
+        }
+    }
+
+    $("#uploadSvg").change(async function() {
+        const svgString = await getUploadedSvgString();
+        if (svgString) {
+            svgControl.setSvgString(svgString, currentState);
 
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
@@ -154,15 +157,24 @@ function init() {
     });
 
     async function renderPreview() {
-        const thisPreviewId = previewId;
-        const data = await $.get(uploadLocalURL);
+        if (currentWorker) {
+            console.log("Terminating previous worker");
+            currentWorker.terminate();
+        }
+
+        const svgString = await getUploadedSvgString();
+
+        if (!svgString) {
+            throw new Error('No SVG string');
+        }
+
+        const svgJson = svgControl.getSvgJson(svgString);
         
-        const svgString = data.rootElement.outerHTML;
-        const transform = getTransform();
+        const transform = svgControl.getTransform();
         const infillDensity = getInfillDensity();
 
         const requestObj = {
-            svg: svgString,
+            json: svgJson,
             scale: transform.zoom,
             x: transform.xOffset,
             y: transform.yOffset,
@@ -170,94 +182,64 @@ function init() {
             infillDensity,
         };
         
-        console.log("Posting to lambda");
-        const resp = await $.post({
-            url: "https://xbo80tmrf1.execute-api.us-east-1.amazonaws.com/svg-to-commands",
-            data: JSON.stringify(requestObj),
-            dataType: "json",
-            contentType: "application/json"
-        });
-                   
-        if (thisPreviewId !== previewId) {
-            return;
-        }
-            
-        uploadConvertedCommands = resp.commands;
-        const splitCommands = uploadConvertedCommands.split('\n');
+        console.log("Starting worker");
 
-        const distanceCommand = splitCommands[0];
-        const distanceMatches = distanceCommand.match(/d[0-9]+/);
+        currentWorker = new Worker('./worker/worker.js');
 
-        const heightCommand = splitCommands[1];
-        const heightMatches = heightCommand.match(/h[0-9]+/);
+        currentWorker.onmessage = (e) => {
+            if (e.data.type === 'status') {
+                $("#progressBar").text(e.data.payload);
+            } else if (e.data.type === 'result') {
+                console.log("Worker finished!");
 
-        
-        if (distanceMatches[0] && heightMatches[0]) {
-            const height = parseInt(heightMatches[0].slice(1));
-            const distance = parseInt(distanceMatches[0].slice(1));
-            if (height && distance) {
-                const requestObj = {
-                    commands: uploadConvertedCommands,
-                    width: currentState.safeWidth,
-                    height,
-                };
-                const previewResp = await $.post({
-                    url: "https://xbo80tmrf1.execute-api.us-east-1.amazonaws.com/commands-to-svg",
-                    data: JSON.stringify(requestObj),
-                    dataType: "json",
-                    contentType: "application/json"
-                });
-                if (thisPreviewId !== previewId) {
-                    return;
-                }
-                const convertedSvg = previewResp.svg;
-                const svgBlob = new Blob([convertedSvg], {
-                    type: "image/svg+xml"
-                });
-                convertedSvgURL = URL.createObjectURL(svgBlob);
-                $(".loading").hide();
-                $("#previewSpinner").css('visibility', 'hidden');
-                $("#previewSvg").attr("src", convertedSvgURL);
-                $("#totalDistance").text(distance);
+                uploadConvertedCommands = e.data.payload.commands.join('\n');
+                const convertedSvgJson = e.data.payload.json;
+                const dataURL = svgControl.convertJsonToDataURL(convertedSvgJson, e.data.payload.width, e.data.payload.height);
+                
+                deactivateProgressBar();
+                $("#previewSvg").attr("src", dataURL);
+                $("#totalDistance").text(e.data.payload.distance);
                 $(".svg-preview").show();
                 $("#beginDrawing").removeAttr("disabled");
-            } else {
-                alert("Invalid file returned by lambda");
             }
-        } else {
-            alert("Invalid file returned by lambda");
-        }
-        
+        };
+
+        currentWorker.postMessage(requestObj);
     }
 
-    const debouncedRenderPreview = $.debounce(3000, function(e) {
-        renderPreview();
-    });
+    function activateProgressBar() {
+        const bar = $("#progressBar");
+        bar.addClass("progress-bar-striped");
+        bar.addClass("progress-bar-animated");
+        bar.removeClass("bg-success");
+        bar.text("");
+    }
+
+    function deactivateProgressBar() {
+        const bar = $("#progressBar");
+        bar.removeClass("progress-bar-striped");
+        bar.removeClass("progress-bar-animated");
+        bar.addClass("bg-success");
+        bar.text("Success");
+    }
 
     $("#infillDensity").on('input', async function() {
-        $("#previewSpinner").css('visibility', 'visible');
+        activateProgressBar();
         $("#beginDrawing").attr("disabled", "disabled");
-        previewId = Date.now();
-        debouncedRenderPreview();  
+        renderPreview();
     });
 
     $("#preview").click(async function() {
         $("#svgUploadSlide").hide();
         $("#drawingPreviewSlide").show();
-        previewId = Date.now();
-        debouncedRenderPreview();
+        renderPreview();
     });
 
     $("#backToSvgSelect").click(function() {
-        if (convertedSvgURL) {
-            URL.revokeObjectURL(convertedSvgURL);
-        }
-        convertedSvgURL = null;
-        previewId = null;
         uploadConvertedCommands = null;
 
         $(".loading").show();
-        $("#previewSpinner").css('visibility', 'visible');
+        activateProgressBar();
         $("#previewSvg").removeAttr("src");
         $(".svg-preview").hide();
         $("#beginDrawing").attr("disabled", "disabled");
@@ -298,22 +280,22 @@ function init() {
     $("#leftMotorTool").on('input', function() {
         const leftMotorDir = parseInt($("#leftMotorTool").val());
         if (leftMotorDir <= -1) {
-            leftRetractDown(); 
+            client.leftRetractDown(); 
         } else if (leftMotorDir >= 1) {
-            leftExtendDown();
+            client.leftExtendDown();
         } else {
-            leftRetractUp();
+            client.leftRetractUp();
         }
     });
 
     $("#rightMotorTool").on('input', function() {
         const rightMotorDir = parseInt($("#rightMotorTool").val());
         if (rightMotorDir <= -1) {
-            rightRetractDown(); 
+            client.rightRetractDown(); 
         } else if (rightMotorDir >= 1) {
-            rightExtendDown();
+            client.rightExtendDown();
         } else {
-            rightRetractUp();
+            client.rightRetractUp();
         }
     });
 
@@ -328,8 +310,8 @@ function init() {
     const toolsModal = $("#toolsModal")[0];
 
     toolsModal.addEventListener('hidden.bs.modal', function (event) {
-        rightRetractUp();
-        leftRetractUp();
+        client.rightRetractUp();
+        client.leftRetractUp();
     });
 
     $("#startOver").click(function() {
@@ -343,13 +325,9 @@ function init() {
         }); 
     });
 
-    initSvgControl();
+    svgControl.initSvgControl();
 
     $("#loadingSlide").show();
-    // currentState = {
-    //     safeWidth: 1000,
-    // };
-    // $("#svgUploadSlide").show();
 
     $.get("/getState", function(data) {
         adaptToState(data);

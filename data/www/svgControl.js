@@ -7,7 +7,7 @@ document.body.addEventListener("click", function(e) {
 	}
 });
 
-function initSvgControl() {
+export function initSvgControl() {
     $("#zoomIn").click(function() {
         requestChangeInTransform("in");
     });
@@ -21,7 +21,7 @@ function initSvgControl() {
     });
 }
 
-function getTransform() {
+export function getTransform() {
     return {
         xOffset: currentSvg.matrix.tx,
         yOffset: currentSvg.matrix.ty,
@@ -87,7 +87,7 @@ function adjustCanvasHeight() {
 
 let currentSvg;
 let currentSvgHeight;
-function setSvgString(svgString) {
+export function setSvgString(svgString, currentState) {
     const fullWidth = currentState.topDistance;
     const width = currentState.safeWidth;
 
@@ -124,6 +124,12 @@ function toggleApplyMatrix(item, on) {
 }
 
 function setCurrentSvg() {
+    if (!paper.project) {
+        if (paper.projects.length !== 1) {
+            throw new Error("No active project and multiple projects available");
+        }
+        paper.projects[0].activate();
+    }
     paper.view.draw();
     $("#sourceSvg")[0].src = $("#hiddencanvas")[0].toDataURL();
 }
@@ -135,6 +141,7 @@ function getHeight(svgString, width) {
         expandShapes: true,
         applyMatrix: true,
     });
+    
     svgBeforeFitting.fitBounds({
         x: 0,
         y: 0,
@@ -145,4 +152,33 @@ function getHeight(svgString, width) {
     paper.project.remove();
 
     return height;
+}
+
+export function getSvgJson(svgString) {
+    const size = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+    paper.setup(size);
+    const svg = paper.project.importSVG(svgString, {
+        expandShapes: true,
+        applyMatrix: true,
+    });
+    const json = svg.exportJSON();
+    paper.project.remove();
+
+    return json;
+}
+
+export function convertJsonToDataURL(json, width, height) {
+    $("#previewCanvas").remove();
+    $(document.body).append(`<canvas id="previewCanvas" width="${width}" height="${height}" style="display: none;"></canvas>`);
+    
+    paper.setup($("#previewCanvas")[0]);
+    paper.project.importJSON(json);
+    paper.view.draw();
+
+    const dataURL = $("#previewCanvas")[0].toDataURL();
+    
+    paper.project.remove();
+    $("#previewCanvas").remove();
+
+    return dataURL;
 }
