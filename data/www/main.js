@@ -60,6 +60,9 @@ function init() {
 
     $("#setDistance").click(function() {
         const inputValue = parseInt($("#distanceInput").val());
+        if (isNaN(inputValue)) {
+            throw new Error("input value is not a number");
+        }
         doneWithPhase({
             url: "/setTopDistance",
             data: {distance: inputValue},
