@@ -1,4 +1,5 @@
-import { renderSvgToCommands } from "./renderSvgToCommands";
+import { renderCommandsToSvgJson } from "./toSvgJson";
+import { renderSvgToCommands } from "./toCommands";
 import { InfillDensities, RequestTypes } from "./types";
 
 self.onmessage = (e: MessageEvent<any>) => {
@@ -13,12 +14,23 @@ self.onmessage = (e: MessageEvent<any>) => {
         });
     };
 
-    const commands = renderSvgToCommands(e.data.svg, e.data.scale, e.data.x, e.data.y, e.data.width, e.data.infillDensity, self, updateStatusFn);
+    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.width, e.data.infillDensity, self, updateStatusFn);
+    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
+    self.postMessage({
+        type: "result",
+        payload: {
+            commands: renderResult.commands,
+            json: resultSvgJson,
+            width: e.data.width,
+            height: renderResult.height,
+            distance: renderResult.distance
+        }
+    })
 };
 
 
 function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequest {
-    if (!('svg' in obj) || typeof obj.svg !== 'string' || obj.svg.length === 0) {
+    if (!('json' in obj) || typeof obj.json !== 'string' || obj.json.length === 0) {
         return false;
     }
 

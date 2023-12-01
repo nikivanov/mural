@@ -26,7 +26,7 @@ export const InfillDensities: InfillDensity[] = [0, 1, 2, 3, 4];
 
 export namespace RequestTypes {
     export type SvgToCommandsRequest = {
-        svg: string,
+        json: string,
         width: number,
         scale: number,
         x: number,

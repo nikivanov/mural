@@ -1,5 +1,7 @@
-import paper from 'paper';
+import { loadPaper } from "./paperLoader";
 import { InfilledPath } from "./types";
+
+const paper = loadPaper();
 
 export function optimizePaths(infilledPaths: InfilledPath[], start_x: number, start_y: number): paper.Path[] {
     const paths: paper.Path[] = [];

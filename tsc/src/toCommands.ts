@@ -1,27 +1,24 @@
 import { Command, InfillDensity, updateStatusFn } from './types';
-import { clipPaths } from './pathClipper';
-import { generatePaths } from './pathGenerator';
-import { generateInfills } from './infillGenerator';
-import { optimizePaths } from './pathOptimizer';
-import { renderPathsToCommands } from './commandRenderer';
-import { trimCommands } from './commandTrimmer';
-import { dedupeCommands } from './commandDeduplicator';
-import { measureDistance } from './distanceMeasurer';
+import { clipPaths } from './clipper';
+import { generatePaths } from './generator';
+import { generateInfills } from './infill';
+import { optimizePaths } from './optimizer';
+import { renderPathsToCommands } from './renderer';
+import { trimCommands } from './trimmer';
+import { dedupeCommands } from './deduplicator';
+import { measureDistance } from './measurer';
+import { loadPaper } from './paperLoader';
 
-const paper = window.paper as paper.PaperScope;
+const paper = loadPaper();
 
-export function renderSvgToCommands(svgString: string, scale: number, x: number, y: number, width: number, infillDensity: InfillDensity, window: Window, updateStatusFn: updateStatusFn): string[] {
-    const height = getHeight(svgString, width);
+export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, width: number, infillDensity: InfillDensity, window: Window, updateStatusFn: updateStatusFn) {
+    const height = getHeight(svgJson, width);
 
-    paper.install(window);
     const size = new paper.Size(width, height);
     paper.setup(size);
 
     updateStatusFn("Importing");
-    const svg = paper.project.importSVG(svgString, {
-        expandShapes: true,
-        applyMatrix: true,
-    });
+    const svg = paper.project.importJSON(svgJson);
 
     svg.fitBounds({
         x: 0,
@@ -65,11 +62,15 @@ export function renderSvgToCommands(svgString: string, scale: number, x: number,
 
     updateStatusFn("Measuring total distance");
     dedupedCommands.unshift(`h${heightUsed}`);
-    const totalDistance = measureDistance(dedupedCommands);
-    dedupedCommands.unshift(`d${+totalDistance.toFixed(1)}`);
+    const totalDistance = +measureDistance(dedupedCommands).toFixed(1);
+    dedupedCommands.unshift(`d${totalDistance}`);
 
     const commandStrings = dedupedCommands.map(stringifyCommand);
-    return commandStrings;
+    return {
+        commands: commandStrings,
+        height,
+        distance: totalDistance,
+    };
 }
 
 function stringifyCommand(cmd: Command): string {
@@ -80,14 +81,11 @@ function stringifyCommand(cmd: Command): string {
     }
 }
 
-function getHeight(svgString: string, width: number): number {
+function getHeight(svgJson: string, width: number): number {
     const sizeBeforeFitting = new paper.Size(width, Number.MAX_SAFE_INTEGER);
     paper.setup(sizeBeforeFitting);
 
-    const svgBeforeFitting = paper.project.importSVG(svgString, {
-        expandShapes: true,
-        applyMatrix: true,
-    });
+    const svgBeforeFitting = paper.project.importJSON(svgJson);
 
     svgBeforeFitting.fitBounds({
         x: 0,

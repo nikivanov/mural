@@ -124,6 +124,12 @@ function toggleApplyMatrix(item, on) {
 }
 
 function setCurrentSvg() {
+    if (!paper.project) {
+        if (paper.projects.length !== 1) {
+            throw new Error("No active project and multiple projects available");
+        }
+        paper.projects[0].activate();
+    }
     paper.view.draw();
     $("#sourceSvg")[0].src = $("#hiddencanvas")[0].toDataURL();
 }
@@ -145,4 +151,29 @@ function getHeight(svgString, width) {
     paper.project.remove();
 
     return height;
+}
+
+export function getSvgJson(svgString) {
+    const size = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+    paper.setup(size);
+    const svg = paper.project.importSVG(svgString, {
+        expandShapes: true,
+        applyMatrix: true,
+    });
+    const json = svg.exportJSON();
+    paper.project.remove();
+
+    return json;
+}
+
+export function getSvgFromJson(json, width, height) {
+    const size = new paper.Size(width, height);
+    paper.setup(size);
+    const svg = paper.project.importJSON(json);
+    const svgString = paper.project.exportSVG({
+        asString: true,
+    })
+    paper.project.remove();
+
+    return svgString;
 }

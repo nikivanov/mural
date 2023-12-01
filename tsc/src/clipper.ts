@@ -1,4 +1,6 @@
-const paper = window.paper as paper.PaperScope;
+import {loadPaper} from './paperLoader';
+
+const paper = loadPaper();
 
 export function clipPaths(svg: paper.Item) {
     const boundaryRectangle = new paper.Path.Rectangle(paper.project.view.bounds);

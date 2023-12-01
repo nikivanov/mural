@@ -1,5 +1,7 @@
-import paper from 'paper';
+import { loadPaper } from './paperLoader';
 import { PathLike } from './types';
+
+const paper = loadPaper();
 
 export function generatePaths(svg: paper.Item): PathLike[] {
     return generatePathsRecursive(svg);

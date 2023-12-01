@@ -1,6 +1,7 @@
+import { loadPaper } from './paperLoader';
 import { InfillDensity, InfilledPath, PathLike } from './types';
 
-const paper = window.paper as paper.PaperScope;
+const paper = loadPaper();
 
 const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
     [1, 20],

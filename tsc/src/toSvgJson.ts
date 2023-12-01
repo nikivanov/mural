@@ -1,8 +1,10 @@
-const paper = window.paper as paper.PaperScope;
+import { loadPaper } from './paperLoader';
+import {updateStatusFn} from './types';
 
-export function renderCommandsToSvg(commandsString: string, width: number, height: number): string {
-    const commands = commandsString.split('\n');
+const paper = loadPaper();
 
+export function renderCommandsToSvgJson(commands: string[], width: number, height: number, updateStatusFn: updateStatusFn): string {
+    updateStatusFn("Rendering result");
     const size = new paper.Size(width, height);
     paper.setup(size);
 
@@ -81,8 +83,7 @@ export function renderCommandsToSvg(commandsString: string, width: number, heigh
     layer.addChild(backgroundPath);
     backgroundPath.sendToBack();
     
-
-    return paper.project.exportSVG({
+    return paper.project.exportJSON({
         asString: true,
-    }) as string;
+    });
 }
