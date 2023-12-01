@@ -10,7 +10,6 @@ window.onload = function () {
 };
 
 let uploadConvertedCommands = null;
-let convertedSvgURL = null;
 
 async function checkIfExtendedToHome() {
     await new Promise(r => setTimeout(r, 1000));
@@ -92,8 +91,6 @@ function init() {
             await checkIfExtendedToHome();
         });
     });
-
-    
     
     function getServoValueFromInputValue() {
         const inputValue = parseInt($("#servoRange").val());
@@ -197,13 +194,10 @@ function init() {
 
                 uploadConvertedCommands = e.data.payload.commands.join('\n');
                 const convertedSvgJson = e.data.payload.json;
-                const convertedSvg = svgControl.getSvgFromJson(convertedSvgJson, e.data.payload.width, e.data.payload.height);
-                const svgBlob = new Blob([convertedSvg], {
-                    type: "image/svg+xml"
-                });
-                convertedSvgURL = URL.createObjectURL(svgBlob);
+                const dataURL = svgControl.convertJsonToDataURL(convertedSvgJson, e.data.payload.width, e.data.payload.height);
+                
                 deactivateProgressBar();
-                $("#previewSvg").attr("src", convertedSvgURL);
+                $("#previewSvg").attr("src", dataURL);
                 $("#totalDistance").text(e.data.payload.distance);
                 $(".svg-preview").show();
                 $("#beginDrawing").removeAttr("disabled");
@@ -242,10 +236,6 @@ function init() {
     });
 
     $("#backToSvgSelect").click(function() {
-        if (convertedSvgURL) {
-            URL.revokeObjectURL(convertedSvgURL);
-        }
-        convertedSvgURL = null;
         uploadConvertedCommands = null;
 
         $(".loading").show();

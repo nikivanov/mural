@@ -141,6 +141,7 @@ function getHeight(svgString, width) {
         expandShapes: true,
         applyMatrix: true,
     });
+    
     svgBeforeFitting.fitBounds({
         x: 0,
         y: 0,
@@ -166,14 +167,18 @@ export function getSvgJson(svgString) {
     return json;
 }
 
-export function getSvgFromJson(json, width, height) {
-    const size = new paper.Size(width, height);
-    paper.setup(size);
-    const svg = paper.project.importJSON(json);
-    const svgString = paper.project.exportSVG({
-        asString: true,
-    })
-    paper.project.remove();
+export function convertJsonToDataURL(json, width, height) {
+    $("#previewCanvas").remove();
+    $(document.body).append(`<canvas id="previewCanvas" width="${width}" height="${height}" style="display: none;"></canvas>`);
+    
+    paper.setup($("#previewCanvas")[0]);
+    paper.project.importJSON(json);
+    paper.view.draw();
 
-    return svgString;
+    const dataURL = $("#previewCanvas")[0].toDataURL();
+    
+    paper.project.remove();
+    $("#previewCanvas").remove();
+
+    return dataURL;
 }
