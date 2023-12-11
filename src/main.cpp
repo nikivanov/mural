@@ -35,6 +35,7 @@ void handleGetState(AsyncWebServerRequest *request) {
     phaseManager->respondWithState(request);
 }
 
+std::vector<const char *> menu = {"wifi", "sep"};
 void setup()
 {
     delay(10);
@@ -48,6 +49,8 @@ void setup()
 
     WiFiManager wifiManager;
     wifiManager.setConnectTimeout(20);
+    wifiManager.setTitle("Connect to WiFi");
+    wifiManager.setMenu(menu);
     wifiManager.autoConnect("Mural");
     Serial.println("Connected to wifi");
 

@@ -11,7 +11,7 @@ import { loadPaper } from './paperLoader';
 
 const paper = loadPaper();
 
-export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, width: number, infillDensity: InfillDensity, window: Window, updateStatusFn: updateStatusFn) {
+export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, window: Window, updateStatusFn: updateStatusFn) {
     const height = getHeight(svgJson, width);
 
     const size = new paper.Size(width, height);
@@ -50,7 +50,7 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
     const pathsWithInfills = generateInfills(paths, infillDensity);
 
     updateStatusFn("Optimizing paths");
-    const optimizedPaths = optimizePaths(pathsWithInfills, width / 2, heightUsed / 2);
+    const optimizedPaths = optimizePaths(pathsWithInfills, homeX, homeY);
 
     updateStatusFn("Rendering commands");
     const commands = renderPathsToCommands(optimizedPaths);

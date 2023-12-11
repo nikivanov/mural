@@ -183,6 +183,8 @@ function init() {
             y: transform.yOffset,
             width: currentState.safeWidth,
             infillDensity,
+            homeX: currentState.homeX,
+            homeY: currentState.homeY,
         };
         
         console.log("Starting worker");

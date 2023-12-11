@@ -62,6 +62,7 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     auto currentPhase = getCurrentPhase()->getName();
     auto resumeDistance = DistanceState::readStoredDistance();
     auto moving = movement->isMoving();
+    auto homePosition = movement->getHomeCoordinates();
 
     auto topDistance = movement->getTopDistance();
     auto safeWidth = topDistance != -1 ? movement->getWidth() : -1;
@@ -75,7 +76,8 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["moving"] = moving;
     root["topDistance"] = topDistance;
     root["safeWidth"] = safeWidth;
-    root["homeYOffset"] = movement->HOME_Y_OFFSET;
+    root["homeX"] = homePosition.x;
+    root["homeY"] = homePosition.y;
 
     root.printTo(*response);
     request->send(response);

@@ -95,10 +95,10 @@ void Movement::rightStepper(int dir)
 
 Movement::Point Movement::getHomeCoordinates() {
     if (topDistance == -1) {
-        throw std::invalid_argument("not ready");
+        return Point(0, 0);
     }
 
-    return Point(width / 2, HOME_Y_OFFSET);
+    return Point(50, 50);
 }
 
 void Movement::extendToHome()
