@@ -62,7 +62,8 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
 
     updateStatusFn("Measuring total distance");
     dedupedCommands.unshift(`h${heightUsed}`);
-    const totalDistance = +measureDistance(dedupedCommands).toFixed(1);
+    const distances = measureDistance(dedupedCommands);
+    const totalDistance = +distances.totalDistance.toFixed(1);
     dedupedCommands.unshift(`d${totalDistance}`);
 
     const commandStrings = dedupedCommands.map(stringifyCommand);
@@ -70,6 +71,7 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
         commands: commandStrings,
         height,
         distance: totalDistance,
+        drawDistance: +distances.drawDistance.toFixed(1),
     };
 }
 

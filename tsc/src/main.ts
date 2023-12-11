@@ -23,7 +23,8 @@ self.onmessage = (e: MessageEvent<any>) => {
             json: resultSvgJson,
             width: e.data.width,
             height: renderResult.height,
-            distance: renderResult.distance
+            distance: renderResult.distance,
+            drawDistance: renderResult.drawDistance,
         }
     })
 };

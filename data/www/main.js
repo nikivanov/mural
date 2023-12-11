@@ -200,10 +200,13 @@ function init() {
                 uploadConvertedCommands = e.data.payload.commands.join('\n');
                 const convertedSvgJson = e.data.payload.json;
                 const dataURL = svgControl.convertJsonToDataURL(convertedSvgJson, e.data.payload.width, e.data.payload.height);
+
+                const totalDistanceM = +(e.data.payload.distance / 1000).toFixed(1);
+                const drawDistanceM = +(e.data.payload.drawDistance / 1000).toFixed(1);
                 
                 deactivateProgressBar();
                 $("#previewSvg").attr("src", dataURL);
-                $("#totalDistance").text(e.data.payload.distance);
+                $("#distances").text(`Total: ${totalDistanceM}m / Draw: ${drawDistanceM}m`);
                 $(".svg-preview").show();
                 $("#beginDrawing").removeAttr("disabled");
             }
