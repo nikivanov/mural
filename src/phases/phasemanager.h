@@ -22,6 +22,7 @@ class PhaseManager {
     Phase* getCurrentPhase();
     void setPhase(PhaseNames name);
     void respondWithState(AsyncWebServerRequest *request);
+    void respondWithCurrentPhaseOnly(AsyncWebServerRequest *request);
     void reset(AsyncWebServerRequest *request);
 };
 #endif

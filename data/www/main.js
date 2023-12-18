@@ -12,23 +12,22 @@ window.onload = function () {
 let uploadConvertedCommands = null;
 
 async function checkIfExtendedToHome() {
-    await new Promise(r => setTimeout(r, 1000));
+    const waitPeriod = 2000;
+    await new Promise(r => setTimeout(r, waitPeriod));
     let done = false;
     while (!done) {
-        await $.post("/doneWithPhase", {}, function (state, status, xhr) {
-            if (xhr.status === 200) {
-                //movement ended, proceed
+        try {
+            const state = await $.get("/getCurrentPhase");
+            if (state !== 'ExtendToHome') {
                 adaptToState(state);
                 done = true;
-            } else if (xhr.status === 202) {
-                // still moving, retry
+            } else {
+                await new Promise(r => setTimeout(r, waitPeriod));
             }
-        }).fail(function () {
-            alert("Done With Phase command failed");
+        } catch (err) {
+            alert("Failed to get current phase: " + err);
             location.reload();
-        });
-
-        await new Promise(r => setTimeout(r, 1000));
+        }
     }
 }
 
@@ -360,7 +359,7 @@ function adaptToState(state) {
             break;
         case "ExtendToHome":
             $("#extendToHomeSlide").show();
-            if (state.moving) {
+            if (state.moving || state.startedHoming) {
                 $("#extendToHome").prop( "disabled", true);
                 $("#extendingSpinner").css('visibility', 'visible');
                 checkIfExtendedToHome();

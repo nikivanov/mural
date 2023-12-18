@@ -16,5 +16,6 @@ class NotSupportedPhase : public Phase {
     void doneWithPhase(AsyncWebServerRequest *request);
     void estepsCalibration(AsyncWebServerRequest *request);
     const char* getName();
+    void loopPhase();
 };
 #endif

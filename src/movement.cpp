@@ -18,6 +18,7 @@ Movement::Movement(Display *display)
    
     moving = false;
     homed = false;
+    startedHoming = false;
 };
 
 void Movement::setTopDistance(int distance) {
@@ -98,7 +99,7 @@ Movement::Point Movement::getHomeCoordinates() {
         return Point(0, 0);
     }
 
-    return Point(50, 50);
+    return Point(width / 2, HOME_Y_OFFSET);
 }
 
 void Movement::extendToHome()
@@ -106,7 +107,7 @@ void Movement::extendToHome()
     setOrigin();
 
     auto homeCoordinates = getHomeCoordinates();
-
+    startedHoming = true;
     beginLinearTravel(homeCoordinates.x, homeCoordinates.y);
 };
 
@@ -271,6 +272,10 @@ void Movement::disableMotors() {
 
 bool Movement::isMoving() {
     return moving;
+}
+
+bool Movement::hasStartedHoming() {
+    return startedHoming;
 }
 
 int Movement::getTopDistance() {

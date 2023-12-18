@@ -14,5 +14,6 @@ class Phase {
     virtual void doneWithPhase(AsyncWebServerRequest *request) = 0;
     virtual void estepsCalibration(AsyncWebServerRequest *request) = 0;
     virtual const char* getName() = 0;
+    virtual void loopPhase() = 0;
 };
 #endif

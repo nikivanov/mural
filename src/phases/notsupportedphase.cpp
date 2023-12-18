@@ -46,3 +46,7 @@ const char* NotSupportedPhase::getName() {
 void NotSupportedPhase::handleNotSupported(AsyncWebServerRequest *request) {
     request->send(400, "Request is not supported by the current server phase");
 }
+
+void NotSupportedPhase::loopPhase() {
+    // don't throw here - most phases dont need to do anything on loop()
+}
