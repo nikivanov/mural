@@ -44,14 +44,16 @@ void Display::displayHomeScreen(String ipLine, String orLine, String mdnsLine) {
     uint16_t height;
 
     display->getTextBounds(ipLine, 0, 0, &x1, &y1, &width, &height);
-    display->setCursor((SCREEN_WIDTH - width) / 2, 5);
+    display->setCursor((SCREEN_WIDTH - width) / 2, 10);
     display->println(ipLine);
 
     display->getTextBounds(orLine, 0, 0, &x1, &y1, &width, &height);
-    display->setCursor((SCREEN_WIDTH - width) / 2, 5 + SCREEN_HEIGHT / 3);
+    display->setCursor((SCREEN_WIDTH - width) / 2, 10 + SCREEN_HEIGHT / 3);
     display->println(orLine);
 
     display->getTextBounds(mdnsLine, 0, 0, &x1, &y1, &width, &height);
-    display->setCursor((SCREEN_WIDTH - width) / 2, 5 + SCREEN_HEIGHT / 3 * 2);
+    display->setCursor((SCREEN_WIDTH - width) / 2, 10 + SCREEN_HEIGHT / 3 * 2);
     display->println(mdnsLine);
+
+    display->display();
 }

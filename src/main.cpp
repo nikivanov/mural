@@ -116,8 +116,6 @@ void setup()
     server.begin();
     Serial.println("Server started");
 
-    display->displayText("http://" + WiFi.localIP().toString());
-
     display->displayHomeScreen("http://" + WiFi.localIP().toString(), "or", "http://mural.local");
     
 }
