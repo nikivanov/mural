@@ -84,11 +84,6 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     request->send(response);
 }
 
-void PhaseManager::respondWithCurrentPhaseOnly(AsyncWebServerRequest *request) {
-    auto currentPhase = getCurrentPhase()->getName();
-    request->send(200, "text/plain", currentPhase);
-}
-
 void PhaseManager::_reset() {
     if (DistanceState::readStoredDistance() == -1) {
         setPhase(PhaseManager::RetractBelts);

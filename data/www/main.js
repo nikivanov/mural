@@ -17,8 +17,8 @@ async function checkIfExtendedToHome() {
     let done = false;
     while (!done) {
         try {
-            const state = await $.get("/getCurrentPhase");
-            if (state !== 'ExtendToHome') {
+            const state = await $.get("/getState");
+            if (state.phase !== 'ExtendToHome') {
                 adaptToState(state);
                 done = true;
             } else {
@@ -213,6 +213,32 @@ function init() {
 
         currentWorker.postMessage(requestObj);
     }
+
+    $("#testPattern").click(function() {
+        const commands = [
+            "d100",
+            "h100",
+            "p0",
+            "0 0",
+            "p1",
+            "1036 0",
+            "1036 1000",
+            "0 1000",
+            "0 0",
+            "1036 0",
+            "1036 1000",
+            "0 1000",
+            "0 0",
+            "1036 0",
+            "1036 1000",
+            "0 1000",
+            "0 0",
+            "p0",
+        ];
+        
+        uploadConvertedCommands = commands.join('\n');
+        $("#beginDrawing").click();
+    });
 
     function activateProgressBar() {
         const bar = $("#progressBar");

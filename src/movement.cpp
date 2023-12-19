@@ -130,6 +130,14 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     auto unsafeX = x + minSafeXOffset;
     auto unsafeY = y + minSafeY;
 
+    // x deviation from the middle - the farther from the middle we go, the more extreme
+    // the angle of Mural gets
+    auto xDev = topDistance / 2 - unsafeX;
+    
+    // angle of tilt due to deviation from the middle is proportional to that deviation:
+    // the closer we are to either edge the closer we get to the 90 degree tilt
+    auto devAngle = (abs(xDev) / (topDistance / 2)) * (PI / 2);
+
     // we are rotating around the middle of bottomDistance
     auto halfBottom = bottomDistance / 2;
 
@@ -138,14 +146,6 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     auto flatRightX = unsafeX + halfBottom;
     auto flatLeftY = unsafeY;
     auto flatRightY = unsafeY;
-
-    // x deviation from the middle - the farther from the middle we go, the more extreme
-    // the angle of Mural gets
-    auto xDev = topDistance / 2 - unsafeX;
-
-    // The angle of tilt of Mural based on deviation from the middle
-    // we're rotated 90 degrees here, so x is Y and y is X for this function
-    auto devAngle = atan2(abs(xDev), unsafeY);
 
     // x compensation is 0 when angle is 0 (in the middle) and grows as the angle grows. The maximum theoretical compensation
     // is halfBottom if Mural is tilted 90 degrees, which it would never be in practice.

@@ -102,9 +102,6 @@ void setup()
     server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleGetState(request); });
 
-    server.on("/getCurrentPhase", HTTP_GET, [](AsyncWebServerRequest *request)
-              { phaseManager->respondWithCurrentPhaseOnly(request); });
-
     server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->reset(request); });
 
