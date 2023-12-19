@@ -151,6 +151,7 @@ function init() {
 
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
+            updateTransformText();
         } else {
             $("#preview").attr("disabled", "disabled");
             $(".svg-control").hide();
@@ -256,6 +257,14 @@ function init() {
         bar.text("Success");
     }
 
+    function updateTransformText() {
+        const transform = svgControl.getTransform();
+        function normalizeNumber(num) {
+            return +num.toFixed(2);
+        }
+        $("#transformText").text(`(${normalizeNumber(transform.xOffset)}, ${normalizeNumber(transform.yOffset)}) ${normalizeNumber(transform.zoom)}x`);
+    }
+
     $("#infillDensity").on('input', async function() {
         activateProgressBar();
         $("#beginDrawing").attr("disabled", "disabled");
@@ -358,7 +367,7 @@ function init() {
         }); 
     });
 
-    svgControl.initSvgControl();
+    svgControl.initSvgControl(updateTransformText);
 
     $("#loadingSlide").show();
 

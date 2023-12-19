@@ -10,7 +10,7 @@ const int stepsPerRotation = 4076 / 2;
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 85.6;
-const auto safeYFraction = 0.3;
+const auto safeYFraction = 0.35;
 const auto safeXFraction = 0.2;
 
 const auto LEFT_MOTOR_PIN_1 = 27;
