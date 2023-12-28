@@ -31,6 +31,8 @@ export namespace RequestTypes {
         scale: number,
         x: number,
         y: number,
+        homeX: number,
+        homeY: number,
         infillDensity: InfillDensity,
     };
 

@@ -7,7 +7,9 @@ document.body.addEventListener("click", function(e) {
 	}
 });
 
-export function initSvgControl() {
+let transformCallbackFunc;
+export function initSvgControl(transformCallbackFn) {
+    transformCallbackFunc = transformCallbackFn;
     $("#zoomIn").click(function() {
         requestChangeInTransform("in");
     });
@@ -22,12 +24,21 @@ export function initSvgControl() {
 }
 
 export function getTransform() {
-    return {
-        xOffset: currentSvg.matrix.tx,
-        yOffset: currentSvg.matrix.ty,
-        zoom: currentSvg.matrix.a,
-        height: currentSvg.view.viewSize.height,
-    };
+    if (currentSvg) {
+        return {
+            xOffset: currentSvg.matrix.tx,
+            yOffset: currentSvg.matrix.ty,
+            zoom: currentSvg.matrix.a,
+            height: currentSvg.view.viewSize.height,
+        };
+    } else {
+        return {
+            xOffset: 0,
+            yOffset: 0,
+            zoom: 1,
+            height: 0,
+        };
+    }
 }
 
 const nudgeBy = 5;
@@ -74,6 +85,7 @@ function requestChangeInTransform(direction) {
     }
 
     setCurrentSvg();
+    transformCallbackFunc();
 }
 
 function adjustCanvasHeight() {

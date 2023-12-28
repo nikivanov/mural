@@ -14,7 +14,7 @@ self.onmessage = (e: MessageEvent<any>) => {
         });
     };
 
-    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.width, e.data.infillDensity, self, updateStatusFn);
+    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, self, updateStatusFn);
     const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
     self.postMessage({
         type: "result",
@@ -23,7 +23,8 @@ self.onmessage = (e: MessageEvent<any>) => {
             json: resultSvgJson,
             width: e.data.width,
             height: renderResult.height,
-            distance: renderResult.distance
+            distance: renderResult.distance,
+            drawDistance: renderResult.drawDistance,
         }
     })
 };
@@ -47,6 +48,14 @@ function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequ
     }
 
     if (!('y' in obj) || typeof obj.y !== 'number') {
+        return false;
+    }
+
+    if (!('homeX' in obj) || typeof obj.homeX !== 'number') {
+        return false;
+    }
+
+    if (!('homeY' in obj) || typeof obj.homeY !== 'number') {
         return false;
     }
 

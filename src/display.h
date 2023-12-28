@@ -8,5 +8,6 @@ class Display {
     public:
     Display();
     void displayText(String text);
+    void displayHomeScreen(String ipLine, String orLine, String mdnsLine);
 };
 #endif

@@ -11,7 +11,7 @@ import { loadPaper } from './paperLoader';
 
 const paper = loadPaper();
 
-export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, width: number, infillDensity: InfillDensity, window: Window, updateStatusFn: updateStatusFn) {
+export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, window: Window, updateStatusFn: updateStatusFn) {
     const height = getHeight(svgJson, width);
 
     const size = new paper.Size(width, height);
@@ -50,7 +50,7 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
     const pathsWithInfills = generateInfills(paths, infillDensity);
 
     updateStatusFn("Optimizing paths");
-    const optimizedPaths = optimizePaths(pathsWithInfills, width / 2, heightUsed / 2);
+    const optimizedPaths = optimizePaths(pathsWithInfills, homeX, homeY);
 
     updateStatusFn("Rendering commands");
     const commands = renderPathsToCommands(optimizedPaths);
@@ -62,7 +62,8 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
 
     updateStatusFn("Measuring total distance");
     dedupedCommands.unshift(`h${heightUsed}`);
-    const totalDistance = +measureDistance(dedupedCommands).toFixed(1);
+    const distances = measureDistance(dedupedCommands);
+    const totalDistance = +distances.totalDistance.toFixed(1);
     dedupedCommands.unshift(`d${totalDistance}`);
 
     const commandStrings = dedupedCommands.map(stringifyCommand);
@@ -70,6 +71,7 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
         commands: commandStrings,
         height,
         distance: totalDistance,
+        drawDistance: +distances.drawDistance.toFixed(1),
     };
 }
 

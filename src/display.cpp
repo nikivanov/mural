@@ -34,3 +34,26 @@ void Display::displayText(String text)
     display->display();
     Serial.println("Displayed " + text);
 }
+
+void Display::displayHomeScreen(String ipLine, String orLine, String mdnsLine) {
+    display->clearDisplay();
+
+    int16_t x1;
+    int16_t y1;
+    uint16_t width;
+    uint16_t height;
+
+    display->getTextBounds(ipLine, 0, 0, &x1, &y1, &width, &height);
+    display->setCursor((SCREEN_WIDTH - width) / 2, 10);
+    display->println(ipLine);
+
+    display->getTextBounds(orLine, 0, 0, &x1, &y1, &width, &height);
+    display->setCursor((SCREEN_WIDTH - width) / 2, 10 + SCREEN_HEIGHT / 3);
+    display->println(orLine);
+
+    display->getTextBounds(mdnsLine, 0, 0, &x1, &y1, &width, &height);
+    display->setCursor((SCREEN_WIDTH - width) / 2, 10 + SCREEN_HEIGHT / 3 * 2);
+    display->println(mdnsLine);
+
+    display->display();
+}

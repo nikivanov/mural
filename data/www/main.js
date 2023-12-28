@@ -12,23 +12,22 @@ window.onload = function () {
 let uploadConvertedCommands = null;
 
 async function checkIfExtendedToHome() {
-    await new Promise(r => setTimeout(r, 1000));
+    const waitPeriod = 2000;
+    await new Promise(r => setTimeout(r, waitPeriod));
     let done = false;
     while (!done) {
-        await $.post("/doneWithPhase", {}, function (state, status, xhr) {
-            if (xhr.status === 200) {
-                //movement ended, proceed
+        try {
+            const state = await $.get("/getState");
+            if (state.phase !== 'ExtendToHome') {
                 adaptToState(state);
                 done = true;
-            } else if (xhr.status === 202) {
-                // still moving, retry
+            } else {
+                await new Promise(r => setTimeout(r, waitPeriod));
             }
-        }).fail(function () {
-            alert("Done With Phase command failed");
+        } catch (err) {
+            alert("Failed to get current phase: " + err);
             location.reload();
-        });
-
-        await new Promise(r => setTimeout(r, 1000));
+        }
     }
 }
 
@@ -152,6 +151,7 @@ function init() {
 
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
+            updateTransformText();
         } else {
             $("#preview").attr("disabled", "disabled");
             $(".svg-control").hide();
@@ -183,6 +183,8 @@ function init() {
             y: transform.yOffset,
             width: currentState.safeWidth,
             infillDensity,
+            homeX: currentState.homeX,
+            homeY: currentState.homeY,
         };
         
         console.log("Starting worker");
@@ -198,10 +200,13 @@ function init() {
                 uploadConvertedCommands = e.data.payload.commands.join('\n');
                 const convertedSvgJson = e.data.payload.json;
                 const dataURL = svgControl.convertJsonToDataURL(convertedSvgJson, e.data.payload.width, e.data.payload.height);
+
+                const totalDistanceM = +(e.data.payload.distance / 1000).toFixed(1);
+                const drawDistanceM = +(e.data.payload.drawDistance / 1000).toFixed(1);
                 
                 deactivateProgressBar();
                 $("#previewSvg").attr("src", dataURL);
-                $("#totalDistance").text(e.data.payload.distance);
+                $("#distances").text(`Total: ${totalDistanceM}m / Draw: ${drawDistanceM}m`);
                 $(".svg-preview").show();
                 $("#beginDrawing").removeAttr("disabled");
             }
@@ -209,6 +214,32 @@ function init() {
 
         currentWorker.postMessage(requestObj);
     }
+
+    $("#testPattern").click(function() {
+        const commands = [
+            "d100",
+            "h100",
+            "p0",
+            "0 0",
+            "p1",
+            "1036 0",
+            "1036 1000",
+            "0 1000",
+            "0 0",
+            "1036 0",
+            "1036 1000",
+            "0 1000",
+            "0 0",
+            "1036 0",
+            "1036 1000",
+            "0 1000",
+            "0 0",
+            "p0",
+        ];
+        
+        uploadConvertedCommands = commands.join('\n');
+        $("#beginDrawing").click();
+    });
 
     function activateProgressBar() {
         const bar = $("#progressBar");
@@ -224,6 +255,14 @@ function init() {
         bar.removeClass("progress-bar-animated");
         bar.addClass("bg-success");
         bar.text("Success");
+    }
+
+    function updateTransformText() {
+        const transform = svgControl.getTransform();
+        function normalizeNumber(num) {
+            return +num.toFixed(2);
+        }
+        $("#transformText").text(`(${normalizeNumber(transform.xOffset)}, ${normalizeNumber(transform.yOffset)}) ${normalizeNumber(transform.zoom)}x`);
     }
 
     $("#infillDensity").on('input', async function() {
@@ -328,7 +367,7 @@ function init() {
         }); 
     });
 
-    svgControl.initSvgControl();
+    svgControl.initSvgControl(updateTransformText);
 
     $("#loadingSlide").show();
 
@@ -355,7 +394,7 @@ function adaptToState(state) {
             break;
         case "ExtendToHome":
             $("#extendToHomeSlide").show();
-            if (state.moving) {
+            if (state.moving || state.startedHoming) {
                 $("#extendToHome").prop( "disabled", true);
                 $("#extendingSpinner").css('visibility', 'visible');
                 checkIfExtendedToHome();

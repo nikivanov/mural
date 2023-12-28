@@ -10,7 +10,7 @@ class ExtendToHomePhase : public NotSupportedPhase {
     public:
     ExtendToHomePhase(PhaseManager* manager, Movement* movement);
     void extendToHome(AsyncWebServerRequest *request);
-    void doneWithPhase(AsyncWebServerRequest *request);
     const char* getName();
+    void loopPhase();
 };
 #endif

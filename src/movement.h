@@ -10,8 +10,8 @@ const int stepsPerRotation = 4076 / 2;
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 85.6;
-const auto safeYFraction = 0.25;
-const auto safeXFraction = 0.1;
+const auto safeYFraction = 0.35;
+const auto safeXFraction = 0.2;
 
 const auto LEFT_MOTOR_PIN_1 = 27;
 const auto LEFT_MOTOR_PIN_2 = 14;
@@ -38,6 +38,7 @@ volatile bool moving;
 bool homed;
 double X = -1;
 double Y = -1;
+bool startedHoming;
 AccelStepper *leftMotor;
 AccelStepper *rightMotor;
 Display *display;
@@ -79,6 +80,7 @@ static double distanceBetweenPoints(Point point1, Point point2) {
 }
 
 bool isMoving();
+bool hasStartedHoming();
 double getWidth();
 Point getCoordinates();
 void setTopDistance(int distance);
