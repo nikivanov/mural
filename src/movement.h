@@ -3,25 +3,25 @@
 #include "Arduino.h" 
 #include "display.h"
 #include "AccelStepper.h"
-const auto printSpeedSteps = 200;
+const auto printSpeedSteps = 400;
 const long INFINITE_STEPS = 999999999;
 const auto acceleration = 999999999; //essentially infinite, causing instant stop / start
-const int stepsPerRotation = 4076 / 2;
+const int stepsPerRotation = 200 * 8; // 1/8 microstepping
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
-const auto bottomDistance = 85.6;
+const auto bottomDistance = 109.78;
 const auto safeYFraction = 0.35;
 const auto safeXFraction = 0.2;
 
-const auto LEFT_MOTOR_PIN_1 = 27;
-const auto LEFT_MOTOR_PIN_2 = 14;
-const auto LEFT_MOTOR_PIN_3 = 12;
-const auto LEFT_MOTOR_PIN_4 = 13;
+const auto LEFT_STEP_PIN = 13;
+const auto LEFT_DIR_PIN = 12;
+const auto LEFT_ENABLE_PIN = 14;
 
-const auto RIGHT_MOTOR_PIN_1 = 26;
-const auto RIGHT_MOTOR_PIN_2 = 25;
-const auto RIGHT_MOTOR_PIN_3 = 33;
-const auto RIGHT_MOTOR_PIN_4 = 32;
+const auto RIGHT_STEP_PIN = 27;
+const auto RIGHT_DIR_PIN = 26;
+const auto RIGHT_ENABLE_PIN = 25;
+
+
 
 const auto homedStepOffsetMM = 17;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);

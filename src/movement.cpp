@@ -6,11 +6,13 @@ Movement::Movement(Display *display)
 {
     this->display = display;
    
-    leftMotor = new AccelStepper(AccelStepper::FULL4WIRE, LEFT_MOTOR_PIN_1, LEFT_MOTOR_PIN_3, LEFT_MOTOR_PIN_2, LEFT_MOTOR_PIN_4);
+    leftMotor = new AccelStepper(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
+    leftMotor->setEnablePin(LEFT_ENABLE_PIN);
     leftMotor->setMaxSpeed(printSpeedSteps);
     leftMotor->disableOutputs();
 
-    rightMotor = new AccelStepper(AccelStepper::FULL4WIRE, RIGHT_MOTOR_PIN_1, RIGHT_MOTOR_PIN_3, RIGHT_MOTOR_PIN_2, RIGHT_MOTOR_PIN_4);
+    rightMotor = new AccelStepper(AccelStepper::DRIVER, RIGHT_STEP_PIN, RIGHT_DIR_PIN);
+    rightMotor->setEnablePin(RIGHT_ENABLE_PIN);
     rightMotor->setMaxSpeed(printSpeedSteps);
     rightMotor->disableOutputs();
 
