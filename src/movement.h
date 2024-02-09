@@ -3,14 +3,15 @@
 #include "Arduino.h" 
 #include "display.h"
 #include "AccelStepper.h"
-const auto printSpeedSteps = 400;
+const auto printSpeedSteps = 500;
+const auto moveSpeedSteps = 1000;
 const long INFINITE_STEPS = 999999999;
 const auto acceleration = 999999999; //essentially infinite, causing instant stop / start
 const int stepsPerRotation = 200 * 8; // 1/8 microstepping
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
-const auto bottomDistance = 109.78;
-const auto safeYFraction = 0.35;
+const auto bottomDistance = 67.4;
+const auto safeYFraction = 0.2;
 const auto safeXFraction = 0.2;
 
 const auto LEFT_STEP_PIN = 13;
@@ -90,7 +91,7 @@ void leftStepper(int dir);
 void rightStepper(int dir);
 void extendToHome();
 void runSteppers();
-void beginLinearTravel(double x, double y);
+void beginLinearTravel(double x, double y, int speed);
 void extend100mm();
 Point getHomeCoordinates();
 void disableMotors();
