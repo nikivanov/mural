@@ -13,12 +13,10 @@ export type HeightCommand = `h${number}`;
 
 export type Command = CoordinateCommand | PenUpCommand | PenDownCommand | DistanceCommand | HeightCommand;
 
-export type PathLike = paper.Path | paper.CompoundPath;
-
 export type InfilledPath = {
     outlinePaths: paper.Path[],
     infillPaths: paper.Path[],
-    originalPath: PathLike,
+    originalPath: paper.PathItem,
 }
 
 export type InfillDensity = 0 | 1 | 2 | 3 | 4;
@@ -34,6 +32,7 @@ export namespace RequestTypes {
         homeX: number,
         homeY: number,
         infillDensity: InfillDensity,
+        flattenPaths: boolean,
     };
 
     export type CommandsToSvgRequest = {

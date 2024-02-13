@@ -175,6 +175,7 @@ function init() {
         
         const transform = svgControl.getTransform();
         const infillDensity = getInfillDensity();
+        const flattenPaths = getFlattenPathsValue();
 
         const requestObj = {
             json: svgJson,
@@ -183,6 +184,7 @@ function init() {
             y: transform.yOffset,
             width: currentState.safeWidth,
             infillDensity,
+            flattenPaths,
             homeX: currentState.homeX,
             homeY: currentState.homeY,
         };
@@ -266,6 +268,12 @@ function init() {
     }
 
     $("#infillDensity").on('input', async function() {
+        activateProgressBar();
+        $("#beginDrawing").attr("disabled", "disabled");
+        renderPreview();
+    });
+
+    $("#flattenPathsCheckbox").on('change', async function() {
         activateProgressBar();
         $("#beginDrawing").attr("disabled", "disabled");
         renderPreview();
@@ -419,4 +427,8 @@ function getInfillDensity() {
     } else {
         throw new Error('Invalid density');
     }
+}
+
+function getFlattenPathsValue() {
+    return $("#flattenPathsCheckbox").is(":checked");
 }

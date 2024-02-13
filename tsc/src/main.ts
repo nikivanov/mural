@@ -14,7 +14,7 @@ self.onmessage = (e: MessageEvent<any>) => {
         });
     };
 
-    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, self, updateStatusFn);
+    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, e.data.flattenPaths, updateStatusFn);
     const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
     self.postMessage({
         type: "result",
@@ -60,6 +60,10 @@ function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequ
     }
 
     if (!('infillDensity' in obj) || typeof obj.infillDensity !== 'number' || !InfillDensities.includes(obj.infillDensity)) {
+        return false;
+    }
+
+    if (!('flattenPaths' in obj) || typeof obj.flattenPaths !== 'boolean') {
         return false;
     }
 

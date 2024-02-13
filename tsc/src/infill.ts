@@ -1,5 +1,5 @@
 import { loadPaper } from './paperLoader';
-import { InfillDensity, InfilledPath, PathLike } from './types';
+import { InfillDensity, InfilledPath } from './types';
 
 const paper = loadPaper();
 
@@ -12,7 +12,7 @@ const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
 
 const infillAngle = Math.PI / 4;
 
-export function generateInfills(pathsToInfill: PathLike[], infillDensity: InfillDensity): InfilledPath[] {
+export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: InfillDensity): InfilledPath[] {
     const view = paper.project.view;
     const xOffset = view.size.height * Math.tan(infillAngle);
     const lines: paper.Path.Line[] = [];
@@ -40,9 +40,11 @@ export function generateInfills(pathsToInfill: PathLike[], infillDensity: Infill
                 outlinePaths.push(path);
             }
             
-        } else {
+        } else if (path instanceof paper.CompoundPath) {
             const unwoundPaths = unwrapCompoundPath(path).filter(p => p.firstSegment && p.lastSegment);
             outlinePaths.push(...unwoundPaths);
+        } else {
+            throw new Error("Path item is neither a Path or CompoundPath");
         }
 
         const infillPaths: paper.Path[] = [];

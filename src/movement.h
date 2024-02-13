@@ -4,7 +4,7 @@
 #include "display.h"
 #include "AccelStepper.h"
 const auto printSpeedSteps = 500;
-const auto moveSpeedSteps = 1000;
+const auto moveSpeedSteps = 1500;
 const long INFINITE_STEPS = 999999999;
 const auto acceleration = 999999999; //essentially infinite, causing instant stop / start
 const int stepsPerRotation = 200 * 8; // 1/8 microstepping
