@@ -217,32 +217,6 @@ function init() {
         currentWorker.postMessage(requestObj);
     }
 
-    $("#testPattern").click(function() {
-        const commands = [
-            "d100",
-            "h100",
-            "p0",
-            "50 0",
-            "p1",
-            "1380 0",
-            "1380 1100",
-            "50 1100",
-            "50 0",
-            "1380 0",
-            "1380 1100",
-            "50 1100",
-            "50 0",
-            "1380 0",
-            "1380 1100",
-            "50 1100",
-            "50 0",
-            "p0",
-        ];
-        
-        uploadConvertedCommands = commands.join('\n');
-        $("#beginDrawing").click();
-    });
-
     function activateProgressBar() {
         const bar = $("#progressBar");
         bar.addClass("progress-bar-striped");
