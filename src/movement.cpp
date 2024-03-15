@@ -105,13 +105,14 @@ Movement::Point Movement::getHomeCoordinates() {
     return Point(width / 2, HOME_Y_OFFSET);
 }
 
-void Movement::extendToHome()
+int Movement::extendToHome()
 {
     setOrigin();
 
     auto homeCoordinates = getHomeCoordinates();
     startedHoming = true;
-    beginLinearTravel(homeCoordinates.x, homeCoordinates.y, moveSpeedSteps);
+    auto moveTime = beginLinearTravel(homeCoordinates.x, homeCoordinates.y, moveSpeedSteps);
+    return int(ceil(moveTime));
 };
 
 void Movement::runSteppers()
@@ -181,7 +182,7 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     return Lengths(leftLegSteps, rightLegSteps);
 }
 
-void Movement::beginLinearTravel(double x, double y, int speed)
+float Movement::beginLinearTravel(double x, double y, int speed)
 {
     X = x;
     Y = y;
@@ -209,17 +210,17 @@ void Movement::beginLinearTravel(double x, double y, int speed)
     auto deltaLeft = int(abs(abs(leftMotor->currentPosition()) - leftLegSteps));
     auto deltaRight = int(abs(abs(rightMotor->currentPosition()) - rightLegSteps));
 
-    float leftSpeed, rightSpeed;
+    float leftSpeed, rightSpeed, moveTime;
     if (deltaLeft >= deltaRight)
     {
         leftSpeed = speed;
-        auto moveTime = deltaLeft / leftSpeed;
+        moveTime = deltaLeft / leftSpeed;
         rightSpeed = deltaRight / moveTime;
     }
     else
     {
         rightSpeed = speed;
-        auto moveTime = deltaRight / rightSpeed;
+        moveTime = deltaRight / rightSpeed;
         leftSpeed = deltaLeft / moveTime;
     }
 
@@ -234,6 +235,7 @@ void Movement::beginLinearTravel(double x, double y, int speed)
     //delay(sleepAfterMove);
 
     moving = true;
+    return moveTime;
 };
 
 double Movement::getWidth() {

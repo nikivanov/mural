@@ -11,9 +11,10 @@ window.onload = function () {
 
 let uploadConvertedCommands = null;
 
-async function checkIfExtendedToHome() {
+async function checkIfExtendedToHome(extendToHomeTime) {
+    await new Promise(r => setTimeout(r, extendToHomeTime * 1000));
+
     const waitPeriod = 2000;
-    await new Promise(r => setTimeout(r, waitPeriod));
     let done = false;
     while (!done) {
         try {
@@ -89,8 +90,9 @@ function init() {
         $(this).prop( "disabled", true);
         $("#extendingSpinner").css('visibility', 'visible');
         $.post("/extendToHome", {})
-        .always(async function() {
-            await checkIfExtendedToHome();
+        .always(async function(res) {
+            const extendToHomeTime = parseInt(res);
+            await checkIfExtendedToHome(extendToHomeTime);
         });
     });
     
