@@ -174,8 +174,14 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
         rightY = flatRightY + yComp;
     }
 
-    auto leftLeg = sqrt(pow(leftX, 2) + pow(leftY, 2));
-    auto rightLeg = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
+    // left and right leg distances flush to the wall
+    auto leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
+    auto rightLegFlat = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
+
+    // left and right leg distances including the standoff length
+    auto leftLeg = sqrt(pow(leftLegFlat, 2) + pow(midPulleyToWall, 2));
+    auto rightLeg = sqrt(pow(rightLegFlat, 2) + pow(midPulleyToWall, 2));
+
     auto leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
     auto rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
 

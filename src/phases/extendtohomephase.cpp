@@ -16,7 +16,6 @@ const char* ExtendToHomePhase::getName() {
 
 void ExtendToHomePhase::loopPhase() {
     if (movement->hasStartedHoming() && !movement->isMoving()) {
-        DistanceState::storeDistance(movement->getTopDistance());
         manager->setPhase(PhaseManager::PenCalibration);
     }
 }

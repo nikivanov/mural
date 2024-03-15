@@ -11,6 +11,7 @@ const int stepsPerRotation = 200 * 8; // 1/8 microstepping
 const auto diameter = 12.65;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 67.4;
+const auto midPulleyToWall = 41;
 const auto safeYFraction = 0.2;
 const auto safeXFraction = 0.2;
 
