@@ -7,6 +7,7 @@ currentPath = os.getcwd()
 
 os.chdir('./tsc')
 env.Execute("npm run build")
-os.makedirs("../data/www/worker/")
+if not os.path.exists("../data/www/worker/"):
+    os.makedirs("../data/www/worker/")
 env.Execute("cp dist/main.js ../data/www/worker/worker.js")
 os.chdir(currentPath)
