@@ -126,6 +126,28 @@ export function setSvgString(svgString, currentState) {
     setCurrentSvg();
 }
 
+export function getColors() {
+    const colors = new Set();
+    const toVisit = [...currentSvg.children];
+    while (toVisit.length > 0) {
+        const child = toVisit.splice(0, 1)[0];
+    
+        if (child instanceof paper.Path || child instanceof paper.CompoundPath) {
+            colors.add(child.fillColor);
+            colors.add(child.strokeColor);
+
+            if (child.strokeColor && child.fillColor && !child.strokeColor.equals(child.fillColor)) {
+                console.log("color mismatch");
+            }
+        } else if (child instanceof paper.Group) {
+            toVisit.push(...child.children);
+        }
+    }
+
+    colors.delete(null);
+    return colors;
+}
+
 function toggleApplyMatrix(item, on) {
     item.applyMatrix = on;
     if (Array.isArray(item.children)) {

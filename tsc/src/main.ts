@@ -14,7 +14,7 @@ self.onmessage = (e: MessageEvent<any>) => {
         });
     };
 
-    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, e.data.flattenPaths, updateStatusFn);
+    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, e.data.flattenPaths, e.data.selectedColor, updateStatusFn);
     const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
     self.postMessage({
         type: "result",
@@ -64,6 +64,10 @@ function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequ
     }
 
     if (!('flattenPaths' in obj) || typeof obj.flattenPaths !== 'boolean') {
+        return false;
+    }
+
+    if (!('selectedColor' in obj) || typeof obj.selectedColor !== 'string') {
         return false;
     }
 

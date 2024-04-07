@@ -12,7 +12,7 @@ const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
 
 const infillAngle = Math.PI / 4;
 
-export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: InfillDensity): InfilledPath[] {
+export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: InfillDensity, selectedColorString: string): InfilledPath[] {
     const view = paper.project.view;
     const xOffset = view.size.height * Math.tan(infillAngle);
     const lines: paper.Path.Line[] = [];
@@ -29,6 +29,10 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
     }
     
     const infilledPaths = pathsToInfill.map(path => {
+        if (!path.fillColor || path.fillColor.toCSS(false) !== selectedColorString) {
+            return null;
+        }
+
         if (path.fillColor && path.fillColor.toCSS(true) === '#ffffff' && !path.strokeColor) {
             return null;
         }

@@ -33,6 +33,7 @@ export namespace RequestTypes {
         homeY: number,
         infillDensity: InfillDensity,
         flattenPaths: boolean,
+        selectedColor: string,
     };
 
     export type CommandsToSvgRequest = {

@@ -12,7 +12,7 @@ import { flattenPaths} from './flattener';
 
 const paper = loadPaper();
 
-export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, doFlattenPaths: boolean, updateStatusFn: updateStatusFn) {
+export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, doFlattenPaths: boolean, selectedColorString: string, updateStatusFn: updateStatusFn) {
     const height = getHeight(svgJson, width);
 
     const size = new paper.Size(width, height);
@@ -51,8 +51,10 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
         flattenPaths(paths, updateStatusFn);
     }
 
+    const filteredPaths = paths.filter(p => p.strokeColor?.toCSS(false) == selectedColorString || p.fillColor?.toCSS(false) == selectedColorString);
+
     updateStatusFn("Generating infill");
-    const pathsWithInfills = generateInfills(paths, infillDensity);
+    const pathsWithInfills = generateInfills(filteredPaths, infillDensity, selectedColorString);
 
     updateStatusFn("Optimizing paths");
     const optimizedPaths = optimizePaths(pathsWithInfills, homeX, homeY);

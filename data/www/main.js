@@ -154,6 +154,7 @@ function init() {
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
             updateTransformText();
+            updateColorSelect();
         } else {
             $("#preview").attr("disabled", "disabled");
             $(".svg-control").hide();
@@ -178,6 +179,7 @@ function init() {
         const transform = svgControl.getTransform();
         const infillDensity = getInfillDensity();
         const flattenPaths = getFlattenPathsValue();
+        const selectedColor = $("#colorSelect").find(":selected").val();
 
         const requestObj = {
             json: svgJson,
@@ -187,6 +189,7 @@ function init() {
             width: currentState.safeWidth,
             infillDensity,
             flattenPaths,
+            selectedColor,
             homeX: currentState.homeX,
             homeY: currentState.homeY,
         };
@@ -241,6 +244,16 @@ function init() {
             return +num.toFixed(2);
         }
         $("#transformText").text(`(${normalizeNumber(transform.xOffset)}, ${normalizeNumber(transform.yOffset)}) ${normalizeNumber(transform.zoom)}x`);
+    }
+
+    function updateColorSelect() {
+        const colors = svgControl.getColors();
+        const options = Array.from(colors.values()).map(color => $(`<option value="${color.toCSS(false)}" style="background-color: ${color.toCSS(false)}">${color.toCSS(false)}</option>`));
+        options[0].attr("selected", "selected");
+        $("#colorSelect").empty();
+        for (const option of options) {
+            $("#colorSelect").append(option);
+        }
     }
 
     $("#infillDensity").on('input', async function() {
