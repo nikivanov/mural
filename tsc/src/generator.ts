@@ -1,14 +1,13 @@
 import { loadPaper } from './paperLoader';
-import { PathLike } from './types';
 
 const paper = loadPaper();
 
-export function generatePaths(svg: paper.Item): PathLike[] {
+export function generatePaths(svg: paper.Item): paper.PathItem[] {
     return generatePathsRecursive(svg);
 }
 
-function generatePathsRecursive(item: paper.Item): PathLike[] {
-    const paths: PathLike[] = [];
+function generatePathsRecursive(item: paper.Item): paper.PathItem[] {
+    const paths: paper.PathItem[] = [];
     for (const child of item.children) {
         if (child instanceof paper.Group) {
             const innerPaths = generatePathsRecursive(child);

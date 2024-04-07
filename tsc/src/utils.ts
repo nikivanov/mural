@@ -1,4 +1,4 @@
-import { Command, CoordinateCommand, PathLike } from "./types";
+import { Command, CoordinateCommand } from "./types";
 
 export function getLastPoint(commandList: Command[]) : CoordinateCommand | undefined {
     for (let i = commandList.length - 1; i >= 0; i--) {
@@ -17,6 +17,6 @@ export function distanceBetweenPoints(cmd1: CoordinateCommand, cmd2: CoordinateC
     return Math.sqrt(Math.pow(cmd2.x - cmd1.x, 2) + Math.pow(cmd2.y - cmd1.y, 2));
 }
 
-export function isPathWhiteOnly(path: PathLike): boolean {
+export function isPathWhiteOnly(path: paper.PathItem): boolean {
     return !!(path.fillColor && path.fillColor.toCSS(true) === '#ffffff' && !path.strokeColor);
 }

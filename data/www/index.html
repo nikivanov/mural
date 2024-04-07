@@ -151,7 +151,6 @@
         </div>
         <input class="form-control form-control-lg mb-2" id="uploadSvg" type="file" accept=".svg">
         <button class="w-100 btn btn-lg btn-primary mb-6" id="preview" disabled>Preview drawing</button>
-        <button class="w-100 btn btn-lg btn-primary mb-6" id="testPattern">Draw test pattern</button>
       </div>
       <div id="drawingPreviewSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Drawing preview</h3>
@@ -162,6 +161,8 @@
         <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
         <label for="infillDensity" class="form-label">Infill Density</label>
         <input type="range" class="form-range mb-2 text-center" min="0" max="4" step="1" id="infillDensity" value="0">
+        <input class="form-check-input" type="checkbox" id="flattenPathsCheckbox">
+        <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths (SLOW)</label>
         <button class="w-100 btn btn-lg btn-primary mb-2" id="beginDrawing" disabled>Begin drawing</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5" id="backToSvgSelect">Back</button>
       </div>

@@ -8,10 +8,11 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
+import { flattenPaths} from './flattener';
 
 const paper = loadPaper();
 
-export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, window: Window, updateStatusFn: updateStatusFn) {
+export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, doFlattenPaths: boolean, updateStatusFn: updateStatusFn) {
     const height = getHeight(svgJson, width);
 
     const size = new paper.Size(width, height);
@@ -45,6 +46,10 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
     const paths = generatePaths(svg);
     
     paths.forEach(p => p.flatten(0.5));
+
+    if (doFlattenPaths) {
+        flattenPaths(paths, updateStatusFn);
+    }
 
     updateStatusFn("Generating infill");
     const pathsWithInfills = generateInfills(paths, infillDensity);

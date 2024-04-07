@@ -11,9 +11,10 @@ window.onload = function () {
 
 let uploadConvertedCommands = null;
 
-async function checkIfExtendedToHome() {
+async function checkIfExtendedToHome(extendToHomeTime) {
+    await new Promise(r => setTimeout(r, extendToHomeTime * 1000));
+
     const waitPeriod = 2000;
-    await new Promise(r => setTimeout(r, waitPeriod));
     let done = false;
     while (!done) {
         try {
@@ -89,8 +90,9 @@ function init() {
         $(this).prop( "disabled", true);
         $("#extendingSpinner").css('visibility', 'visible');
         $.post("/extendToHome", {})
-        .always(async function() {
-            await checkIfExtendedToHome();
+        .always(async function(res) {
+            const extendToHomeTime = parseInt(res);
+            await checkIfExtendedToHome(extendToHomeTime);
         });
     });
     
@@ -175,6 +177,7 @@ function init() {
         
         const transform = svgControl.getTransform();
         const infillDensity = getInfillDensity();
+        const flattenPaths = getFlattenPathsValue();
 
         const requestObj = {
             json: svgJson,
@@ -183,6 +186,7 @@ function init() {
             y: transform.yOffset,
             width: currentState.safeWidth,
             infillDensity,
+            flattenPaths,
             homeX: currentState.homeX,
             homeY: currentState.homeY,
         };
@@ -215,32 +219,6 @@ function init() {
         currentWorker.postMessage(requestObj);
     }
 
-    $("#testPattern").click(function() {
-        const commands = [
-            "d100",
-            "h100",
-            "p0",
-            "0 0",
-            "p1",
-            "1036 0",
-            "1036 1000",
-            "0 1000",
-            "0 0",
-            "1036 0",
-            "1036 1000",
-            "0 1000",
-            "0 0",
-            "1036 0",
-            "1036 1000",
-            "0 1000",
-            "0 0",
-            "p0",
-        ];
-        
-        uploadConvertedCommands = commands.join('\n');
-        $("#beginDrawing").click();
-    });
-
     function activateProgressBar() {
         const bar = $("#progressBar");
         bar.addClass("progress-bar-striped");
@@ -266,6 +244,12 @@ function init() {
     }
 
     $("#infillDensity").on('input', async function() {
+        activateProgressBar();
+        $("#beginDrawing").attr("disabled", "disabled");
+        renderPreview();
+    });
+
+    $("#flattenPathsCheckbox").on('change', async function() {
         activateProgressBar();
         $("#beginDrawing").attr("disabled", "disabled");
         renderPreview();
@@ -419,4 +403,8 @@ function getInfillDensity() {
     } else {
         throw new Error('Invalid density');
     }
+}
+
+function getFlattenPathsValue() {
+    return $("#flattenPathsCheckbox").is(":checked");
 }

@@ -1,8 +1,8 @@
 #include "extendtohomephase.h"
 #include "distancestate.h"
 void ExtendToHomePhase::extendToHome(AsyncWebServerRequest *request) {
-    movement->extendToHome();
-    request->send(200, "text/plain", "OK");
+    auto moveTime = movement->extendToHome() + 1; // extra second of waiting for good measure
+    request->send(200, "text/plain", String(moveTime));
 }
 
 ExtendToHomePhase::ExtendToHomePhase(PhaseManager* manager, Movement* movement) {
@@ -16,7 +16,6 @@ const char* ExtendToHomePhase::getName() {
 
 void ExtendToHomePhase::loopPhase() {
     if (movement->hasStartedHoming() && !movement->isMoving()) {
-        DistanceState::storeDistance(movement->getTopDistance());
         manager->setPhase(PhaseManager::PenCalibration);
     }
 }

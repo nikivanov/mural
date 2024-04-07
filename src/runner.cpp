@@ -93,7 +93,7 @@ Task *Runner::getNextTask()
             sequenceIx = sequenceIx + 1;
             return finishingSequence[currentIx];
         } else {
-            DistanceState::storeDistance(movement->getTopDistance());
+            // DistanceState::storeDistance(movement->getTopDistance());
             delay(200);
             ESP.restart();
             // unreachable

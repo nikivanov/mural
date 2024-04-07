@@ -27,7 +27,7 @@ void InterpolatingMovementTask::startRunning() {
     Serial.printf("Starting the move to %f, %f\n", target.x, target.y);
     auto currentCoordinates = movement->getCoordinates();
     auto incrementPoint = getNextIncrement(currentCoordinates, target);
-    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y);
+    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, printSpeedSteps);
 }
 
 bool InterpolatingMovementTask::isDone() {
@@ -41,7 +41,7 @@ bool InterpolatingMovementTask::isDone() {
     }
 
     auto incrementPoint = getNextIncrement(movement->getCoordinates(), target);
-    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y);
+    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, printSpeedSteps);
     
     return false;
 }
