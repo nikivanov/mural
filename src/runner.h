@@ -20,7 +20,7 @@ class Runner {
     Movement::Point startPosition;
     Movement::Point targetPosition;
     int progress;
-    Task *finishingSequence[3];
+    Task *finishingSequence[1];
     int sequenceIx = 0;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);

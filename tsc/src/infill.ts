@@ -20,7 +20,7 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
     let minInfillLength = 1000;
     if (infillDensity != 0) {
         const infillSpacing = infillDensityToSpacingMap.get(infillDensity)!;
-        minInfillLength = Math.floor(infillSpacing / 2);
+        minInfillLength = Math.floor(infillSpacing);
         const infillXSpacing = infillSpacing * Math.sqrt(2);
         for (let currentX = -xOffset; currentX < view.size.width; currentX = currentX + infillXSpacing) {
             lines.push(new paper.Path.Line({x: currentX, y: 0}, {x: currentX + xOffset, y: view.size.height}));

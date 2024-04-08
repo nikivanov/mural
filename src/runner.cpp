@@ -48,8 +48,8 @@ void Runner::initTaskProvider() {
     auto homeCoordinates = movement->getHomeCoordinates();
 
     finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
-    finishingSequence[1] = new PenTask(false, pen);
-    finishingSequence[2] = new PenTask(true, pen);
+    // finishingSequence[1] = new PenTask(false, pen);
+    // finishingSequence[2] = new PenTask(true, pen);
 }
 
 void Runner::start() {
@@ -93,7 +93,7 @@ Task *Runner::getNextTask()
             sequenceIx = sequenceIx + 1;
             return finishingSequence[currentIx];
         } else {
-            // DistanceState::storeDistance(movement->getTopDistance());
+            DistanceState::storeDistance(movement->getTopDistance());
             delay(200);
             ESP.restart();
             // unreachable
