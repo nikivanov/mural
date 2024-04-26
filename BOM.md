@@ -17,3 +17,6 @@ All parts can be found on Amazon, AliExpress, Ebay etc. Make sure the items you'
 | M-F and F-F breadboard jumper wire 10cm and 20cm | ![wire](/images/bom/wire.jpg) |
 | M3 hex bolt set | ![m3](/images/bom/m3.jpg) |
 | 2.54m pitch male headers | ![headers](/images/bom/header.jpg) |
+| M3 heat inserts | ![inserts](/images/bom/inserts.jpg) | Optional - only one is used for the pen, and you can use an M3 bolt without it
+| 12mm M3 thumbscrew | ![thumbscrews](/images/bom/thumbscrews.jpg) | Optional, but sure is nicer. You only need 1
+| 10cm stepper motor cable | ![steppercable](/images/bom/steppercable.webp) | These are surprisingly hard to find, I bought mine on Aliexpress. You can also simply cut and solder together the long cables that came with your steppers
