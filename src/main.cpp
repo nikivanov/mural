@@ -47,11 +47,24 @@ void setup()
         return;
     }
 
+    bool resetAfterConnect = false;
+    std::function<void()> serverCallback = [&] () {
+        resetAfterConnect = true;
+    };
+    
     WiFiManager wifiManager;
+    
     wifiManager.setConnectTimeout(20);
     wifiManager.setTitle("Connect to WiFi");
     wifiManager.setMenu(menu);
+    wifiManager.setWebServerCallback(serverCallback);
     wifiManager.autoConnect("Mural");
+
+    if (resetAfterConnect) {
+        Serial.println("Connected to WiFi through captive portal, restarting...");
+        ESP.restart();
+    }
+    
     Serial.println("Connected to wifi");
 
     MDNS.begin("mural");
