@@ -47,6 +47,13 @@ void setup()
         return;
     }
 
+    display = new Display();
+    Serial.println("Initialized display");
+
+    // initialize movement right away or the motors can start creeping due to floating output
+    movement = new Movement(display);
+    Serial.println("Initialized steppers");
+
     bool resetAfterConnect = false;
     std::function<void()> serverCallback = [&] () {
         resetAfterConnect = true;
@@ -70,12 +77,6 @@ void setup()
     MDNS.begin("mural");
 
     Serial.println("Started mDNS for mural");
-
-    display = new Display();
-    Serial.println("Initialized display");
-
-    movement = new Movement(display);
-    Serial.println("Initialized steppers");
 
     pen = new Pen();
     Serial.println("Initialized servo");
