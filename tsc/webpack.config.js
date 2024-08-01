@@ -8,7 +8,7 @@ const isProduction = process.env.NODE_ENV == 'production';
 const config = {
     entry: './src/main.ts',
     output: {
-        path: path.resolve(__dirname, 'dist'),
+        path: path.resolve(__dirname, 'dist_packed'),
     },
     plugins: [
         // Add your plugins here
