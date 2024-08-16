@@ -9,6 +9,19 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Launch SVG Tester",
+            "program": "${workspaceFolder}/tsc/dist/tester.js",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node",
+            "preLaunchTask": "tsc: build - tsc/tsconfig.json",
+            "env": {
+                "server": "true"
+            }
+        },
+        {
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug",

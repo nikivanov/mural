@@ -9,14 +9,17 @@ import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
 import { flattenPaths} from './flattener';
+import {rasterize} from './rasterizer';
+import {CreatePathsFromColorMatrix} from './vectorizer';
+import { createCanvas } from 'canvas';
 
 const paper = loadPaper();
 
 export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, doFlattenPaths: boolean, updateStatusFn: updateStatusFn) {
     const height = getHeight(svgJson, width);
 
-    const size = new paper.Size(width, height);
-    paper.setup(size);
+    const canvas = createCanvas(width, height);
+    paper.setup(canvas);
 
     updateStatusFn("Importing");
     const svg = paper.project.importJSON(svgJson);
@@ -42,8 +45,13 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
 
     clipPaths(svg);
 
+    updateStatusFn("Rasterizing");
+    const colorMatrix = rasterize(svg, 1);
+
+
     updateStatusFn("Generating paths");
-    const paths = generatePaths(svg);
+    const paths = CreatePathsFromColorMatrix(colorMatrix, width, height);
+    //const paths = generatePaths(svg);
     
     paths.forEach(p => p.flatten(0.5));
 

@@ -11,6 +11,7 @@
   "author": "Nik Ivanov",
   "license": "GPL",
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^20.10.1",
     "@types/webpack": "^5.28.5",
     "@webpack-cli/generators": "^3.0.7",
@@ -23,6 +24,8 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "canvas": "^2.11.2",
+    "jsdom": "^24.1.1",
     "paper": "0.12.17",
     "paper-jsdom": "0.12.17"
   }
