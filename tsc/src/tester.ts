@@ -32,12 +32,16 @@ function getSvgFromSvgJson(svgJson: string, width: number, height: number) {
     return svgString;
 }
 
+function updater(status: string) {
+    console.log(status);
+}
+
 const fullPath = path.join(__dirname, '../svgs/albert-einstein.svg');
 const file = fs.readFileSync(fullPath);
 const svgString = file.toString();
 const svgJson = getSvgJson(svgString);
-const result = renderSvgToCommands(svgJson, 1, 0,0,0,0,width, 0, false, () => {});
-const resultJson = renderCommandsToSvgJson(result.commands, width, result.height, () => {});
+const result = renderSvgToCommands(svgJson, 1, 0,0,0,0,width, 4, true, updater);
+const resultJson = renderCommandsToSvgJson(result.commands, width, result.height, updater);
 const resultSvgString = getSvgFromSvgJson(resultJson, width, result.height);
 const fullResultPath = path.join(__dirname, '../svgs/albert-einstein-processed.svg');
 fs.writeFileSync(fullResultPath, resultSvgString);
