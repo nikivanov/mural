@@ -2,7 +2,7 @@ import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgToCommands } from "./toCommands";
 import { InfillDensities, RequestTypes } from "./types";
 
-self.onmessage = (e: MessageEvent<any>) => {
+self.onmessage = async (e: MessageEvent<any>) => {
     if (!isToCommandsRequestArr(e.data)) {
         throw new Error("Bad render request");
     }
@@ -14,19 +14,19 @@ self.onmessage = (e: MessageEvent<any>) => {
         });
     };
 
-    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, e.data.flattenPaths, updateStatusFn);
-    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
-    self.postMessage({
-        type: "result",
-        payload: {
-            commands: renderResult.commands,
-            json: resultSvgJson,
-            width: e.data.width,
-            height: renderResult.height,
-            distance: renderResult.distance,
-            drawDistance: renderResult.drawDistance,
-        }
-    })
+    const renderResult = await renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, e.data.flattenPaths, updateStatusFn);
+    // const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
+    // self.postMessage({
+    //     type: "result",
+    //     payload: {
+    //         commands: renderResult.commands,
+    //         json: resultSvgJson,
+    //         width: e.data.width,
+    //         height: renderResult.height,
+    //         distance: renderResult.distance,
+    //         drawDistance: renderResult.drawDistance,
+    //     }
+    // })
 };
 
 

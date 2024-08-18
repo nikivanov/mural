@@ -1,32 +1,26 @@
+import { Canvas } from 'canvas';
 import {loadPaper} from './paperLoader';
-import {JSDOM} from 'jsdom';
-import {createCanvas} from 'canvas';
 
 const paper = loadPaper();
 
-export function rasterize(svg: paper.Item, resolution: number): paper.Color[][] {
-    const scaledWidth = Math.floor(svg.bounds.width / resolution);
-    const scaledHeight = Math.floor(svg.bounds.height / resolution);
-
+export function rasterize(canvas: Canvas): paper.Color[][] {
+    const ctx = canvas.getContext("2d");
+    const imageData = ctx.getImageData(0,0, canvas.width, canvas.height);
+    
     const colorMatrix: paper.Color[][] = []
 
-    svg.fitBounds({
-        x: 0,
-        y: 0,
-        width: scaledWidth,
-        height: scaledHeight,
-    })
-
-    const raster = svg.rasterize({
-        insert: false,
-    });
-
-    for (let row = 0; row < scaledHeight; row++) {
-        for (let column = 0; column < scaledWidth; column++) {
+    for (let row = 0; row < Math.floor(canvas.height); row++) {
+        for (let column = 0; column < Math.floor(canvas.width); column++) {
             if (!colorMatrix[row]) {
                 colorMatrix[row] = [];
             }
-            colorMatrix[row][column] = raster.getAverageColor({x: row, y: column});
+            const address = (row * Math.floor(canvas.width) + column) * 4;
+            const r = imageData.data[address];
+            const g = imageData.data[address + 1];
+            const b = imageData.data[address + 2];
+            const a = imageData.data[address + 3];
+            const color = new paper.Color(r / 255, g / 255, b / 255, a / 255);
+            colorMatrix[row][column] = color;
         }
     }
 

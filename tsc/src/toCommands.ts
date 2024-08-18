@@ -11,81 +11,91 @@ import { loadPaper } from './paperLoader';
 import { flattenPaths} from './flattener';
 import {rasterize} from './rasterizer';
 import {CreatePathsFromColorMatrix} from './vectorizer';
-import { createCanvas } from 'canvas';
+import { Canvas, createCanvas, loadImage } from 'canvas';
+import { dumpCanvas, dumpStringAsSvg, dumpSVG } from './utils';
+import * as fs from 'fs';
+import { JSDOM } from 'jsdom';
 
 const paper = loadPaper();
 
-export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, doFlattenPaths: boolean, updateStatusFn: updateStatusFn) {
-    const height = getHeight(svgJson, width);
-
-    const canvas = createCanvas(width, height);
-    paper.setup(canvas);
-
-    updateStatusFn("Importing");
-    const svg = paper.project.importJSON(svgJson);
-
-    svg.fitBounds({
-        x: 0,
-        y: 0,
-        width,
-        height,
-    });
-
-    updateStatusFn("Clipping");
-    clipPaths(svg);
-    
-    svg.matrix = new paper.Matrix(scale, 0, 0, scale, x, y);
-
-    const heightNeeded = svg.bounds.y + svg.bounds.height;
-    if (heightNeeded > height) {
-        svg.view.viewSize.height = heightNeeded;
-    }
-
-    const heightUsed = svg.view.viewSize.height;
-
-    clipPaths(svg);
-
+export async function renderSvgToCommands(svg: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, doFlattenPaths: boolean, updateStatusFn: updateStatusFn) {
+    const [canvas, height] = await renderSVGToCanvas(svg, width);
     updateStatusFn("Rasterizing");
-    const colorMatrix = rasterize(svg, 1);
-
-
-    updateStatusFn("Generating paths");
-    const paths = CreatePathsFromColorMatrix(colorMatrix, width, height);
-    //const paths = generatePaths(svg);
+    const colorMatrix = rasterize(canvas);
+    const paths = await CreatePathsFromColorMatrix(colorMatrix);
     
-    paths.forEach(p => p.flatten(0.5));
+    const paperCanvas = createCanvas(width, height);
+    paper.setup(paperCanvas);
 
-    if (doFlattenPaths) {
-        flattenPaths(paths, updateStatusFn);
-    }
+    // updateStatusFn("Importing");
+    // const svg = paper.project.importJSON(svgJson);
 
-    updateStatusFn("Generating infill");
-    const pathsWithInfills = generateInfills(paths, infillDensity);
+    
 
-    updateStatusFn("Optimizing paths");
-    const optimizedPaths = optimizePaths(pathsWithInfills, homeX, homeY);
+    // svg.fitBounds({
+    //     x: 0,
+    //     y: 0,
+    //     width,
+    //     height,
+    // });
 
-    updateStatusFn("Rendering commands");
-    const commands = renderPathsToCommands(optimizedPaths);
-    commands.push('p0');
+    // updateStatusFn("Clipping");
+    // clipPaths(svg);
 
-    const trimmedCommands = trimCommands(commands);
+    // dumpSVG(svg);
+    
+    // svg.matrix = new paper.Matrix(scale, 0, 0, scale, x, y);
 
-    const dedupedCommands = dedupeCommands(trimmedCommands);
+    // const heightNeeded = svg.bounds.y + svg.bounds.height;
+    // if (heightNeeded > height) {
+    //     svg.view.viewSize.height = heightNeeded;
+    // }
 
-    updateStatusFn("Measuring total distance");
-    dedupedCommands.unshift(`h${heightUsed}`);
-    const distances = measureDistance(dedupedCommands);
-    const totalDistance = +distances.totalDistance.toFixed(1);
-    dedupedCommands.unshift(`d${totalDistance}`);
+    // const heightUsed = svg.view.viewSize.height;
 
-    const commandStrings = dedupedCommands.map(stringifyCommand);
-    return {
-        commands: commandStrings,
-        height,
-        distance: totalDistance,
-        drawDistance: +distances.drawDistance.toFixed(1),
-    };
+    // clipPaths(svg);
+
+    // updateStatusFn("Rasterizing");
+    // const colorMatrix = rasterize(svg, 1);
+
+
+    // updateStatusFn("Generating paths");
+    // const paths = await CreatePathsFromColorMatrix(colorMatrix);
+    // //const paths = generatePaths(svg);
+    
+    // paths.forEach(p => p.flatten(0.5));
+
+    // if (doFlattenPaths) {
+    //     flattenPaths(paths, updateStatusFn);
+    // }
+
+    // updateStatusFn("Generating infill");
+    // const pathsWithInfills = generateInfills(paths, infillDensity);
+
+    // updateStatusFn("Optimizing paths");
+    // const optimizedPaths = optimizePaths(pathsWithInfills, homeX, homeY);
+
+    // updateStatusFn("Rendering commands");
+    // const commands = renderPathsToCommands(optimizedPaths);
+    // commands.push('p0');
+
+    // const trimmedCommands = trimCommands(commands);
+
+    // const dedupedCommands = dedupeCommands(trimmedCommands);
+
+    // updateStatusFn("Measuring total distance");
+    // dedupedCommands.unshift(`h${heightUsed}`);
+    // const distances = measureDistance(dedupedCommands);
+    // const totalDistance = +distances.totalDistance.toFixed(1);
+    // dedupedCommands.unshift(`d${totalDistance}`);
+
+    // const commandStrings = dedupedCommands.map(stringifyCommand);
+    // return {
+    //     commands: commandStrings,
+    //     height,
+    //     distance: totalDistance,
+    //     drawDistance: +distances.drawDistance.toFixed(1),
+    // };
 }
 
 function stringifyCommand(cmd: Command): string {
@@ -96,22 +106,58 @@ function stringifyCommand(cmd: Command): string {
     }
 }
 
-function getHeight(svgJson: string, width: number): number {
-    const sizeBeforeFitting = new paper.Size(width, Number.MAX_SAFE_INTEGER);
-    paper.setup(sizeBeforeFitting);
+async function renderSVGToCanvas(svg: string, width: number): Promise<[Canvas, number]> {
+    const svgBuffer = Buffer.from(svg);
+    const img = await loadImage(`data:image/svg+xml;base64,${svgBuffer.toString('base64')}`);
 
-    const svgBeforeFitting = paper.project.importJSON(svgJson);
+    const svgWidth = img.width;
+    const svgHeight = img.height;
 
-    svgBeforeFitting.fitBounds({
-        x: 0,
-        y: 0,
-        width: sizeBeforeFitting.width,
-        height: sizeBeforeFitting.height,
-    });
+    const scale = Math.min(width / svgWidth);
+    const height = svgHeight * scale;
 
-    const height = Math.floor(svgBeforeFitting.bounds.height);
+    const dom = new JSDOM();
+    const parser = new dom.window.DOMParser();
+    const serializer = new dom.window.XMLSerializer();
 
-    paper.project.remove();
+    const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
+    const svgElement = svgDoc.documentElement;
+    svgElement.setAttribute('width', width.toString());
+    svgElement.setAttribute('height', height.toString());
 
-    return height;
+    const scaledSvgString = serializer.serializeToString(svgElement);
+
+    const scaledSvgBuffer = Buffer.from(scaledSvgString);
+    const scaledImg = await loadImage(`data:image/svg+xml;base64,${scaledSvgBuffer.toString('base64')}`);
+    
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.drawImage(scaledImg, 0,0, width, height);
+    return [canvas, height];
+  }
+
+
+function getHeight(svg: string, width: number): number {
+    // const fittingCanvas = new OffscreenCanvas(width, Number.MAX_SAFE_INTEGER);
+    // const ctx = fittingCanvas.getContext('2d');
+    
+    // const sizeBeforeFitting = new paper.Size(width, Number.MAX_SAFE_INTEGER);
+    // paper.setup(sizeBeforeFitting);
+
+    // const svgBeforeFitting = paper.project.importJSON(svgJson);
+
+    // svgBeforeFitting.fitBounds({
+    //     x: 0,
+    //     y: 0,
+    //     width: sizeBeforeFitting.width,
+    //     height: sizeBeforeFitting.height,
+    // });
+
+    // const height = Math.floor(svgBeforeFitting.bounds.height);
+
+    // paper.project.remove();
+
+    // return height;
+    return 5;
 }
