@@ -14,24 +14,24 @@ self.onmessage = async (e: MessageEvent<any>) => {
         });
     };
 
-    const renderResult = await renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, e.data.flattenPaths, updateStatusFn);
-    // const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
-    // self.postMessage({
-    //     type: "result",
-    //     payload: {
-    //         commands: renderResult.commands,
-    //         json: resultSvgJson,
-    //         width: e.data.width,
-    //         height: renderResult.height,
-    //         distance: renderResult.distance,
-    //         drawDistance: renderResult.drawDistance,
-    //     }
-    // })
+    const renderResult = await renderSvgToCommands(e.data.svg, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, updateStatusFn);
+    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
+    self.postMessage({
+        type: "result",
+        payload: {
+            commands: renderResult.commands,
+            json: resultSvgJson,
+            width: e.data.width,
+            height: renderResult.height,
+            distance: renderResult.distance,
+            drawDistance: renderResult.drawDistance,
+        }
+    })
 };
 
 
 function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequest {
-    if (!('json' in obj) || typeof obj.json !== 'string' || obj.json.length === 0) {
+    if (!('svg' in obj) || typeof obj.json !== 'string' || obj.json.length === 0) {
         return false;
     }
 
