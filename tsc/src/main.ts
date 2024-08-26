@@ -31,7 +31,7 @@ self.onmessage = async (e: MessageEvent<any>) => {
 
 
 function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequest {
-    if (!('svg' in obj) || typeof obj.json !== 'string' || obj.json.length === 0) {
+    if (!('svg' in obj) || typeof obj.svg !== 'string' || obj.svg.length === 0) {
         return false;
     }
 

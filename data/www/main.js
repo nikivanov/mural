@@ -173,14 +173,12 @@ function init() {
             throw new Error('No SVG string');
         }
 
-        const svgJson = svgControl.getSvgJson(svgString);
-        
         const transform = svgControl.getTransform();
         const infillDensity = getInfillDensity();
         const flattenPaths = getFlattenPathsValue();
 
         const requestObj = {
-            json: svgJson,
+            svg: svgString,
             scale: transform.zoom,
             x: transform.xOffset,
             y: transform.yOffset,

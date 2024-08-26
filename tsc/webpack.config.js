@@ -39,6 +39,7 @@ const config = {
     externals: {
         'paper': 'paper',
         'jsdom': 'jsdom',
+        'canvas': 'canvas',
     }
 };
 

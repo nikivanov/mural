@@ -3,8 +3,8 @@ import {loadPaper} from './paperLoader';
 
 const paper = loadPaper();
 
-export function rasterize(canvas: Canvas): paper.Color[][] {
-    const ctx = canvas.getContext("2d");
+export function rasterize(canvas: Canvas | HTMLCanvasElement): paper.Color[][] {
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
     const imageData = ctx.getImageData(0,0, canvas.width, canvas.height);
     
     const colorMatrix: paper.Color[][] = []

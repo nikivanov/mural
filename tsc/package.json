@@ -13,7 +13,6 @@
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.10.1",
-    "@types/pngjs": "6.0.5",
     "@types/webpack": "^5.28.5",
     "@webpack-cli/generators": "^3.0.7",
     "clean-webpack-plugin": "^4.0.0",
@@ -28,7 +27,6 @@
     "canvas": "^2.11.2",
     "jsdom": "^24.1.1",
     "paper": "0.12.17",
-    "paper-jsdom": "0.12.17",
-    "pngjs": "7.0.0"
+    "paper-jsdom": "0.12.17"
   }
 }

@@ -1,5 +1,5 @@
 import { loadPaper } from './paperLoader';
-import {dumpStringAsSvg} from './utils';
+//import {dumpStringAsSvg} from './utils';
 import {Potrace} from './tracer';
 
 
@@ -29,7 +29,7 @@ export function CreatePathsFromColorMatrix(colorMatrix: paper.Color[][]): string
     tracer.setBitmap(width, height, data);
     const svgString: string = tracer.getSVG(1);
 
-    dumpStringAsSvg(svgString);
+    //dumpStringAsSvg(svgString);
     return svgString;
 }
 

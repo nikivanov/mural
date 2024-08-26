@@ -1,9 +1,7 @@
 import { Command, CoordinateCommand } from "./types";
-import path from 'path';
-import * as fs from 'fs';
+//import path from 'path';
+//import * as fs from 'fs';
 import {loadPaper} from './paperLoader';
-import { Canvas } from "canvas";
-import {PNG} from 'pngjs';
 
 const paper = loadPaper();
 
@@ -28,19 +26,19 @@ export function isPathWhiteOnly(path: paper.PathItem): boolean {
     return !!(path.fillColor && path.fillColor.toCSS(true) === '#ffffff' && !path.strokeColor);
 }
 
-export function dumpSVG(svg: paper.Item) {
-    const svgString = svg.exportSVG({
-        asString: true,
-    }) as string;
-    return dumpStringAsSvg(svgString);
-}
+// export function dumpSVG(svg: paper.Item) {
+//     const svgString = svg.exportSVG({
+//         asString: true,
+//     }) as string;
+//     return dumpStringAsSvg(svgString);
+// }
 
-export async function dumpCanvas(canvas: Canvas) {
-    const fullPath = path.join(__dirname, '../svgs/out.png');
-    fs.writeFileSync(fullPath, canvas.toBuffer());
-}
+// export async function dumpCanvas(canvas: Canvas) {
+//     const fullPath = path.join(__dirname, '../svgs/out.png');
+//     fs.writeFileSync(fullPath, canvas.toBuffer());
+// }
 
-export async function dumpStringAsSvg(svgString: string) {
-    const fullPath = path.join(__dirname, '../svgs/out.svg');
-    fs.writeFileSync(fullPath, svgString);
-}
+// export async function dumpStringAsSvg(svgString: string) {
+//     const fullPath = path.join(__dirname, '../svgs/out.svg');
+//     fs.writeFileSync(fullPath, svgString);
+// }

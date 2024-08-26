@@ -12,8 +12,6 @@ import { rasterize } from './rasterizer';
 import { CreatePathsFromColorMatrix } from './vectorizer';
 import { Canvas, createCanvas, loadImage } from 'canvas';
 
-import { JSDOM } from 'jsdom';
-
 const paper = loadPaper();
 
 export async function renderSvgToCommands(svgString: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, updateStatusFn: updateStatusFn) {
@@ -84,8 +82,7 @@ function stringifyCommand(cmd: Command): string {
 }
 
 async function renderSVGToCanvas(svg: string, width: number, scaleFactor: number): Promise<[Canvas, number, number]> {
-    const svgBuffer = Buffer.from(svg);
-    const img = await loadImage(`data:image/svg+xml;base64,${svgBuffer.toString('base64')}`);
+    const img = await loadImageWithImageTag(`data:image/svg+xml;base64,${btoa(svg)}`);
 
     const svgWidth = img.width;
     const svgHeight = img.height;
@@ -93,11 +90,9 @@ async function renderSVGToCanvas(svg: string, width: number, scaleFactor: number
     const scale = Math.min(width / svgWidth) * scaleFactor;
     const scaledHeight = svgHeight * scale;
     const scaledWidth = svgWidth * scale;
-
-
-    const dom = new JSDOM();
-    const parser = new dom.window.DOMParser();
-    const serializer = new dom.window.XMLSerializer();
+    
+    const parser = new window.DOMParser();
+    const serializer = new window.XMLSerializer();
 
     const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
     const svgElement = svgDoc.documentElement;
@@ -106,12 +101,34 @@ async function renderSVGToCanvas(svg: string, width: number, scaleFactor: number
 
     const scaledSvgString = serializer.serializeToString(svgElement);
 
-    const scaledSvgBuffer = Buffer.from(scaledSvgString);
-    const scaledImg = await loadImage(`data:image/svg+xml;base64,${scaledSvgBuffer.toString('base64')}`);
+    const scaledImg = await loadImageWithImageTag(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`);
 
     const canvas = createCanvas(scaledWidth, scaledHeight);
     const ctx = canvas.getContext('2d')!;
 
-    ctx.drawImage(scaledImg, 0, 0, scaledWidth, scaledHeight);
+    ctx.drawImage(scaledImg as any, 0, 0, scaledWidth, scaledHeight);
     return [canvas, scaledWidth, scaledHeight];
+}
+
+async function loadImageWithImageTag(imageSrc: string): Promise<HTMLImageElement> {
+    if (typeof window !== "undefined") {
+        
+    }
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new window.Image();
+        img.crossOrigin = '';
+        img.src = imageSrc;
+        img.onload = () => { resolve(img); };
+        img.onerror = () => { reject(img); };
+    });
+    return img;
+}
+
+function getWindow(): Window & typeof globalThis {
+    if (typeof window !== "undefined") {
+        return window;
+    } else {
+        const jsdom = require("jsdom");
+        return new jsdom.JSDOM().window;
+    }
 }
