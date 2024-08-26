@@ -25,15 +25,30 @@ function getSvgFromSvgJson(svgJson: string, width: number, height: number) {
 }
 
 async function main() {
-    const fullPath = path.join(__dirname, '../svgs/albert-einstein.svg');
-    const file = fs.readFileSync(fullPath);
-    const svgString = file.toString();
+    const inDir = fs.opendirSync(path.join(__dirname, '../svgs/in/'));
+
+    const outDirPath = path.join(__dirname, '../svgs/out/');
     
-    const result = await renderSvgToCommands(svgString, 1, 0,0,0,0,width, 4, updater);
-    const resultJson = renderCommandsToSvgJson(result.commands, width, result.height, updater);
-    const resultSvgString = getSvgFromSvgJson(resultJson, width, result.height);
-    const fullResultPath = path.join(__dirname, '../svgs/albert-einstein-processed.svg');
-    fs.writeFileSync(fullResultPath, resultSvgString);
+
+    let dirEntry = inDir.readSync();
+    while (dirEntry) {
+        if (dirEntry.isFile() && dirEntry.name.endsWith(".svg")) {
+            if (dirEntry.name == "albert-einstein.svg") {
+                console.log(`processing ${dirEntry.name}`);
+
+                const file = fs.readFileSync(dirEntry.path);
+                const svgString = file.toString();
+                
+                const result = await renderSvgToCommands(svgString, 1, 0,0,0,0,width, 4, updater);
+                const resultJson = renderCommandsToSvgJson(result.commands, width, result.height, updater);
+                const resultSvgString = getSvgFromSvgJson(resultJson, width, result.height);
+                const fullResultPath = path.join(outDirPath, dirEntry.name);
+                fs.writeFileSync(fullResultPath, resultSvgString);
+            }
+            
+        }
+        dirEntry = inDir.readSync();
+    }
 };
 
 main();

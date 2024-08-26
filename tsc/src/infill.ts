@@ -20,13 +20,15 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
     let minInfillLength = 1000;
     if (infillDensity != 0) {
         const infillSpacing = infillDensityToSpacingMap.get(infillDensity)!;
-        minInfillLength = Math.floor(infillSpacing / 2);
+        minInfillLength = Math.floor(infillSpacing);
         const infillXSpacing = infillSpacing * Math.sqrt(2);
         for (let currentX = -xOffset; currentX < view.size.width; currentX = currentX + infillXSpacing) {
             lines.push(new paper.Path.Line({x: currentX, y: 0}, {x: currentX + xOffset, y: view.size.height}));
             lines.push(new paper.Path.Line({x: currentX, y: view.size.height}, {x: currentX + xOffset, y: 0}));
         }
     }
+
+    const boundsPath = new paper.Path.Rectangle(view.bounds);
     
     const infilledPaths = pathsToInfill.map(path => {
         if (path.fillColor && path.fillColor.toCSS(true) === '#ffffff' && !path.strokeColor) {
@@ -50,10 +52,19 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
         const infillPaths: paper.Path[] = [];
 
         if (!path.fillColor || path.fillColor.toCSS(true) !== '#ffffff') {
+            //let count = 0;
             for (const line of lines) {
-                const intersections = path.getIntersections(line);
+                // count++;
+                // if (count == 103) {
+                //     console.log('hi');
+                // } else if (count  > 103) {
+                //     break;
+                // }
+
+                const intersections = [...path.getIntersections(line), ...boundsPath.getIntersections(line)];
+
                 intersections.sort((a, b) => a.point.x - b.point.x);
-    
+
                 let currentLineGroup: paper.Point[] = [];
                 function saveCurrentLineAsPath() {
                     if (currentLineGroup.length > 1) {
@@ -63,7 +74,7 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
                         }
                     }
                 }
-    
+
                 for (const intersection of intersections) {
                     if (currentLineGroup.length === 0) {
                         currentLineGroup.push(intersection.point);
@@ -79,7 +90,6 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
                         }
                     }
                 }
-    
                 saveCurrentLineAsPath();
             }
         }

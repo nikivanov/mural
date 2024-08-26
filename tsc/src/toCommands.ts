@@ -18,7 +18,11 @@ const paper = loadPaper();
 
 export async function renderSvgToCommands(svgString: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, updateStatusFn: updateStatusFn) {
     updateStatusFn("Rendering");
-    const [canvas, height] = await renderSVGToCanvas(svgString, width);
+
+    const renderingScale = 2;
+    const [canvas, scaledWidth, scaledHeight] = await renderSVGToCanvas(svgString, width, renderingScale);
+    const height = scaledHeight / renderingScale;
+    
     updateStatusFn("Rasterizing");
     const colorMatrix = rasterize(canvas);
 
@@ -30,15 +34,9 @@ export async function renderSvgToCommands(svgString: string, scale: number, x: n
 
     updateStatusFn("Importing");
     const svg = paper.project.importSVG(processedSvgString);
+    svg.fitBounds({x: 0, y: 0, width, height});
 
     svg.matrix = new paper.Matrix(scale, 0, 0, scale, x, y);
-
-    const heightNeeded = svg.bounds.y + svg.bounds.height;
-    if (heightNeeded > height) {
-        svg.view.viewSize.height = heightNeeded;
-    }
-
-    const heightUsed = svg.view.viewSize.height;
 
     updateStatusFn("Clipping");
     clipPaths(svg);
@@ -63,7 +61,7 @@ export async function renderSvgToCommands(svgString: string, scale: number, x: n
     const dedupedCommands = dedupeCommands(trimmedCommands);
 
     updateStatusFn("Measuring total distance");
-    dedupedCommands.unshift(`h${heightUsed}`);
+    dedupedCommands.unshift(`h${height}`);
     const distances = measureDistance(dedupedCommands);
     const totalDistance = +distances.totalDistance.toFixed(1);
     dedupedCommands.unshift(`d${totalDistance}`);
@@ -85,15 +83,17 @@ function stringifyCommand(cmd: Command): string {
     }
 }
 
-async function renderSVGToCanvas(svg: string, width: number): Promise<[Canvas, number]> {
+async function renderSVGToCanvas(svg: string, width: number, scaleFactor: number): Promise<[Canvas, number, number]> {
     const svgBuffer = Buffer.from(svg);
     const img = await loadImage(`data:image/svg+xml;base64,${svgBuffer.toString('base64')}`);
 
     const svgWidth = img.width;
     const svgHeight = img.height;
 
-    const scale = Math.min(width / svgWidth);
-    const height = svgHeight * scale;
+    const scale = Math.min(width / svgWidth) * scaleFactor;
+    const scaledHeight = svgHeight * scale;
+    const scaledWidth = svgWidth * scale;
+
 
     const dom = new JSDOM();
     const parser = new dom.window.DOMParser();
@@ -101,17 +101,17 @@ async function renderSVGToCanvas(svg: string, width: number): Promise<[Canvas, n
 
     const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
     const svgElement = svgDoc.documentElement;
-    svgElement.setAttribute('width', width.toString());
-    svgElement.setAttribute('height', height.toString());
+    svgElement.setAttribute('width', scaledWidth.toString());
+    svgElement.setAttribute('height', scaledHeight.toString());
 
     const scaledSvgString = serializer.serializeToString(svgElement);
 
     const scaledSvgBuffer = Buffer.from(scaledSvgString);
     const scaledImg = await loadImage(`data:image/svg+xml;base64,${scaledSvgBuffer.toString('base64')}`);
 
-    const canvas = createCanvas(width, height);
+    const canvas = createCanvas(scaledWidth, scaledHeight);
     const ctx = canvas.getContext('2d')!;
 
-    ctx.drawImage(scaledImg, 0, 0, width, height);
-    return [canvas, height];
+    ctx.drawImage(scaledImg, 0, 0, scaledWidth, scaledHeight);
+    return [canvas, scaledWidth, scaledHeight];
 }
