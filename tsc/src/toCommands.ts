@@ -10,7 +10,7 @@ import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
 import { rasterize } from './rasterizer';
 import { CreatePathsFromColorMatrix } from './vectorizer';
-import { Canvas, createCanvas, loadImage } from 'canvas';
+import { Canvas, createCanvas, loadImage, Image } from 'canvas';
 
 const paper = loadPaper();
 
@@ -82,26 +82,26 @@ function stringifyCommand(cmd: Command): string {
 }
 
 async function renderSVGToCanvas(svg: string, width: number, scaleFactor: number): Promise<[Canvas, number, number]> {
-    const img = await loadImageWithImageTag(`data:image/svg+xml;base64,${btoa(svg)}`);
-
-    const svgWidth = img.width;
-    const svgHeight = img.height;
-
-    const scale = Math.min(width / svgWidth) * scaleFactor;
-    const scaledHeight = svgHeight * scale;
-    const scaledWidth = svgWidth * scale;
+    const currentWindow = getWindow();
     
-    const parser = new window.DOMParser();
-    const serializer = new window.XMLSerializer();
+    const parser = new currentWindow.DOMParser();
+    const serializer = new currentWindow.XMLSerializer();
 
     const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
     const svgElement = svgDoc.documentElement;
+    const svgWidth = parseFloat(svgElement.getAttribute('width')!);
+    const svgHeight = parseFloat(svgElement.getAttribute('height')!);
+    
+    const scale = Math.min(width / svgWidth) * scaleFactor;
+    const scaledHeight = svgHeight * scale;
+    const scaledWidth = svgWidth * scale;
+
     svgElement.setAttribute('width', scaledWidth.toString());
     svgElement.setAttribute('height', scaledHeight.toString());
 
     const scaledSvgString = serializer.serializeToString(svgElement);
 
-    const scaledImg = await loadImageWithImageTag(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`);
+    const scaledImg = await loadSvgWithImageTag(scaledSvgString);
 
     const canvas = createCanvas(scaledWidth, scaledHeight);
     const ctx = canvas.getContext('2d')!;
@@ -110,18 +110,13 @@ async function renderSVGToCanvas(svg: string, width: number, scaleFactor: number
     return [canvas, scaledWidth, scaledHeight];
 }
 
-async function loadImageWithImageTag(imageSrc: string): Promise<HTMLImageElement> {
-    if (typeof window !== "undefined") {
-        
+async function loadSvgWithImageTag(svgString: string): Promise<ImageBitmap | Image> {
+    
+    if (typeof createImageBitmap !== "undefined") {
+        return await createImageBitmap(new Blob([svgString], { type: 'image/svg+xml'}));
+    } else {
+        return await loadImage(`data:image/svg+xml;base64,${btoa(svgString)}`)
     }
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new window.Image();
-        img.crossOrigin = '';
-        img.src = imageSrc;
-        img.onload = () => { resolve(img); };
-        img.onerror = () => { reject(img); };
-    });
-    return img;
 }
 
 function getWindow(): Window & typeof globalThis {
