@@ -23,16 +23,12 @@ export type InfillDensity = 0 | 1 | 2 | 3 | 4;
 export const InfillDensities: InfillDensity[] = [0, 1, 2, 3, 4];
 
 export namespace RequestTypes {
-    export type SvgToCommandsRequest = {
-        svg: string,
-        width: number,
-        scale: number,
-        x: number,
-        y: number,
+    export type RasterToCommandsRequest = {
+        raster: ImageData,
+        renderScale: number,
         homeX: number,
         homeY: number,
         infillDensity: InfillDensity,
-        flattenPaths: boolean,
     };
 
     export type CommandsToSvgRequest = {

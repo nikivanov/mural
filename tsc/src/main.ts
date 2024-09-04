@@ -1,5 +1,5 @@
 import { renderCommandsToSvg } from "./toSvgJson";
-import { renderSvgToCommands } from "./toCommands";
+import { renderRasterToCommands } from "./toCommands";
 import { InfillDensities, RequestTypes } from "./types";
 
 self.onmessage = async (e: MessageEvent<any>) => {
@@ -14,14 +14,14 @@ self.onmessage = async (e: MessageEvent<any>) => {
         });
     };
 
-    const renderResult = await renderSvgToCommands(e.data.svg, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, updateStatusFn);
-    const resultSvg = renderCommandsToSvg(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
+    const renderResult = await renderRasterToCommands(e.data.raster, e.data.renderScale, e.data.homeX, e.data.homeY, e.data.infillDensity, updateStatusFn);
+    const resultSvg = renderCommandsToSvg(renderResult.commands, renderResult.width, renderResult.height, updateStatusFn);
     self.postMessage({
         type: "result",
         payload: {
             commands: renderResult.commands,
             svg: resultSvg,
-            width: e.data.width,
+            width: renderResult.width,
             height: renderResult.height,
             distance: renderResult.distance,
             drawDistance: renderResult.drawDistance,
@@ -30,24 +30,12 @@ self.onmessage = async (e: MessageEvent<any>) => {
 };
 
 
-function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequest {
-    if (!('svg' in obj) || typeof obj.svg !== 'string' || obj.svg.length === 0) {
+function isToCommandsRequestArr(obj: any): obj is RequestTypes.RasterToCommandsRequest {
+    if (!('raster' in obj) || typeof obj.raster !== 'object') {
         return false;
     }
 
-    if (!('width' in obj) || typeof obj.width !== 'number' || obj.width <= 0) {
-        return false;
-    }
-
-    if (!('scale' in obj) || typeof obj.scale !== 'number') {
-        return false;
-    }
-
-    if (!('x' in obj) || typeof obj.x !== 'number') {
-        return false;
-    }
-
-    if (!('y' in obj) || typeof obj.y !== 'number') {
+    if (!('renderScale' in obj) || typeof obj.renderScale !== 'number' || obj.renderScale <= 0) {
         return false;
     }
 
@@ -60,10 +48,6 @@ function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequ
     }
 
     if (!('infillDensity' in obj) || typeof obj.infillDensity !== 'number' || !InfillDensities.includes(obj.infillDensity)) {
-        return false;
-    }
-
-    if (!('flattenPaths' in obj) || typeof obj.flattenPaths !== 'boolean') {
         return false;
     }
 
