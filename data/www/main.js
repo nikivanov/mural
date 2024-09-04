@@ -153,7 +153,6 @@ function init() {
 
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
-            updateTransformText();
         } else {
             $("#preview").attr("disabled", "disabled");
             $(".svg-control").hide();
@@ -179,9 +178,7 @@ function init() {
 
         const requestObj = {
             svg: svgString,
-            scale: transform.zoom,
-            x: transform.xOffset,
-            y: transform.yOffset,
+            transform: transform,
             width: currentState.safeWidth,
             infillDensity,
             flattenPaths,
@@ -233,13 +230,6 @@ function init() {
         bar.text("Success");
     }
 
-    function updateTransformText() {
-        const transform = svgControl.getTransform();
-        function normalizeNumber(num) {
-            return +num.toFixed(2);
-        }
-        $("#transformText").text(`(${normalizeNumber(transform.xOffset)}, ${normalizeNumber(transform.yOffset)}) ${normalizeNumber(transform.zoom)}x`);
-    }
 
     $("#infillDensity").on('input', async function() {
         activateProgressBar();
@@ -349,7 +339,7 @@ function init() {
         }); 
     });
 
-    svgControl.initSvgControl(updateTransformText);
+    svgControl.initSvgControl();
 
     $("#loadingSlide").show();
 

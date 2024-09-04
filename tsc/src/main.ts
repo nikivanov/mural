@@ -1,4 +1,4 @@
-import { renderCommandsToSvgJson } from "./toSvgJson";
+import { renderCommandsToSvg } from "./toSvgJson";
 import { renderSvgToCommands } from "./toCommands";
 import { InfillDensities, RequestTypes } from "./types";
 
@@ -15,12 +15,12 @@ self.onmessage = async (e: MessageEvent<any>) => {
     };
 
     const renderResult = await renderSvgToCommands(e.data.svg, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, updateStatusFn);
-    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
+    const resultSvg = renderCommandsToSvg(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
     self.postMessage({
         type: "result",
         payload: {
             commands: renderResult.commands,
-            json: resultSvgJson,
+            svg: resultSvg,
             width: e.data.width,
             height: renderResult.height,
             distance: renderResult.distance,

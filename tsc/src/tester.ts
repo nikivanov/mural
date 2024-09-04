@@ -1,4 +1,4 @@
-import { renderCommandsToSvgJson } from "./toSvgJson";
+import { renderCommandsToSvg } from "./toSvgJson";
 import { renderSvgToCommands } from "./toCommands";
 import path from 'path';
 import * as fs from 'fs';
@@ -8,20 +8,6 @@ const width = 1000;
 
 function updater(status: string) {
     console.log(status);
-}
-
-function getSvgFromSvgJson(svgJson: string, width: number, height: number) {
-    const size = new paper.Size(width, height);
-    paper.setup(size);
-
-    paper.project.importJSON(svgJson);
-    const svgString = paper.project.exportSVG({
-        asString: true,
-    }) as string;
-
-    paper.project.remove();
-
-    return svgString;
 }
 
 async function main() {
@@ -40,8 +26,7 @@ async function main() {
                 const svgString = file.toString();
                 
                 const result = await renderSvgToCommands(svgString, 1, 0,0,0,0,width, 4, updater);
-                const resultJson = renderCommandsToSvgJson(result.commands, width, result.height, updater);
-                const resultSvgString = getSvgFromSvgJson(resultJson, width, result.height);
+                const resultSvgString = renderCommandsToSvg(result.commands, width, result.height, updater);
                 const fullResultPath = path.join(outDirPath, dirEntry.name);
                 fs.writeFileSync(fullResultPath, resultSvgString);
             }

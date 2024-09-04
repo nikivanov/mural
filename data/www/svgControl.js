@@ -7,9 +7,7 @@ document.body.addEventListener("click", function(e) {
 	}
 });
 
-let transformCallbackFunc;
-export function initSvgControl(transformCallbackFn) {
-    transformCallbackFunc = transformCallbackFn;
+export function initSvgControl() {
     $("#zoomIn").click(function() {
         requestChangeInTransform("in");
     });
@@ -24,173 +22,84 @@ export function initSvgControl(transformCallbackFn) {
 }
 
 export function getTransform() {
-    if (currentSvg) {
-        return {
-            xOffset: currentSvg.matrix.tx,
-            yOffset: currentSvg.matrix.ty,
-            zoom: currentSvg.matrix.a,
-            height: currentSvg.view.viewSize.height,
-        };
-    } else {
-        return {
-            xOffset: 0,
-            yOffset: 0,
-            zoom: 1,
-            height: 0,
-        };
-    }
+    return [...affineTransform];
 }
 
+const affineTransform = [1, 0, 0, 1, 0, 0];
 const nudgeBy = 5;
 const zoomBy = 0.05;
 function requestChangeInTransform(direction) {
     switch (direction) {
         case "up":
-            currentSvg.translate({x: 0, y: -nudgeBy});
-            adjustCanvasHeight();
+            affineTransform[5] = affineTransform[5] - nudgeBy;
             break;
         case "down":
-            currentSvg.translate({x: 0, y: nudgeBy});
-            adjustCanvasHeight();
+            affineTransform[5] = affineTransform[5] + nudgeBy;
             break;
         case "left":
-            currentSvg.translate({x: -nudgeBy, y: 0});
+            affineTransform[4] = affineTransform[4] - nudgeBy;
             break;
         case "right":
-            currentSvg.translate({x: nudgeBy, y: 0});
+            affineTransform[4] = affineTransform[4] + nudgeBy;
             break;
         case "in":
-            {
-                const currentScaling = currentSvg.scaling.x;
-                const targetScaling = currentScaling + zoomBy;
-                currentSvg.scale(targetScaling / currentScaling);
-            }
-            adjustCanvasHeight();
+            affineTransform[0] = affineTransform[0] + zoomBy;
+            affineTransform[3] = affineTransform[3] + zoomBy;
             break;
         case "out":
-            {
-                const currentScaling = currentSvg.scaling.x;
-                const targetScaling = currentScaling - zoomBy;
-                currentSvg.scale(targetScaling / currentScaling);
-            }
-            adjustCanvasHeight();
+            affineTransform[0] = affineTransform[0] - zoomBy;
+            affineTransform[3] = affineTransform[3] - zoomBy;
             break;
         case "reset":
-            currentSvg.matrix = new paper.Matrix(1, 0, 0, 1, 0, 0);
-            adjustCanvasHeight();
+            affineTransform[0] = 1;
+            affineTransform[3] = 1;
+            affineTransform[4] = 0;
+            affineTransform[5] = 0;
             break;
         default:
             console.log("Unrecognized transform direction");
             return;
     }
-
-    setCurrentSvg();
-    transformCallbackFunc();
-}
-
-function adjustCanvasHeight() {
-    const heightNeeded = currentSvg.bounds.y + currentSvg.bounds.height;
-    if (heightNeeded > currentSvgHeight) {
-        currentSvg.view.viewSize.height = heightNeeded;
-    } else {
-        currentSvg.view.viewSize.height = currentSvgHeight;
-    }
+    applyTransform();
 }
 
 let currentSvg;
-let currentSvgHeight;
+let currentScale;
+let currentWidth;
+let currentHeight;
 export function setSvgString(svgString, currentState) {
-    const fullWidth = currentState.topDistance;
-    const width = currentState.safeWidth;
+    currentSvg = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+    const bbox = currentSvg.getBBox();
 
-    currentSvgHeight = getHeight(svgString, width);
-    $("#hiddencanvas").remove();
-    $(document.body).append(`<canvas id="hiddencanvas" width="${width}" height="${currentSvgHeight}" style="display: none;"></canvas>`);
-    
-    paper.setup($("#hiddencanvas")[0]);
-    
-    currentSvg = paper.project.importSVG(svgString, {
-        expandShapes: true,
-        applyMatrix: true,
-    });
-
-    currentSvg.fitBounds({
-        x: 0,
-        y: 0,
-        width,
-        height: currentSvgHeight,
-    });
-
-    toggleApplyMatrix(currentSvg, false);
-
-    setCurrentSvg();
+    currentWidth = currentState.safeWidth;
+    currentScale = bbox.width / currentWidth;
+    currentHeight = bbox.height / currentScale;
+    applyTransform();
 }
 
-function toggleApplyMatrix(item, on) {
-    item.applyMatrix = on;
-    if (Array.isArray(item.children)) {
-        for (const child of item.children) {
-            toggleApplyMatrix(child, on);
-        }
+function applyTransform() {
+    const scaledAffine = affineTransform.map(el => el * currentScale);
+    currentSvg.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+    updateTransformText();
+
+    const currentSvgString = new XMLSerializer().serializeToString(currentSvg);
+    const svgDataURL = `data:image/svg+xml;base64,${btoa(currentSvgString)}`;
+    $("#sourceSvg")[0].src = svgDataURL;
+}
+
+function updateTransformText() {
+    function normalizeNumber(num) {
+        return +num.toFixed(2);
     }
+    $("#transformText").text(`(${normalizeNumber(affineTransform[4])}, ${affineTransform[5]}) ${affineTransform[0]}x`);
 }
 
-function setCurrentSvg() {
-    if (!paper.project) {
-        if (paper.projects.length !== 1) {
-            throw new Error("No active project and multiple projects available");
-        }
-        paper.projects[0].activate();
-    }
-    paper.view.draw();
-    $("#sourceSvg")[0].src = $("#hiddencanvas")[0].toDataURL();
-}
-
-function getHeight(svgString, width) {
-    const sizeBeforeFitting = new paper.Size(width, Number.MAX_SAFE_INTEGER);
-    paper.setup(sizeBeforeFitting);
-    const svgBeforeFitting = paper.project.importSVG(svgString, {
-        expandShapes: true,
-        applyMatrix: true,
-    });
-    
-    svgBeforeFitting.fitBounds({
-        x: 0,
-        y: 0,
-        width: sizeBeforeFitting.width,
-        height: sizeBeforeFitting.height,
-    });
-    const height = Math.floor(svgBeforeFitting.bounds.height);
-    paper.project.remove();
-
-    return height;
-}
-
-export function getSvgJson(svgString) {
-    const size = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
-    paper.setup(size);
-    const svg = paper.project.importSVG(svgString, {
-        expandShapes: true,
-        applyMatrix: true,
-    });
-    const json = svg.exportJSON();
-    paper.project.remove();
-
-    return json;
-}
-
-export function convertJsonToDataURL(json, width, height) {
+export function getCurrentSvgRaster() {
     $("#previewCanvas").remove();
-    $(document.body).append(`<canvas id="previewCanvas" width="${width}" height="${height}" style="display: none;"></canvas>`);
-    
-    paper.setup($("#previewCanvas")[0]);
-    paper.project.importJSON(json);
-    paper.view.draw();
-
-    const dataURL = $("#previewCanvas")[0].toDataURL();
-    
-    paper.project.remove();
-    $("#previewCanvas").remove();
-
-    return dataURL;
+    $(document.body).append(`<canvas id="previewCanvas" width="${currentWidth}" height="${currentHeight}" style="display: none;"></canvas>`);
+    const canvas = $("#previewCanvas")[0];
+    const canvasContext = canvas.getContext("2d");
 }
+
+
+
