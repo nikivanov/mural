@@ -126,7 +126,7 @@
       <div id="svgUploadSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Select SVG Image</h3>
         <h6 class="mb-2"><small class="text-muted">Use black and white line art SVGs for now</small></h6>
-        <img id="sourceSvg" class="img-thumbnail mb-2 svg-control" style="display:none;">
+        <img id="sourceSvg" class="img-thumbnail mb-2 svg-control" style="display:none;width:100%;">
         <div class="container svg-control mb-2" style="display: none;">
           <div class="row">
             <div class="col-10 align-self-center">
@@ -161,8 +161,6 @@
         <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
         <label for="infillDensity" class="form-label">Infill Density</label>
         <input type="range" class="form-range mb-2 text-center" min="0" max="4" step="1" id="infillDensity" value="0">
-        <input class="form-check-input" type="checkbox" id="flattenPathsCheckbox">
-        <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths (SLOW)</label>
         <button class="w-100 btn btn-lg btn-primary mb-2" id="beginDrawing" disabled>Begin drawing</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5" id="backToSvgSelect">Back</button>
       </div>

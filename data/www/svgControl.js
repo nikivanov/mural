@@ -21,10 +21,6 @@ export function initSvgControl() {
     });
 }
 
-export function getTransform() {
-    return [...affineTransform];
-}
-
 const affineTransform = [1, 0, 0, 1, 0, 0];
 const nudgeBy = 5;
 const zoomBy = 0.05;
@@ -63,23 +59,34 @@ function requestChangeInTransform(direction) {
     applyTransform();
 }
 
+let originalSvgString;
 let currentSvg;
 let currentScale;
 let currentWidth;
 let currentHeight;
 export function setSvgString(svgString, currentState) {
+    originalSvgString = svgString;
     currentSvg = new DOMParser().parseFromString(svgString, 'image/svg+xml');
-    const bbox = currentSvg.getBBox();
+    const svgElement = currentSvg.documentElement;
+    const svgWidth = parseFloat(svgElement.getAttribute('width'));
+    const svgHeight = parseFloat(svgElement.getAttribute('height'));
 
     currentWidth = currentState.safeWidth;
-    currentScale = bbox.width / currentWidth;
-    currentHeight = bbox.height / currentScale;
+    currentScale = svgWidth / currentWidth;
+    currentHeight = svgHeight / currentScale;
     applyTransform();
 }
 
+function getScaledAffine() {
+    const scaledAffine = [...affineTransform];
+    scaledAffine[4] = scaledAffine[4] * currentScale;
+    scaledAffine[5] = scaledAffine[5] * currentScale;
+    return scaledAffine;
+}
+
 function applyTransform() {
-    const scaledAffine = affineTransform.map(el => el * currentScale);
-    currentSvg.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+    const scaledAffine = getScaledAffine();
+    currentSvg.documentElement.setAttribute("transform", `matrix(${affineTransform.join(", ")})`);
     updateTransformText();
 
     const currentSvgString = new XMLSerializer().serializeToString(currentSvg);
@@ -91,14 +98,35 @@ function updateTransformText() {
     function normalizeNumber(num) {
         return +num.toFixed(2);
     }
-    $("#transformText").text(`(${normalizeNumber(affineTransform[4])}, ${affineTransform[5]}) ${affineTransform[0]}x`);
+    $("#transformText").text(`(${normalizeNumber(affineTransform[4])}, ${normalizeNumber(affineTransform[5])}) ${normalizeNumber(affineTransform[0])}x`);
 }
 
-export function getCurrentSvgRaster() {
+export async function getCurrentSvgRaster(renderScale) {
+    const originalSvg = new DOMParser().parseFromString(originalSvgString, 'image/svg+xml');
+    const svgElement = originalSvg.documentElement;
+
+    const svgWidth = parseFloat(svgElement.getAttribute('width'));
+    const svgHeight = parseFloat(svgElement.getAttribute('height'));
+    const scaledHeight = svgHeight / currentScale * renderScale;
+    const scaledWidth = svgWidth / currentScale * renderScale;
+    const scaledAffine = getScaledAffine();
+
+    svgElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+    svgElement.setAttribute('width', scaledWidth.toString());
+    svgElement.setAttribute('height', scaledHeight.toString());
+
+    const scaledSvgString = new XMLSerializer().serializeToString(svgElement);
+
     $("#previewCanvas").remove();
     $(document.body).append(`<canvas id="previewCanvas" width="${currentWidth}" height="${currentHeight}" style="display: none;"></canvas>`);
     const canvas = $("#previewCanvas")[0];
     const canvasContext = canvas.getContext("2d");
+
+    const bitmap = await createImageBitmap(new Blob([scaledSvgString], { type: 'image/svg+xml'}));
+    canvasContext.drawImage(bitmap, 0, 0, currentWidth, currentHeight);
+    
+    const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+    return imageData;
 }
 
 

@@ -160,6 +160,7 @@ function init() {
         }
     });
 
+    const renderScale = 2;
     async function renderPreview() {
         if (currentWorker) {
             console.log("Terminating previous worker");
@@ -172,16 +173,14 @@ function init() {
             throw new Error('No SVG string');
         }
 
-        const transform = svgControl.getTransform();
+        const raster = await svgControl.getCurrentSvgRaster(renderScale);
+
         const infillDensity = getInfillDensity();
-        const flattenPaths = getFlattenPathsValue();
 
         const requestObj = {
-            svg: svgString,
-            transform: transform,
-            width: currentState.safeWidth,
+            raster,
+            renderScale,
             infillDensity,
-            flattenPaths,
             homeX: currentState.homeX,
             homeY: currentState.homeY,
         };
@@ -197,14 +196,15 @@ function init() {
                 console.log("Worker finished!");
 
                 uploadConvertedCommands = e.data.payload.commands.join('\n');
-                const convertedSvgJson = e.data.payload.json;
-                const dataURL = svgControl.convertJsonToDataURL(convertedSvgJson, e.data.payload.width, e.data.payload.height);
+                const convertedSvgString = e.data.payload.svg;
+
+                const svgDataURL = `data:image/svg+xml;base64,${btoa(convertedSvgString)}`;
 
                 const totalDistanceM = +(e.data.payload.distance / 1000).toFixed(1);
                 const drawDistanceM = +(e.data.payload.drawDistance / 1000).toFixed(1);
                 
                 deactivateProgressBar();
-                $("#previewSvg").attr("src", dataURL);
+                $("#previewSvg").attr("src", svgDataURL);
                 $("#distances").text(`Total: ${totalDistanceM}m / Draw: ${drawDistanceM}m`);
                 $(".svg-preview").show();
                 $("#beginDrawing").removeAttr("disabled");
@@ -234,19 +234,13 @@ function init() {
     $("#infillDensity").on('input', async function() {
         activateProgressBar();
         $("#beginDrawing").attr("disabled", "disabled");
-        renderPreview();
-    });
-
-    $("#flattenPathsCheckbox").on('change', async function() {
-        activateProgressBar();
-        $("#beginDrawing").attr("disabled", "disabled");
-        renderPreview();
+        await renderPreview();
     });
 
     $("#preview").click(async function() {
         $("#svgUploadSlide").hide();
         $("#drawingPreviewSlide").show();
-        renderPreview();
+        await renderPreview();
     });
 
     $("#backToSvgSelect").click(function() {
@@ -391,8 +385,4 @@ function getInfillDensity() {
     } else {
         throw new Error('Invalid density');
     }
-}
-
-function getFlattenPathsValue() {
-    return $("#flattenPathsCheckbox").is(":checked");
 }
