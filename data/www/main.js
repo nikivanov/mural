@@ -173,7 +173,7 @@ function init() {
             throw new Error('No SVG string');
         }
 
-        const raster = await svgControl.getCurrentSvgRaster(renderScale);
+        const raster = await svgControl.getCurrentSvgImageData(renderScale);
 
         const infillDensity = getInfillDensity();
 

@@ -101,7 +101,7 @@ function updateTransformText() {
     $("#transformText").text(`(${normalizeNumber(affineTransform[4])}, ${normalizeNumber(affineTransform[5])}) ${normalizeNumber(affineTransform[0])}x`);
 }
 
-export async function getCurrentSvgRaster(renderScale) {
+export async function getCurrentSvgImageData(renderScale) {
     const originalSvg = new DOMParser().parseFromString(originalSvgString, 'image/svg+xml');
     const svgElement = originalSvg.documentElement;
 
@@ -118,15 +118,26 @@ export async function getCurrentSvgRaster(renderScale) {
     const scaledSvgString = new XMLSerializer().serializeToString(svgElement);
 
     $("#previewCanvas").remove();
-    $(document.body).append(`<canvas id="previewCanvas" width="${currentWidth}" height="${currentHeight}" style="display: none;"></canvas>`);
+    $(document.body).append(`<canvas id="previewCanvas" width="${scaledWidth}" height="${scaledHeight}" style="display: none;"></canvas>`);
     const canvas = $("#previewCanvas")[0];
     const canvasContext = canvas.getContext("2d");
 
-    const bitmap = await createImageBitmap(new Blob([scaledSvgString], { type: 'image/svg+xml'}));
-    canvasContext.drawImage(bitmap, 0, 0, currentWidth, currentHeight);
+    const img = await loadImage(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`)
+
+    const bitmap = await createImageBitmap(img);
+    canvasContext.drawImage(bitmap, 0, 0, scaledWidth, scaledHeight);
     
     const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
     return imageData;
+}
+
+async function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
 }
 
 

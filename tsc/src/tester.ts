@@ -12,7 +12,7 @@ function updater(status: string) {
 }
 
 async function main() {
-    const dirPath = path.join(__dirname, '../svgs/in/');
+    const dirPath = path.join(__dirname, '../svgs');
     const inDir = fs.opendirSync(dirPath);
 
     const outDirPath = path.join(__dirname, '../svgs/out/');
@@ -58,17 +58,18 @@ async function getImageData(svgString: string, renderScaleFactor: number): Promi
     svgElement.setAttribute('height', scaledHeight.toString());
 
     const scaledSvgString = serializer.serializeToString(svgElement);
+
     const image = await loadImage(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`);
     
-    const canvas = createCanvas(image.width, image.height);
+    const canvas = createCanvas(scaledWidth, scaledHeight);
     const ctx = canvas.getContext('2d');
     
     // Draw the image onto the canvas
-    ctx.drawImage(image, 0, 0);
+    ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, scaledWidth, scaledHeight);
     
     // Get the ImageData from the canvas
-    const imageData = new ImageData(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)
-    return imageData;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return { ...imageData, colorSpace: "srgb", height: canvas.height, width: canvas.width};
 }
 
 main();
