@@ -1,8 +1,12 @@
 import { renderCommandsToSvg } from "./toSvgJson";
-import { renderRasterToCommands } from "./toCommands";
+import { vectorizeImageData } from './vectorizer';
+import { renderSvgJsonToCommands } from "./toCommands";
 import path from 'path';
 import * as fs from 'fs';
 import {loadImage, createCanvas} from 'canvas';
+import { loadPaper } from './paperLoader';
+
+const paper = loadPaper();
 
 const width = 1000;
 const renderScaleFactor = 2;
@@ -26,10 +30,24 @@ async function main() {
 
                 const file = fs.readFileSync(path.join(dirEntry.parentPath, dirEntry.name));
                 const svgString = file.toString();
-                const imageData = await getImageData(svgString, renderScaleFactor);
+                const [imageData, svgWidth, svgHeight] = await getImageData(svgString, renderScaleFactor);
+
+                const vectorizedSvg = vectorizeImageData(imageData);
+                const vectorizedJson = convertSvgToSvgJson(vectorizedSvg);
+
+                const height = Math.floor(svgHeight * (width / svgWidth));
                 
-                const result = await renderRasterToCommands(imageData, renderScaleFactor, 0, 0, 4, updater);
-                const resultSvgString = renderCommandsToSvg(result.commands, width, result.height, updater);
+                const result = await renderSvgJsonToCommands(
+                    vectorizedJson,
+                    [1, 0, 0, 1, 0, 0],
+                    width,
+                    height,
+                    0,
+                    0,
+                    4,
+                    updater
+                );
+                const resultSvgString = renderCommandsToSvg(result.commands, width, height, updater);
                 const fullResultPath = path.join(outDirPath, dirEntry.name);
                 fs.writeFileSync(fullResultPath, resultSvgString);
             }
@@ -39,7 +57,7 @@ async function main() {
     }
 };
 
-async function getImageData(svgString: string, renderScaleFactor: number): Promise<ImageData> {
+async function getImageData(svgString: string, renderScaleFactor: number): Promise<[ImageData, number, number]> {
     const jsdom = require("jsdom");
     const window = new jsdom.JSDOM().window;
     const parser = new window.DOMParser();
@@ -69,7 +87,22 @@ async function getImageData(svgString: string, renderScaleFactor: number): Promi
     
     // Get the ImageData from the canvas
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    return { ...imageData, colorSpace: "srgb", height: canvas.height, width: canvas.width};
+    const fullImageData: ImageData = { ...imageData, colorSpace: "srgb", height: canvas.height, width: canvas.width};
+
+    return [fullImageData, svgWidth, svgHeight];
+}
+
+function convertSvgToSvgJson(svgString: string) {
+    const size = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+    paper.setup(size);
+    const svg = paper.project.importSVG(svgString, {
+        expandShapes: true,
+        applyMatrix: true,
+    });
+    const json = svg.exportJSON();
+    paper.project.remove();
+
+    return json;
 }
 
 main();

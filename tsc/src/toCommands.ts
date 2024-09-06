@@ -1,5 +1,4 @@
 import { Command, InfillDensity, updateStatusFn } from './types';
-import { clipPaths } from './clipper';
 import { generatePaths } from './generator';
 import { generateInfills } from './infill';
 import { optimizePaths } from './optimizer';
@@ -8,31 +7,26 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
-import { parseImageData } from './imageDataParser';
-import { CreatePathsFromColorMatrix } from './vectorizer';
 
 const paper = loadPaper();
 
-export async function renderRasterToCommands(raster: ImageData, renderScale: number, homeX: number, homeY: number, infillDensity: InfillDensity, updateStatusFn: updateStatusFn) {
-    updateStatusFn("Rendering");
-    
-    const colorMatrix = parseImageData(raster);
-
-    updateStatusFn("Vectorizing");
-    const processedSvgString = CreatePathsFromColorMatrix(colorMatrix);
-
-    const scaledWidth = raster.width / renderScale; 
-    const scaledHeight = raster.height / renderScale;
-    paper.setup({width: scaledWidth, height: scaledHeight});
+export async function renderSvgJsonToCommands(
+    svgJson: string,
+    affine: number[],
+    width: number,
+    height: number,
+    homeX: number,
+    homeY: number,
+    infillDensity: InfillDensity,
+    updateStatusFn: updateStatusFn
+) {
+    paper.setup({width, height});
 
     updateStatusFn("Importing");
-    const svg = paper.project.importSVG(processedSvgString);
-    svg.fitBounds({x: 0, y: 0, width: scaledWidth, height: scaledHeight});
+    const svg = paper.project.importJSON(svgJson);
+    svg.fitBounds({x: 0, y: 0, width, height});
 
-    svg.matrix = new paper.Matrix(1 / renderScale, 0, 0, 1 / renderScale, 0, 0);
-
-    updateStatusFn("Clipping");
-    clipPaths(svg);
+    svg.matrix = new paper.Matrix(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]);
 
     updateStatusFn("Generating paths");
     const paths = generatePaths(svg);
@@ -54,7 +48,7 @@ export async function renderRasterToCommands(raster: ImageData, renderScale: num
     const dedupedCommands = dedupeCommands(trimmedCommands);
 
     updateStatusFn("Measuring total distance");
-    dedupedCommands.unshift(`h${scaledHeight}`);
+    dedupedCommands.unshift(`h${height}`);
     const distances = measureDistance(dedupedCommands);
     const totalDistance = +distances.totalDistance.toFixed(1);
     dedupedCommands.unshift(`d${totalDistance}`);
@@ -62,8 +56,6 @@ export async function renderRasterToCommands(raster: ImageData, renderScale: num
     const commandStrings = dedupedCommands.map(stringifyCommand);
     return {
         commands: commandStrings,
-        height: scaledHeight,
-        width: scaledWidth,
         distance: totalDistance,
         drawDistance: +distances.drawDistance.toFixed(1),
     };

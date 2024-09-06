@@ -86,7 +86,7 @@ function getScaledAffine() {
 
 function applyTransform() {
     const scaledAffine = getScaledAffine();
-    currentSvg.documentElement.setAttribute("transform", `matrix(${affineTransform.join(", ")})`);
+    currentSvg.documentElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
     updateTransformText();
 
     const currentSvgString = new XMLSerializer().serializeToString(currentSvg);
