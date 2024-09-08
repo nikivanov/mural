@@ -1,4 +1,4 @@
-import { renderCommandsToSvg } from "./toSvgJson";
+import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgJsonToCommands } from "./toCommands";
 import { vectorizeImageData } from './vectorizer';
 import { InfillDensities, RequestTypes } from "./types";
@@ -42,12 +42,12 @@ async function render(request: RequestTypes.RenderSVGRequest) {
         request.infillDensity,
         updateStatusFn,
     )
-    const resultSvg = renderCommandsToSvg(renderResult.commands, request.width, request.height, updateStatusFn);
+    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, request.width, request.height, updateStatusFn);
     self.postMessage({
         type: "renderer",
         payload: {
             commands: renderResult.commands,
-            svg: resultSvg,
+            svgJson: resultSvgJson,
             distance: renderResult.distance,
             drawDistance: renderResult.drawDistance,
         }

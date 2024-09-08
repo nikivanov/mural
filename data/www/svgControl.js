@@ -129,17 +129,23 @@ export async function getCurrentSvgImageData(renderScale) {
 
     const scaledSvgString = new XMLSerializer().serializeToString(svgElement);
 
-    $("#previewCanvas").remove();
-    $(document.body).append(`<canvas id="previewCanvas" width="${scaledWidth}" height="${scaledHeight}" style="display: none;"></canvas>`);
-    const canvas = $("#previewCanvas")[0];
+    const canvas = new OffscreenCanvas(scaledWidth, scaledHeight);
     const canvasContext = canvas.getContext("2d");
-
     const img = await loadImage(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`)
-
     const bitmap = await createImageBitmap(img);
     canvasContext.drawImage(bitmap, 0, 0, scaledWidth, scaledHeight);
     
     const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+    const dataMap = new Map();
+    for (const val of imageData.data) {
+        if (!dataMap.has(val)) {
+            dataMap.set(val, 1);
+        } else {
+            dataMap.set(val, dataMap.get(val) + 1);
+        }
+    }
+    const kvps = Array.from(dataMap);
+    kvps.sort((a, b) => b[1] - a[1]);
     return imageData;
 }
 
@@ -163,6 +169,22 @@ export function getSvgJson(svgString) {
     paper.project.remove();
 
     return json;
+}
+
+export function convertJsonToDataURL(json, width, height) {
+    $("#previewCanvas").remove();
+    $(document.body).append(`<canvas id="previewCanvas" width="${width}" height="${height}" style="display: none;"></canvas>`);
+    
+    paper.setup($("#previewCanvas")[0]);
+    paper.project.importJSON(json);
+    paper.view.draw();
+
+    const dataURL = $("#previewCanvas")[0].toDataURL();
+    
+    paper.project.remove();
+    $("#previewCanvas").remove();
+
+    return dataURL;
 }
 
 

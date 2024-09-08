@@ -1,4 +1,4 @@
-import { renderCommandsToSvg } from "./toSvgJson";
+import { renderCommandsToSvgJson } from "./toSvgJson";
 import { vectorizeImageData } from './vectorizer';
 import { renderSvgJsonToCommands } from "./toCommands";
 import path from 'path';
@@ -47,9 +47,10 @@ async function main() {
                     4,
                     updater
                 );
-                const resultSvgString = renderCommandsToSvg(result.commands, width, height, updater);
+                const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
+                const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
                 const fullResultPath = path.join(outDirPath, dirEntry.name);
-                fs.writeFileSync(fullResultPath, resultSvgString);
+                fs.writeFileSync(fullResultPath, resultSvg);
             }
             
         }
@@ -83,10 +84,20 @@ async function getImageData(svgString: string, renderScaleFactor: number): Promi
     const ctx = canvas.getContext('2d');
     
     // Draw the image onto the canvas
-    ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, scaledWidth, scaledHeight);
+    ctx.drawImage(image, 0, 0, scaledWidth, scaledHeight);
     
     // Get the ImageData from the canvas
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const dataMap = new Map();
+    for (const val of imageData.data) {
+        if (!dataMap.has(val)) {
+            dataMap.set(val, 1);
+        } else {
+            dataMap.set(val, dataMap.get(val) + 1);
+        }
+    }
+    const kvps = Array.from(dataMap);
+    kvps.sort((a, b) => b[1] - a[1]);
     const fullImageData: ImageData = { ...imageData, colorSpace: "srgb", height: canvas.height, width: canvas.width};
 
     return [fullImageData, svgWidth, svgHeight];
@@ -103,6 +114,17 @@ function convertSvgToSvgJson(svgString: string) {
     paper.project.remove();
 
     return json;
+}
+
+function convertSvgJsonToSvg(svgJson: string, width: number, height: number): string {
+    const size = new paper.Size(width, height);
+    paper.setup(size);
+    paper.project.importJSON(svgJson);
+    const svg = paper.project.exportSVG({
+        asString: true,
+    }) as string;
+    paper.project.remove();
+    return svg;
 }
 
 main();

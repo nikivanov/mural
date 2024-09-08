@@ -161,11 +161,14 @@ function init() {
     });
 
     const renderScale = 2;
+    let currentPreviewId = 0;
     async function renderPreview() {
         if (currentWorker) {
             console.log("Terminating previous worker");
             currentWorker.terminate();
         }
+        currentPreviewId++;
+        const thisPreviewId = currentPreviewId;
 
         const svgString = await getUploadedSvgString();
 
@@ -181,18 +184,20 @@ function init() {
             raster,
         };
         
-        currentWorker = new Worker('./worker/worker.js');
+        if (currentPreviewId == thisPreviewId) {
+            currentWorker = new Worker('./worker/worker.js');
 
-        currentWorker.onmessage = (e) => {
-            if (e.data.type === 'status') {
-                $("#progressBar").text(e.data.payload);
-            } else if (e.data.type === 'vectorizer') {
-                const vectorizedSvg = e.data.payload.svg;
-                renderSvgInWorker(currentWorker, vectorizedSvg);
+            currentWorker.onmessage = (e) => {
+                if (e.data.type === 'status') {
+                    $("#progressBar").text(e.data.payload);
+                } else if (e.data.type === 'vectorizer') {
+                    const vectorizedSvg = e.data.payload.svg;
+                    renderSvgInWorker(currentWorker, vectorizedSvg);
+                }
             }
-        }
 
-        currentWorker.postMessage(vectorizeRequest);
+            currentWorker.postMessage(vectorizeRequest);
+        }
     }
 
     function renderSvgInWorker(worker, svg) {
@@ -216,15 +221,14 @@ function init() {
                 console.log("Worker finished!");
 
                 uploadConvertedCommands = e.data.payload.commands.join('\n');
-                const convertedSvgString = e.data.payload.svg;
-
-                const svgDataURL = `data:image/svg+xml;base64,${btoa(convertedSvgString)}`;
+                const resultSvgJson = e.data.payload.svgJson;
+                const resultDataUrl = svgControl.convertJsonToDataURL(resultSvgJson, svgControl.getTargetWidth(), svgControl.getTargetHeight());
 
                 const totalDistanceM = +(e.data.payload.distance / 1000).toFixed(1);
                 const drawDistanceM = +(e.data.payload.drawDistance / 1000).toFixed(1);
                 
                 deactivateProgressBar();
-                $("#previewSvg").attr("src", svgDataURL);
+                $("#previewSvg").attr("src", resultDataUrl);
                 $("#distances").text(`Total: ${totalDistanceM}m / Draw: ${drawDistanceM}m`);
                 $(".svg-preview").show();
                 $("#beginDrawing").removeAttr("disabled");

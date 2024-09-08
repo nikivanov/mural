@@ -3,7 +3,7 @@ import {updateStatusFn} from './types';
 
 const paper = loadPaper();
 
-export function renderCommandsToSvg(commands: string[], width: number, height: number, updateStatusFn: updateStatusFn): string {
+export function renderCommandsToSvgJson(commands: string[], width: number, height: number, updateStatusFn: updateStatusFn): string {
     updateStatusFn("Rendering result");
     const size = new paper.Size(width, height);
     paper.setup(size);
@@ -83,7 +83,7 @@ export function renderCommandsToSvg(commands: string[], width: number, height: n
     layer.addChild(backgroundPath);
     backgroundPath.sendToBack();
     
-    return paper.project.exportSVG({
+    return paper.project.exportJSON({
         asString: true,
-    }) as string;
+    });
 }
