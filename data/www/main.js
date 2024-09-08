@@ -173,26 +173,46 @@ function init() {
             throw new Error('No SVG string');
         }
 
+        $("#progressBar").text("Rasterizing");
         const raster = await svgControl.getCurrentSvgImageData(renderScale);
 
-        const infillDensity = getInfillDensity();
-
-        const requestObj = {
+        const vectorizeRequest = {
+            type: 'vectorize',
             raster,
-            renderScale,
-            infillDensity,
-            homeX: currentState.homeX,
-            homeY: currentState.homeY,
         };
         
-        console.log("Starting worker");
-
         currentWorker = new Worker('./worker/worker.js');
 
         currentWorker.onmessage = (e) => {
             if (e.data.type === 'status') {
                 $("#progressBar").text(e.data.payload);
-            } else if (e.data.type === 'result') {
+            } else if (e.data.type === 'vectorizer') {
+                const vectorizedSvg = e.data.payload.svg;
+                renderSvgInWorker(currentWorker, vectorizedSvg);
+            }
+        }
+
+        currentWorker.postMessage(vectorizeRequest);
+    }
+
+    function renderSvgInWorker(worker, svg) {
+        const svgJson = svgControl.getSvgJson(svg);
+       
+        const renderRequest = {
+            type: "renderSvg",
+            svgJson,
+            affine: svgControl.getTransform(),
+            width: svgControl.getTargetWidth(),
+            height: svgControl.getTargetHeight(),
+            homeX: currentState.homeX,
+            homeY: currentState.homeY,
+            infillDensity: getInfillDensity(),
+        }
+
+        worker.onmessage = (e) => {
+            if (e.data.type === 'status') {
+                $("#progressBar").text(e.data.payload);
+            } else if (e.data.type === 'renderer') {
                 console.log("Worker finished!");
 
                 uploadConvertedCommands = e.data.payload.commands.join('\n');
@@ -211,7 +231,7 @@ function init() {
             }
         };
 
-        currentWorker.postMessage(requestObj);
+        worker.postMessage(renderRequest);
     }
 
     function activateProgressBar() {

@@ -77,11 +77,23 @@ export function setSvgString(svgString, currentState) {
     applyTransform();
 }
 
+export function getTargetWidth() {
+    return currentWidth;
+}
+
+export function getTargetHeight() {
+    return currentHeight;
+}
+
 function getScaledAffine() {
     const scaledAffine = [...affineTransform];
     scaledAffine[4] = scaledAffine[4] * currentScale;
     scaledAffine[5] = scaledAffine[5] * currentScale;
     return scaledAffine;
+}
+
+export function getTransform() {
+    return [...affineTransform];
 }
 
 function applyTransform() {
@@ -138,6 +150,19 @@ async function loadImage(src) {
         img.onerror = reject;
         img.src = src;
     });
+}
+
+export function getSvgJson(svgString) {
+    const size = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+    paper.setup(size);
+    const svg = paper.project.importSVG(svgString, {
+        expandShapes: true,
+        applyMatrix: true,
+    });
+    const json = svg.exportJSON();
+    paper.project.remove();
+
+    return json;
 }
 
 
