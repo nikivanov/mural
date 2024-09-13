@@ -136,16 +136,7 @@ export async function getCurrentSvgImageData(renderScale) {
     canvasContext.drawImage(bitmap, 0, 0, scaledWidth, scaledHeight);
     
     const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
-    const dataMap = new Map();
-    for (const val of imageData.data) {
-        if (!dataMap.has(val)) {
-            dataMap.set(val, 1);
-        } else {
-            dataMap.set(val, dataMap.get(val) + 1);
-        }
-    }
-    const kvps = Array.from(dataMap);
-    kvps.sort((a, b) => b[1] - a[1]);
+    
     return imageData;
 }
 

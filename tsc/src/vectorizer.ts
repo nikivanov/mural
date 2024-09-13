@@ -38,7 +38,7 @@ function createPathsFromColorMatrix(colorMatrix: paper.Color[][]): string {
             let bmColor: (1|0) = 0;
             const currentColor = colorMatrix[row][column];
             
-            if (currentColor.alpha > 0 && colorDistance(currentColor, WHITE_COLOR) > 0.1) {
+            if (currentColor.alpha > 0 && colorDistance(currentColor, WHITE_COLOR) < 0.1) {
                 bmColor = 1;
             }
 

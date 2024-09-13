@@ -52,15 +52,7 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
         const infillPaths: paper.Path[] = [];
 
         if (!path.fillColor || path.fillColor.toCSS(true) !== '#ffffff') {
-            //let count = 0;
             for (const line of lines) {
-                // count++;
-                // if (count == 103) {
-                //     console.log('hi');
-                // } else if (count  > 103) {
-                //     break;
-                // }
-
                 const intersections = [...path.getIntersections(line), ...boundsPath.getIntersections(line)];
 
                 intersections.sort((a, b) => a.point.x - b.point.x);

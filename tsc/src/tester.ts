@@ -28,7 +28,7 @@ async function main() {
             if (dirEntry.name == "albert-einstein.svg") {
                 console.log(`processing ${dirEntry.name}`);
 
-                const file = fs.readFileSync(path.join(dirEntry.parentPath, dirEntry.name));
+                const file = fs.readFileSync(path.join(dirEntry.path, dirEntry.name));
                 const svgString = file.toString();
                 const [imageData, svgWidth, svgHeight] = await getImageData(svgString, renderScaleFactor);
 
