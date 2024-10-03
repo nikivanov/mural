@@ -453,7 +453,7 @@
                 ]
             },
             "defines": [
-                "PLATFORMIO=60115",
+                "PLATFORMIO=60116",
                 "ARDUINO_ESP32_DEV",
                 "HAVE_CONFIG_H",
                 "MBEDTLS_CONFIG_FILE=\"mbedtls/esp_config.h\"",
