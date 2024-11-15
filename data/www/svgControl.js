@@ -24,29 +24,30 @@ export function initSvgControl() {
 }
 
 const affineTransform = [1, 0, 0, 1, 0, 0];
-const nudgeBy = 5;
-const zoomBy = 0.05;
+// nudge by this fraction of the viewport's width
+const nudgeByFactor = 0.025;
+const zoomByFactor = 0.05;
 function requestChangeInTransform(direction) {
     switch (direction) {
         case "up":
-            affineTransform[5] = affineTransform[5] - nudgeBy;
+            affineTransform[5] = affineTransform[5] - nudgeByFactor;
             break;
         case "down":
-            affineTransform[5] = affineTransform[5] + nudgeBy;
+            affineTransform[5] = affineTransform[5] + nudgeByFactor;
             break;
         case "left":
-            affineTransform[4] = affineTransform[4] - nudgeBy;
+            affineTransform[4] = affineTransform[4] - nudgeByFactor;
             break;
         case "right":
-            affineTransform[4] = affineTransform[4] + nudgeBy;
+            affineTransform[4] = affineTransform[4] + nudgeByFactor;
             break;
         case "in":
-            affineTransform[0] = affineTransform[0] + zoomBy;
-            affineTransform[3] = affineTransform[3] + zoomBy;
+            affineTransform[0] = affineTransform[0] + zoomByFactor;
+            affineTransform[3] = affineTransform[3] + zoomByFactor;
             break;
         case "out":
-            affineTransform[0] = affineTransform[0] - zoomBy;
-            affineTransform[3] = affineTransform[3] - zoomBy;
+            affineTransform[0] = affineTransform[0] - zoomByFactor;
+            affineTransform[3] = affineTransform[3] - zoomByFactor;
             break;
         case "reset":
             affineTransform[0] = 1;
@@ -61,16 +62,15 @@ function requestChangeInTransform(direction) {
     applyTransform();
 }
 
-let originalSvgString;
 let currentSvg;
 let currentScale;
 let currentWidth;
 let currentHeight;
+let svgWidth, svgHeight;
 export function setSvgString(svgString, currentState) {
-    originalSvgString = svgString;
     currentSvg = new DOMParser().parseFromString(svgString, 'image/svg+xml');
     const svgElement = currentSvg.documentElement;
-    const [svgWidth, svgHeight] = extractWidthAndHeight(svgElement);
+    [svgWidth, svgHeight] = extractWidthAndHeight(svgElement);
 
     currentWidth = currentState.safeWidth;
     currentScale = svgWidth / currentWidth;
@@ -86,24 +86,16 @@ export function getTargetHeight() {
     return currentHeight;
 }
 
-function getScaledAffine() {
-    const scaledAffine = [...affineTransform];
-    scaledAffine[4] = scaledAffine[4] * currentScale;
-    scaledAffine[5] = scaledAffine[5] * currentScale;
-    return scaledAffine;
-}
-
 export function getRenderTransform() {
-    const matrix = new paper.Matrix();
-    // this should bring us back to currentWidth
-    matrix.scale(1 / renderScale);
-    matrix.translate(affineTransform[4] * currentScale * renderScale, affineTransform[5] * currentScale * renderScale);
-    
-    return matrix.values;
+    return [1 / renderScale, 0, 0, 1 / renderScale, 0, 0];
 }
 
 function applyTransform() {
-    const scaledAffine = getScaledAffine();
+    const scaledAffine = [...affineTransform];
+    const previewContainerWidth = $("#sourceSvg").width();
+    scaledAffine[4] = scaledAffine[4] * previewContainerWidth;
+    scaledAffine[5] = scaledAffine[5] * previewContainerWidth;
+
     currentSvg.documentElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
     updateTransformText();
 
@@ -116,7 +108,7 @@ function updateTransformText() {
     function normalizeNumber(num) {
         return +num.toFixed(2);
     }
-    $("#transformText").text(`(${normalizeNumber(affineTransform[4])}, ${normalizeNumber(affineTransform[5])}) ${normalizeNumber(affineTransform[0])}x`);
+    $("#transformText").text(`(${normalizeNumber(affineTransform[4] * 100)}, ${normalizeNumber(affineTransform[5] * 100)}) ${normalizeNumber(affineTransform[0])}x`);
 }
 
 function extractWidthAndHeight(svgElement) {
@@ -139,32 +131,26 @@ function extractWidthAndHeight(svgElement) {
 }
 
 export async function getCurrentSvgImageData() {
-    const originalSvg = new DOMParser().parseFromString(originalSvgString, 'image/svg+xml');
-    const svgElement = originalSvg.documentElement;
+    const scaledHeight = currentHeight * renderScale;
+    const scaledWidth = currentWidth * renderScale;
 
-    
-    const [svgWidth, svgHeight] = extractWidthAndHeight(svgElement);
-    const scaledHeight = svgHeight / currentScale * renderScale;
-    const scaledWidth = svgWidth / currentScale * renderScale;
-    const scaledAffine = getScaledAffine();
+    const svgCopy = currentSvg.cloneNode(true);
+    const svgElement = svgCopy.documentElement;
+    const affineCopy = [...affineTransform];
 
-    svgElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+    affineCopy[4] = affineCopy[4] * svgWidth;
+    affineCopy[5] = affineCopy[5] * svgWidth;
 
-    svgElement.setAttribute('width', scaledWidth.toString());
-    svgElement.setAttribute('height', scaledHeight.toString());
-    
-    if (svgElement.hasAttribute("viewBox")) {
-        const viewBox = svgElement.getAttribute("viewBox").split(" ").map(str => parseFloat(str));
-        viewBox.forEach(num => num / currentScale * renderScale);
-        svgElement.setAttribute("viewBox", viewBox.map(num => num.toString()).join(" "));
-    }
+    svgElement.setAttribute("transform", `matrix(${affineCopy.join(", ")})`);
 
-    const scaledSvgString = new XMLSerializer().serializeToString(svgElement);
+    const svgString = new XMLSerializer().serializeToString(svgCopy);
 
     const canvas = new OffscreenCanvas(scaledWidth, scaledHeight);
-    const canvasContext = canvas.getContext("2d");
-    const img = await loadImage(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`);
-    const bitmap = await createImageBitmap(img);
+    const canvasContext = canvas.getContext("2d",);
+    const img = await loadImage(`data:image/svg+xml;base64,${btoa(svgString)}`);
+
+    const bitmap = await createImageBitmap(img, {resizeHeight: scaledHeight, resizeWidth: scaledWidth});
+
     canvasContext.drawImage(bitmap, 0, 0, scaledWidth, scaledHeight);
     
     const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
