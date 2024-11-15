@@ -5,6 +5,7 @@ import path from 'path';
 import * as fs from 'fs';
 import {loadImage, createCanvas} from 'canvas';
 import { loadPaper } from './paperLoader';
+import { RequestTypes } from "./types";
 
 const paper = loadPaper();
 
@@ -37,16 +38,17 @@ async function main() {
 
                 const height = Math.floor(svgHeight * (width / svgWidth));
                 
-                const result = await renderSvgJsonToCommands(
-                    vectorizedJson,
-                    [1, 0, 0, 1, 0, 0],
-                    width,
+                const request: RequestTypes.RenderSVGRequest = {
+                    svgJson: vectorizedJson,
+                    affine: [1, 0, 0, 1, 0, 0],
                     height,
-                    0,
-                    0,
-                    4,
-                    updater
-                );
+                    width,
+                    homeX: 0,
+                    homeY: 0,
+                    infillDensity: 4,
+                    type: 'renderSvg'
+                };
+                const result = await renderSvgJsonToCommands(request, updater)
                 const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
                 const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
                 const fullResultPath = path.join(outDirPath, dirEntry.name);

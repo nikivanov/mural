@@ -1,9 +1,9 @@
 #ifndef SetDistancePhase_h
 #define SetDistancePhase_h
-#include "notsupportedphase.h"
+#include "commandhandlingphase.h"
 #include "phasemanager.h"
 #include "movement.h"
-class SetTopDistancePhase : public NotSupportedPhase {
+class SetTopDistancePhase : public CommandHandlingPhase {
     private:
     PhaseManager* manager;
     Movement* movement;

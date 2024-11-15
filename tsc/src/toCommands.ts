@@ -1,4 +1,4 @@
-import { Command, InfillDensity, updateStatusFn } from './types';
+import { Command, RequestTypes, updateStatusFn } from './types';
 import { generatePaths } from './generator';
 import { generateInfills } from './infill';
 import { optimizePaths } from './optimizer';
@@ -11,22 +11,17 @@ import { loadPaper } from './paperLoader';
 const paper = loadPaper();
 
 export async function renderSvgJsonToCommands(
-    svgJson: string,
-    affine: number[],
-    width: number,
-    height: number,
-    homeX: number,
-    homeY: number,
-    infillDensity: InfillDensity,
+    request: RequestTypes.RenderSVGRequest,
     updateStatusFn: updateStatusFn
 ) {
-    paper.setup({width, height});
+    paper.setup({width: request.width, height: request.height});
 
     updateStatusFn("Importing");
-    const svg = paper.project.importJSON(svgJson);
-    svg.fitBounds({x: 0, y: 0, width, height});
+    const svg = paper.project.importJSON(request.svgJson);
 
+    const affine = request.affine;
     svg.matrix = new paper.Matrix(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]);
+    
 
     updateStatusFn("Generating paths");
     const paths = generatePaths(svg);
@@ -34,10 +29,10 @@ export async function renderSvgJsonToCommands(
     paths.forEach(p => p.flatten(0.5));
 
     updateStatusFn("Generating infill");
-    const pathsWithInfills = generateInfills(paths, infillDensity);
+    const pathsWithInfills = generateInfills(paths, request.infillDensity);
 
     updateStatusFn("Optimizing paths");
-    const optimizedPaths = optimizePaths(pathsWithInfills, homeX, homeY);
+    const optimizedPaths = optimizePaths(pathsWithInfills, request.homeX, request.homeY);
 
     updateStatusFn("Generating commands");
     const commands = renderPathsToCommands(optimizedPaths);
@@ -48,7 +43,7 @@ export async function renderSvgJsonToCommands(
     const dedupedCommands = dedupeCommands(trimmedCommands);
 
     updateStatusFn("Measuring total distance");
-    dedupedCommands.unshift(`h${height}`);
+    dedupedCommands.unshift(`h${request.height}`);
     const distances = measureDistance(dedupedCommands);
     const totalDistance = +distances.totalDistance.toFixed(1);
     dedupedCommands.unshift(`d${totalDistance}`);

@@ -8,7 +8,6 @@
 class PhaseManager {
     private:
     Phase* currentPhase;
-    Phase* resumeOrStartOverPhase;
     Phase* retractBeltsPhase;
     Phase* setTopDistancePhase;
     Phase* extendToHomePhase;
@@ -17,7 +16,7 @@ class PhaseManager {
     Movement* movement;
     void _reset();
     public:
-    enum PhaseNames {ResumeOrStartOver, RetractBelts, SetTopDistance, ExtendToHome, PenCalibration, SvgSelect};
+    enum PhaseNames {RetractBelts, SetTopDistance, ExtendToHome, PenCalibration, SvgSelect};
     PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server);
     Phase* getCurrentPhase();
     void setPhase(PhaseNames name);

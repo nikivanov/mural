@@ -5,7 +5,6 @@
 #include "pen.h"
 #include "display.h"
 #include "SPIFFS.h"
-#include "distancestate.h"
 using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
@@ -54,7 +53,6 @@ void Runner::initTaskProvider() {
 
 void Runner::start() {
     initTaskProvider();
-    DistanceState::deleteStoredDistance();
     currentTask = getNextTask();
     currentTask->startRunning();
     stopped = false;

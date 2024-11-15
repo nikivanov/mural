@@ -7,6 +7,8 @@ document.body.addEventListener("click", function(e) {
 	}
 });
 
+export const renderScale = 2;
+
 export function initSvgControl() {
     $("#zoomIn").click(function() {
         requestChangeInTransform("in");
@@ -68,8 +70,7 @@ export function setSvgString(svgString, currentState) {
     originalSvgString = svgString;
     currentSvg = new DOMParser().parseFromString(svgString, 'image/svg+xml');
     const svgElement = currentSvg.documentElement;
-    const svgWidth = parseFloat(svgElement.getAttribute('width'));
-    const svgHeight = parseFloat(svgElement.getAttribute('height'));
+    const [svgWidth, svgHeight] = extractWidthAndHeight(svgElement);
 
     currentWidth = currentState.safeWidth;
     currentScale = svgWidth / currentWidth;
@@ -92,8 +93,13 @@ function getScaledAffine() {
     return scaledAffine;
 }
 
-export function getTransform() {
-    return [...affineTransform];
+export function getRenderTransform() {
+    const matrix = new paper.Matrix();
+    // this should bring us back to currentWidth
+    matrix.scale(1 / renderScale);
+    matrix.translate(affineTransform[4] * currentScale * renderScale, affineTransform[5] * currentScale * renderScale);
+    
+    return matrix.values;
 }
 
 function applyTransform() {
@@ -113,25 +119,51 @@ function updateTransformText() {
     $("#transformText").text(`(${normalizeNumber(affineTransform[4])}, ${normalizeNumber(affineTransform[5])}) ${normalizeNumber(affineTransform[0])}x`);
 }
 
-export async function getCurrentSvgImageData(renderScale) {
+function extractWidthAndHeight(svgElement) {
+    let width, height;
+    if (svgElement.hasAttribute("viewBox")) {
+        const viewBox = svgElement.getAttribute("viewBox").split(" ");
+        width = viewBox[2];
+        height = viewBox[3];
+    }
+    else if (svgElement.hasAttribute("width") && svgElement.hasAttribute("height")) {
+        width = svgElement.getAttribute("width");
+        height = svgElement.getAttribute("height");
+    }
+
+    if (!width || !height) {
+        throw new Error("Invalid SVG");
+    }
+
+    return [parseFloat(width), parseFloat(height)];
+}
+
+export async function getCurrentSvgImageData() {
     const originalSvg = new DOMParser().parseFromString(originalSvgString, 'image/svg+xml');
     const svgElement = originalSvg.documentElement;
 
-    const svgWidth = parseFloat(svgElement.getAttribute('width'));
-    const svgHeight = parseFloat(svgElement.getAttribute('height'));
+    
+    const [svgWidth, svgHeight] = extractWidthAndHeight(svgElement);
     const scaledHeight = svgHeight / currentScale * renderScale;
     const scaledWidth = svgWidth / currentScale * renderScale;
     const scaledAffine = getScaledAffine();
 
     svgElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+
     svgElement.setAttribute('width', scaledWidth.toString());
     svgElement.setAttribute('height', scaledHeight.toString());
+    
+    if (svgElement.hasAttribute("viewBox")) {
+        const viewBox = svgElement.getAttribute("viewBox").split(" ").map(str => parseFloat(str));
+        viewBox.forEach(num => num / currentScale * renderScale);
+        svgElement.setAttribute("viewBox", viewBox.map(num => num.toString()).join(" "));
+    }
 
     const scaledSvgString = new XMLSerializer().serializeToString(svgElement);
 
     const canvas = new OffscreenCanvas(scaledWidth, scaledHeight);
     const canvasContext = canvas.getContext("2d");
-    const img = await loadImage(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`)
+    const img = await loadImage(`data:image/svg+xml;base64,${btoa(scaledSvgString)}`);
     const bitmap = await createImageBitmap(img);
     canvasContext.drawImage(bitmap, 0, 0, scaledWidth, scaledHeight);
     

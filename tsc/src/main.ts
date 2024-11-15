@@ -33,13 +33,7 @@ function vectorize(request: RequestTypes.VectorizeRequest) {
 
 async function render(request: RequestTypes.RenderSVGRequest) {
     const renderResult = await renderSvgJsonToCommands(
-        request.svgJson,
-        request.affine,
-        request.width,
-        request.height,
-        request.homeX,
-        request.homeY,
-        request.infillDensity,
+        request,
         updateStatusFn,
     )
     const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, request.width, request.height, updateStatusFn);

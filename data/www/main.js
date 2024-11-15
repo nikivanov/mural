@@ -47,7 +47,7 @@ function init() {
         $.post(custom.url, custom.data || {}, function(state) {
             adaptToState(state);
         }).fail(function() {
-            alert(`${commandName} command failed`);
+            alert(`${custom.commandName} command failed`);
             location.reload();
         });
     }
@@ -63,6 +63,7 @@ function init() {
         if (isNaN(inputValue)) {
             throw new Error("input value is not a number");
         }
+
         doneWithPhase({
             url: "/setTopDistance",
             data: {distance: inputValue},
@@ -129,11 +130,15 @@ function init() {
 
     $("#setPenDistance").click(function () {
         const inputValue = getServoValueFromInputValue();
-        
-        doneWithPhase({
-            url: "/setPenDistance",
-            data: {angle: inputValue},
-            commandName: "Set Pen Distance",
+        $(".muralSlide").hide();
+        $("#loadingSlide").show();
+        $.post("/setPenDistance", {angle: inputValue}, function() {
+            $(".muralSlide").hide();
+            $("#drawingBegan").show();
+            $.post("/run", {});
+        }).fail(function() {
+            alert(`${commandName} command failed`);
+            location.reload();
         });
     });
 
@@ -160,7 +165,7 @@ function init() {
         }
     });
 
-    const renderScale = 2;
+    
     let currentPreviewId = 0;
     async function renderPreview() {
         if (currentWorker) {
@@ -177,7 +182,7 @@ function init() {
         }
 
         $("#progressBar").text("Rasterizing");
-        const raster = await svgControl.getCurrentSvgImageData(renderScale);
+        const raster = await svgControl.getCurrentSvgImageData();
 
         const vectorizeRequest = {
             type: 'vectorize',
@@ -206,7 +211,7 @@ function init() {
         const renderRequest = {
             type: "renderSvg",
             svgJson,
-            affine: svgControl.getTransform(),
+            affine: svgControl.getRenderTransform(),
             width: svgControl.getTargetWidth(),
             height: svgControl.getTargetHeight(),
             homeX: currentState.homeX,
@@ -231,7 +236,7 @@ function init() {
                 $("#previewSvg").attr("src", resultDataUrl);
                 $("#distances").text(`Total: ${totalDistanceM}m / Draw: ${drawDistanceM}m`);
                 $(".svg-preview").show();
-                $("#beginDrawing").removeAttr("disabled");
+                $("#acceptSvg").removeAttr("disabled");
             }
         };
 
@@ -257,7 +262,7 @@ function init() {
 
     $("#infillDensity").on('input', async function() {
         activateProgressBar();
-        $("#beginDrawing").attr("disabled", "disabled");
+        $("#acceptSvg").attr("disabled", "disabled");
         await renderPreview();
     });
 
@@ -274,21 +279,24 @@ function init() {
         activateProgressBar();
         $("#previewSvg").removeAttr("src");
         $(".svg-preview").hide();
-        $("#beginDrawing").attr("disabled", "disabled");
+        $("#acceptSvg").attr("disabled", "disabled");
 
         $("#svgUploadSlide").show();
         $("#drawingPreviewSlide").hide();
     });
     
-    $("#beginDrawing").click(function() {
+    $("#acceptSvg").click(function() {
         if (!uploadConvertedCommands) {
             throw new Error('Commands are empty');
         }
-        $("#beginDrawing").attr("disabled", "disabled");
+        $("#acceptSvg").attr("disabled", "disabled");
 
         const commandsBlob = new Blob([uploadConvertedCommands], {
             type: "text/plain"
         });
+
+        $(".muralSlide").hide();
+        $("#loadingSlide").show();
 
         const formData = new FormData();
         formData.append("commands", commandsBlob);
@@ -298,10 +306,8 @@ function init() {
             processData: false,
             contentType: false,
             type: 'POST',
-            success: function() {
-                $("#drawingPreviewSlide").hide();
-                $("#drawingBegan").show();
-                $.post("/run", {});
+            success: function(data) {
+                adaptToState(data);
             },
             error: function(err) {
                 alert('Upload to Mural failed! ' + err);
@@ -346,17 +352,6 @@ function init() {
         client.leftRetractUp();
     });
 
-    $("#startOver").click(function() {
-        doneWithPhase();
-    });
-
-    $("#resume").click(function() {
-        doneWithPhase({
-            url: "/resume",
-            commandName: "Resume",
-        }); 
-    });
-
     svgControl.initSvgControl();
 
     $("#loadingSlide").show();
@@ -372,10 +367,6 @@ function adaptToState(state) {
     $(".muralSlide").hide();
     currentState = state;
     switch(state.phase) {
-        case "ResumeOrStartOver":
-            $(".resumeDistance").text(state.resumeDistance);
-            $("#resumeOrStartSlide").show();
-            break;
         case "RetractBelts":
             $("#retractBeltsSlide").show();
             break;

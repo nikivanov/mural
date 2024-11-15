@@ -1,5 +1,6 @@
 #include "settopdistancephase.h"
-SetTopDistancePhase::SetTopDistancePhase(PhaseManager* manager, Movement* movement) {
+#include "commandhandlingphase.h"
+SetTopDistancePhase::SetTopDistancePhase(PhaseManager* manager, Movement* movement) : CommandHandlingPhase(movement) {
     this->manager = manager;
     this->movement = movement;
 }
@@ -9,7 +10,7 @@ void SetTopDistancePhase::setTopDistance(AsyncWebServerRequest *request) {
     int distance = p->value().toInt();
     Serial.println("Setting distance");
     movement->setTopDistance(distance); 
-    manager->setPhase(PhaseManager::ExtendToHome);
+    manager->setPhase(PhaseManager::SvgSelect);
     manager->respondWithState(request);
 }
 
