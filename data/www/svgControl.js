@@ -142,6 +142,12 @@ export async function getCurrentSvgImageData() {
     affineCopy[5] = affineCopy[5] * svgWidth;
 
     svgElement.setAttribute("transform", `matrix(${affineCopy.join(", ")})`);
+    if (!svgElement.hasAttribute("width")) {
+        svgElement.setAttribute("width", `${svgWidth}px`);
+    }
+    if (!svgElement.hasAttribute("height")) {
+        svgElement.setAttribute("height", `${svgHeight}px`);
+    }
 
     const svgString = new XMLSerializer().serializeToString(svgCopy);
 
