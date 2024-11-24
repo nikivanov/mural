@@ -50,10 +50,7 @@ function requestChangeInTransform(direction) {
             affineTransform[3] = affineTransform[3] - zoomByFactor;
             break;
         case "reset":
-            affineTransform[0] = 1;
-            affineTransform[3] = 1;
-            affineTransform[4] = 0;
-            affineTransform[5] = 0;
+            resetTransform();
             break;
         default:
             console.log("Unrecognized transform direction");
@@ -62,15 +59,24 @@ function requestChangeInTransform(direction) {
     applyTransform();
 }
 
+function resetTransform() {
+    affineTransform[0] = 1;
+    affineTransform[3] = 1;
+    affineTransform[4] = 0;
+    affineTransform[5] = 0;
+}
+
 let currentSvg;
 let currentScale;
 let currentWidth;
 let currentHeight;
 let svgWidth, svgHeight;
 export function setSvgString(svgString, currentState) {
+    resetTransform();
+
     currentSvg = new DOMParser().parseFromString(svgString, 'image/svg+xml');
     const svgElement = currentSvg.documentElement;
-    [svgWidth, svgHeight] = extractWidthAndHeight(svgElement);
+    [svgWidth, svgHeight] = normalizeAndExtractWidthAndHeight(svgElement);
 
     currentWidth = currentState.safeWidth;
     currentScale = svgWidth / currentWidth;
@@ -111,23 +117,47 @@ function updateTransformText() {
     $("#transformText").text(`(${normalizeNumber(affineTransform[4] * 100)}, ${normalizeNumber(affineTransform[5] * 100)}) ${normalizeNumber(affineTransform[0])}x`);
 }
 
-function extractWidthAndHeight(svgElement) {
+function normalizeAndExtractWidthAndHeight(svgElement) {
     let width, height;
-    if (svgElement.hasAttribute("viewBox")) {
-        const viewBox = svgElement.getAttribute("viewBox").split(" ");
-        width = viewBox[2];
-        height = viewBox[3];
-    }
-    else if (svgElement.hasAttribute("width") && svgElement.hasAttribute("height")) {
+    if (svgElement.hasAttribute("width") && svgElement.hasAttribute("height")) {
         width = svgElement.getAttribute("width");
         height = svgElement.getAttribute("height");
-    }
 
+        const unitConversionFactors = {
+            pt: 1.3333,    // Points to pixels
+            pc: 16,        // Picas to pixels
+            in: 96,        // Inches to pixels
+            cm: 37.795,    // Centimeters to pixels
+            mm: 3.7795,    // Millimeters to pixels
+            px: 1,         // Pixels to pixels
+        };
+
+        const parseDimensionToPixels = (dim) => {
+            const match = dim.match(/([\d.]+)([a-z%]*)/i);
+            if (!match) {
+                throw new Error(`Invalid dimension: "${dim}"`);
+            }
+            const value = parseFloat(match[1]);
+            const unit = match[2] || "px"; // Default to pixels if no unit is provided
+            const conversionFactor = unitConversionFactors[unit] || 1;
+            return value * conversionFactor; // Convert to pixels
+        };
+
+        width = parseDimensionToPixels(width);
+        height = parseDimensionToPixels(height);
+        svgElement.setAttribute("width", width);
+        svgElement.setAttribute("height", height);
+    } else if (svgElement.hasAttribute("viewBox")) {
+        const viewBox = svgElement.getAttribute("viewBox").split(" ");
+        width = parseFloat(viewBox[2]);
+        height = parseFloat(viewBox[3]);
+    }
+    
     if (!width || !height) {
         throw new Error("Invalid SVG");
     }
 
-    return [parseFloat(width), parseFloat(height)];
+    return [width, height];
 }
 
 export async function getCurrentSvgImageData() {
@@ -143,10 +173,10 @@ export async function getCurrentSvgImageData() {
 
     svgElement.setAttribute("transform", `matrix(${affineCopy.join(", ")})`);
     if (!svgElement.hasAttribute("width")) {
-        svgElement.setAttribute("width", `${svgWidth}px`);
+        svgElement.setAttribute("width", `${svgWidth}`);
     }
     if (!svgElement.hasAttribute("height")) {
-        svgElement.setAttribute("height", `${svgHeight}px`);
+        svgElement.setAttribute("height", `${svgHeight}`);
     }
 
     const svgString = new XMLSerializer().serializeToString(svgCopy);
