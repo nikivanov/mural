@@ -102,11 +102,30 @@ function applyTransform() {
     scaledAffine[4] = scaledAffine[4] * previewContainerWidth;
     scaledAffine[5] = scaledAffine[5] * previewContainerWidth;
 
-    currentSvg.documentElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+    const clonedSvg = currentSvg.cloneNode(true);
+    const svgElement = clonedSvg.documentElement;
+    
     updateTransformText();
 
-    const currentSvgString = new XMLSerializer().serializeToString(currentSvg);
-    const svgDataURL = `data:image/svg+xml;base64,${btoa(currentSvgString)}`;
+    if (scaledAffine[5] > 0) {
+        svgElement.setAttribute('height', parseFloat(svgElement.getAttribute("height")) + scaledAffine[5]);
+        if (svgElement.hasAttribute("viewBox")) {
+            const viewBox = svgElement.getAttribute("viewBox").split(" ").map(Number);
+            const viewBoxHeight = viewBox[3];
+            const ratio = viewBoxHeight / svgHeight;
+            const viewBoxOffset = scaledAffine[5] * ratio;
+            viewBox[1] = viewBox[1] - viewBoxOffset;
+            viewBox[3] = viewBoxHeight + viewBoxOffset;
+            svgElement.setAttribute("viewBox", viewBox.join(", "));
+            // this essentially moves the contents down, so no need to move them again using a transform
+            scaledAffine[5] = 0;
+        }
+    }
+    
+    clonedSvg.documentElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+    
+    const svgString = new XMLSerializer().serializeToString(clonedSvg);
+    const svgDataURL = `data:image/svg+xml;base64,${btoa(svgString)}`;
     $("#sourceSvg")[0].src = svgDataURL;
 }
 
@@ -151,6 +170,9 @@ function normalizeAndExtractWidthAndHeight(svgElement) {
         const viewBox = svgElement.getAttribute("viewBox").split(" ");
         width = parseFloat(viewBox[2]);
         height = parseFloat(viewBox[3]);
+
+        svgElement.setAttribute("width", width);
+        svgElement.setAttribute("height", height);
     }
     
     if (!width || !height) {
@@ -172,13 +194,7 @@ export async function getCurrentSvgImageData() {
     affineCopy[5] = affineCopy[5] * svgWidth;
 
     svgElement.setAttribute("transform", `matrix(${affineCopy.join(", ")})`);
-    if (!svgElement.hasAttribute("width")) {
-        svgElement.setAttribute("width", `${svgWidth}`);
-    }
-    if (!svgElement.hasAttribute("height")) {
-        svgElement.setAttribute("height", `${svgHeight}`);
-    }
-
+    
     const svgString = new XMLSerializer().serializeToString(svgCopy);
 
     const canvas = new OffscreenCanvas(scaledWidth, scaledHeight);
