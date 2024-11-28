@@ -24,7 +24,7 @@ export function initSvgControl() {
 }
 
 const affineTransform = [1, 0, 0, 1, 0, 0];
-// nudge by this fraction of the viewport's width
+// nudge by this fraction of the viewport's width and height
 const nudgeByFactor = 0.025;
 const zoomByFactor = 0.05;
 function requestChangeInTransform(direction) {
@@ -66,65 +66,89 @@ function resetTransform() {
     affineTransform[5] = 0;
 }
 
-let currentSvg;
-let currentScale;
-let currentWidth;
-let currentHeight;
-let svgWidth, svgHeight;
+let svgInfo;
 export function setSvgString(svgString, currentState) {
     resetTransform();
 
-    currentSvg = new DOMParser().parseFromString(svgString, 'image/svg+xml');
-    const svgElement = currentSvg.documentElement;
-    [svgWidth, svgHeight] = normalizeAndExtractWidthAndHeight(svgElement);
-
-    currentWidth = currentState.safeWidth;
-    currentScale = svgWidth / currentWidth;
-    currentHeight = svgHeight / currentScale;
+    const svg = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+    svgInfo = normalizeSvg(svg, currentState.safeWidth);
     applyTransform();
 }
 
+function normalizeSvg(svg, currentWidth) {
+    const info  = {};
+    info.svg = svg;
+    info.currentWidth = currentWidth;
+    
+    const svgElement = svg.documentElement;
+    let width, height;
+
+    if (svgElement.hasAttribute("width") && svgElement.hasAttribute("height")) {
+        width = parseFloat(svgElement.getAttribute("width"));
+        height = parseFloat(svgElement.getAttribute("height"));
+    }
+    
+    if (svgElement.hasAttribute("viewBox")) {
+        const viewBox = svgElement.getAttribute("viewBox").split(/[\s,]/);
+        info.viewboxWidth = parseFloat(viewBox[2]);
+        info.viewboxHeight = parseFloat(viewBox[3]);
+
+        if (!width && !height) {
+            width = info.viewboxWidth;
+            height = info.viewboxHeight;
+        }
+    } else {
+        info.viewboxWidth = width;
+        info.viewboxHeight = height;
+    }
+    
+    if (!width || !height) {
+        throw new Error("Invalid SVG");
+    }
+
+    const newWidth = info.currentWidth;
+    const newHeight = info.currentWidth / width * height;
+    info.currentHeight = newHeight;
+
+    svgElement.setAttribute("width", newWidth);
+    svgElement.setAttribute("height", newHeight);
+
+    const transformGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    while (svgElement.firstChild) {
+        transformGroup.appendChild(svgElement.firstChild);
+    }
+    svgElement.appendChild(transformGroup);
+    info.transformGroup = transformGroup;
+
+    return info;
+}
+
 export function getTargetWidth() {
-    return currentWidth;
+    return svgInfo.currentWidth;
 }
 
 export function getTargetHeight() {
-    return currentHeight;
+    return svgInfo.currentHeight;
 }
 
 export function getRenderTransform() {
     return [1 / renderScale, 0, 0, 1 / renderScale, 0, 0];
 }
 
-function applyTransform() {
+export function getScaledAffine() {
     const scaledAffine = [...affineTransform];
-    const previewContainerWidth = $("#sourceSvg").width();
-    scaledAffine[4] = scaledAffine[4] * previewContainerWidth;
-    scaledAffine[5] = scaledAffine[5] * previewContainerWidth;
+    scaledAffine[4] = scaledAffine[4] * svgInfo.viewboxWidth;
+    scaledAffine[5] = scaledAffine[5] * svgInfo.viewboxHeight;
+    return scaledAffine
+}
 
-    const clonedSvg = currentSvg.cloneNode(true);
-    const svgElement = clonedSvg.documentElement;
-    
+function applyTransform() {
     updateTransformText();
-
-    if (scaledAffine[5] > 0) {
-        svgElement.setAttribute('height', parseFloat(svgElement.getAttribute("height")) + scaledAffine[5]);
-        if (svgElement.hasAttribute("viewBox")) {
-            const viewBox = svgElement.getAttribute("viewBox").split(" ").map(Number);
-            const viewBoxHeight = viewBox[3];
-            const ratio = viewBoxHeight / svgHeight;
-            const viewBoxOffset = scaledAffine[5] * ratio;
-            viewBox[1] = viewBox[1] - viewBoxOffset;
-            viewBox[3] = viewBoxHeight + viewBoxOffset;
-            svgElement.setAttribute("viewBox", viewBox.join(", "));
-            // this essentially moves the contents down, so no need to move them again using a transform
-            scaledAffine[5] = 0;
-        }
-    }
     
-    clonedSvg.documentElement.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
+    const scaledAffine = getScaledAffine();
+    svgInfo.transformGroup.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
     
-    const svgString = new XMLSerializer().serializeToString(clonedSvg);
+    const svgString = new XMLSerializer().serializeToString(svgInfo.svg);
     const svgDataURL = `data:image/svg+xml;base64,${btoa(svgString)}`;
     $("#sourceSvg")[0].src = svgDataURL;
 }
@@ -136,66 +160,11 @@ function updateTransformText() {
     $("#transformText").text(`(${normalizeNumber(affineTransform[4] * 100)}, ${normalizeNumber(affineTransform[5] * 100)}) ${normalizeNumber(affineTransform[0])}x`);
 }
 
-function normalizeAndExtractWidthAndHeight(svgElement) {
-    let width, height;
-    if (svgElement.hasAttribute("width") && svgElement.hasAttribute("height")) {
-        width = svgElement.getAttribute("width");
-        height = svgElement.getAttribute("height");
-
-        const unitConversionFactors = {
-            pt: 1.3333,    // Points to pixels
-            pc: 16,        // Picas to pixels
-            in: 96,        // Inches to pixels
-            cm: 37.795,    // Centimeters to pixels
-            mm: 3.7795,    // Millimeters to pixels
-            px: 1,         // Pixels to pixels
-        };
-
-        const parseDimensionToPixels = (dim) => {
-            const match = dim.match(/([\d.]+)([a-z%]*)/i);
-            if (!match) {
-                throw new Error(`Invalid dimension: "${dim}"`);
-            }
-            const value = parseFloat(match[1]);
-            const unit = match[2] || "px"; // Default to pixels if no unit is provided
-            const conversionFactor = unitConversionFactors[unit] || 1;
-            return value * conversionFactor; // Convert to pixels
-        };
-
-        width = parseDimensionToPixels(width);
-        height = parseDimensionToPixels(height);
-        svgElement.setAttribute("width", width);
-        svgElement.setAttribute("height", height);
-    } else if (svgElement.hasAttribute("viewBox")) {
-        const viewBox = svgElement.getAttribute("viewBox").split(" ");
-        width = parseFloat(viewBox[2]);
-        height = parseFloat(viewBox[3]);
-
-        svgElement.setAttribute("width", width);
-        svgElement.setAttribute("height", height);
-    }
-    
-    if (!width || !height) {
-        throw new Error("Invalid SVG");
-    }
-
-    return [width, height];
-}
-
 export async function getCurrentSvgImageData() {
-    const scaledHeight = currentHeight * renderScale;
-    const scaledWidth = currentWidth * renderScale;
-
-    const svgCopy = currentSvg.cloneNode(true);
-    const svgElement = svgCopy.documentElement;
-    const affineCopy = [...affineTransform];
-
-    affineCopy[4] = affineCopy[4] * svgWidth;
-    affineCopy[5] = affineCopy[5] * svgWidth;
-
-    svgElement.setAttribute("transform", `matrix(${affineCopy.join(", ")})`);
+    const scaledHeight = svgInfo.currentHeight * renderScale;
+    const scaledWidth = svgInfo.currentWidth * renderScale;
     
-    const svgString = new XMLSerializer().serializeToString(svgCopy);
+    const svgString = new XMLSerializer().serializeToString(svgInfo.svg);
 
     const canvas = new OffscreenCanvas(scaledWidth, scaledHeight);
     const canvasContext = canvas.getContext("2d",);
