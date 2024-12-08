@@ -8,12 +8,11 @@ class PenCalibrationPhase : public NotSupportedPhase {
     PhaseManager* manager;
     Pen* pen;
     Runner* runner;
-    AsyncWebServer* server;
     public:
-    PenCalibrationPhase(PhaseManager* manager, Pen* pen, Runner* runner, AsyncWebServer* server);
+    PenCalibrationPhase(PhaseManager* manager, Pen* pen);
     void setServo(AsyncWebServerRequest *request);
     void setPenDistance(AsyncWebServerRequest *request);
     const char* getName();
-    void run(AsyncWebServerRequest *request);
+    
 };
 #endif

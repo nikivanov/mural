@@ -130,15 +130,10 @@ function init() {
 
     $("#setPenDistance").click(function () {
         const inputValue = getServoValueFromInputValue();
-        $(".muralSlide").hide();
-        $("#loadingSlide").show();
-        $.post("/setPenDistance", {angle: inputValue}, function() {
-            $(".muralSlide").hide();
-            $("#drawingBegan").show();
-            $.post("/run", {});
-        }).fail(function() {
-            alert(`${commandName} command failed`);
-            location.reload();
+        doneWithPhase({
+            url: "/setPenDistance",
+            data: {angle: inputValue},
+            commandName: "Set Pen Distance",
         });
     });
 
@@ -315,6 +310,17 @@ function init() {
         });
     });
 
+    $("#beginDrawing").click(function() {
+        $(".muralSlide").hide();
+        $("#drawingBegan").show();
+        $.post("/run", {});
+    });
+
+    $("#reset").click(function() {
+        doneWithPhase();
+        location.reload();
+    });
+
     $("#leftMotorTool").on('input', function() {
         const leftMotorDir = parseInt($("#leftMotorTool").val());
         if (leftMotorDir <= -1) {
@@ -356,6 +362,14 @@ function init() {
 
     $("#loadingSlide").show();
 
+    // adaptToState({
+    //     phase: "BeginDrawing",
+    //     topDistance: 1727,
+    //     safeWidth: 1000,
+    //     homeX: 0,
+    //     homeY: 0,
+    // });
+
     $.get("/getState", function(data) {
         adaptToState(data);
     }).fail(function() {
@@ -387,6 +401,9 @@ function adaptToState(state) {
             break;
         case "SvgSelect":
             $("#svgUploadSlide").show();
+            break;
+        case "BeginDrawing":
+            $("#beginDrawingSlide").show();
             break;
         default:
             alert("Unrecognized phase");

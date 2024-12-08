@@ -1,9 +1,8 @@
 #include "pencalibrationphase.h"
-PenCalibrationPhase::PenCalibrationPhase(PhaseManager* manager, Pen* pen, Runner* runner, AsyncWebServer* server) {
+PenCalibrationPhase::PenCalibrationPhase(PhaseManager* manager, Pen* pen) {
     this->manager = manager;
     this->pen = pen;
     this->runner = runner;
-    this->server = server;
 }
 
 void PenCalibrationPhase::setServo(AsyncWebServerRequest *request) {
@@ -18,15 +17,10 @@ void PenCalibrationPhase::setPenDistance(AsyncWebServerRequest *request) {
     int angle = p->value().toInt();
     pen->setPenDistance(angle);
     pen->slowUp();
-    request->send(200, "text/plain", "OK");
+    manager->setPhase(PhaseManager::BeginDrawing);
+    manager->respondWithState(request);
 }
 
 const char* PenCalibrationPhase::getName() {
     return "PenCalibration";
-}
-
-void PenCalibrationPhase::run(AsyncWebServerRequest *request) {
-    runner->start();
-    request->send(200, "text/plain", "OK"); 
-    server->end();
 }

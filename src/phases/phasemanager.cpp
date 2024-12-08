@@ -4,6 +4,7 @@
 #include "extendtohomephase.h"
 #include "pencalibrationphase.h"
 #include "svgselectphase.h"
+#include "begindrawingphase.h"
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
 #include <stdexcept>
@@ -12,11 +13,12 @@ PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWe
     retractBeltsPhase = new RetractBeltsPhase(this, movement, pen);
     setTopDistancePhase = new SetTopDistancePhase(this, movement);
     extendToHomePhase = new ExtendToHomePhase(this, movement);
-    penCalibrationPhase = new PenCalibrationPhase(this, pen, runner, server);
+    penCalibrationPhase = new PenCalibrationPhase(this, pen);
     svgSelectPhase = new SvgSelectPhase(this);
+    beginDrawingPhase = new BeginDrawingPhase(this, runner, server);
 
     this->movement = movement;
-    _reset();
+    reset();
 }
 
 Phase* PhaseManager::getCurrentPhase() {
@@ -45,6 +47,10 @@ void PhaseManager::setPhase(PhaseNames name) {
         case PhaseNames::SvgSelect:
             Serial.println("SvgSelect");
             currentPhase = svgSelectPhase;
+            break;
+        case PhaseNames::BeginDrawing:
+            Serial.println("BeginDrawing");
+            currentPhase = beginDrawingPhase;
             break;
         default:
             throw std::invalid_argument("Invalid Phase");
@@ -75,11 +81,6 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     request->send(response);
 }
 
-void PhaseManager::_reset() {
+void PhaseManager::reset() {
     setPhase(PhaseManager::SetTopDistance);
-}
-
-void PhaseManager::reset(AsyncWebServerRequest *request) {
-    _reset();
-    request->send(200, "text/plain", "OK");
 }

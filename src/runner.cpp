@@ -45,10 +45,7 @@ void Runner::initTaskProvider() {
     startPosition = movement->getCoordinates();
 
     auto homeCoordinates = movement->getHomeCoordinates();
-
     finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
-    finishingSequence[1] = new PenTask(false, pen);
-    finishingSequence[2] = new PenTask(true, pen);
 }
 
 void Runner::start() {

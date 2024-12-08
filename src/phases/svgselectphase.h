@@ -2,7 +2,6 @@
 #define SvgSelectPhase_h
 #include "notsupportedphase.h"
 #include "phasemanager.h"
-#include "runner.h"
 class SvgSelectPhase : public NotSupportedPhase {
     private:
     PhaseManager* manager;

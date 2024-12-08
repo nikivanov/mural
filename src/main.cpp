@@ -115,9 +115,6 @@ void setup()
     server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleGetState(request); });
 
-    server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request)
-              { phaseManager->reset(request); });
-
     server.onFileUpload(handleUpload);
 
     server.onNotFound(notFound);
