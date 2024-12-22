@@ -7,8 +7,6 @@ export function dedupeCommands(commands: Command[]): Command[] {
         if (typeof command === 'string') {
             if (dedupedCommands.length === 0 || dedupedCommands[dedupedCommands.length - 1] !== command) {
                 dedupedCommands.push(command);
-            } else {
-                console.log('hi');
             }
         } else {
             const lastCommand = getLastPoint(dedupedCommands);

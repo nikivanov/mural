@@ -1,53 +1,84 @@
 import { renderCommandsToSvgJson } from "./toSvgJson";
-import { renderSvgToCommands } from "./toCommands";
+import { renderSvgJsonToCommands } from "./toCommands";
+import { vectorizeImageData } from './vectorizer';
 import { InfillDensities, RequestTypes } from "./types";
 
-self.onmessage = (e: MessageEvent<any>) => {
-    if (!isToCommandsRequestArr(e.data)) {
-        throw new Error("Bad render request");
-    }
-
-    const updateStatusFn = (status: string) => {
-        self.postMessage({
-            type: "status",
-            payload: status,
-        });
-    };
-
-    const renderResult = renderSvgToCommands(e.data.json, e.data.scale, e.data.x, e.data.y, e.data.homeX, e.data.homeY, e.data.width, e.data.infillDensity, e.data.flattenPaths, updateStatusFn);
-    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, e.data.width, renderResult.height, updateStatusFn);
+const updateStatusFn = (status: string) => {
     self.postMessage({
-        type: "result",
+        type: "status",
+        payload: status,
+    });
+};
+
+self.onmessage = async (e: MessageEvent<any>) => {
+    if (isVectorizeRequest(e.data)) {
+        vectorize(e.data);
+    } else if (isRenderSvgRequest(e.data)) {
+        await render(e.data);
+    } else {
+        throw new Error("Bad request");
+    }
+};
+
+function vectorize(request: RequestTypes.VectorizeRequest) {
+    updateStatusFn("Vectorizing");
+    const svgString = vectorizeImageData(request.raster);
+    self.postMessage({
+        type: "vectorizer",
+        payload: {
+            svg: svgString,
+        }
+    });
+}
+
+async function render(request: RequestTypes.RenderSVGRequest) {
+    const renderResult = await renderSvgJsonToCommands(
+        request,
+        updateStatusFn,
+    )
+    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, request.width, request.height, updateStatusFn);
+    self.postMessage({
+        type: "renderer",
         payload: {
             commands: renderResult.commands,
-            json: resultSvgJson,
-            width: e.data.width,
-            height: renderResult.height,
+            svgJson: resultSvgJson,
             distance: renderResult.distance,
             drawDistance: renderResult.drawDistance,
         }
-    })
-};
+    });
+}
 
-
-function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequest {
-    if (!('json' in obj) || typeof obj.json !== 'string' || obj.json.length === 0) {
+function isVectorizeRequest(obj: any): obj is RequestTypes.VectorizeRequest {
+    if (!('type' in obj) || obj.type !== 'vectorize') {
         return false;
     }
 
-    if (!('width' in obj) || typeof obj.width !== 'number' || obj.width <= 0) {
+    if (!('raster' in obj) || typeof obj.raster !== 'object') {
         return false;
     }
 
-    if (!('scale' in obj) || typeof obj.scale !== 'number') {
+    return true;
+}
+
+
+function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
+    if (!('type' in obj) || obj.type !== 'renderSvg') {
         return false;
     }
 
-    if (!('x' in obj) || typeof obj.x !== 'number') {
+    if (!('svgJson' in obj) || typeof obj.svgJson !== 'string') {
         return false;
     }
 
-    if (!('y' in obj) || typeof obj.y !== 'number') {
+    if (!('affine' in obj) || typeof obj.affine !== 'object') {
+        return false;
+    }
+
+    if (!('width' in obj) || typeof obj.width !== 'number') {
+        return false;
+    }
+
+    if (!('height' in obj) || typeof obj.height !== 'number') {
         return false;
     }
 
@@ -60,10 +91,6 @@ function isToCommandsRequestArr(obj: any): obj is RequestTypes.SvgToCommandsRequ
     }
 
     if (!('infillDensity' in obj) || typeof obj.infillDensity !== 'number' || !InfillDensities.includes(obj.infillDensity)) {
-        return false;
-    }
-
-    if (!('flattenPaths' in obj) || typeof obj.flattenPaths !== 'boolean') {
         return false;
     }
 

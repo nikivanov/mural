@@ -10,7 +10,6 @@
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
-#include "distancestate.h"
 #include "phases/phasemanager.h"
 
 AsyncWebServer server(80);
@@ -115,9 +114,6 @@ void setup()
 
     server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleGetState(request); });
-
-    server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request)
-              { phaseManager->reset(request); });
 
     server.onFileUpload(handleUpload);
 

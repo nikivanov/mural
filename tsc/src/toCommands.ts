@@ -1,5 +1,4 @@
-import { Command, InfillDensity, updateStatusFn } from './types';
-import { clipPaths } from './clipper';
+import { Command, RequestTypes, updateStatusFn } from './types';
 import { generatePaths } from './generator';
 import { generateInfills } from './infill';
 import { optimizePaths } from './optimizer';
@@ -8,56 +7,34 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
-import { flattenPaths} from './flattener';
 
 const paper = loadPaper();
 
-export function renderSvgToCommands(svgJson: string, scale: number, x: number, y: number, homeX: number, homeY: number, width: number, infillDensity: InfillDensity, doFlattenPaths: boolean, updateStatusFn: updateStatusFn) {
-    const height = getHeight(svgJson, width);
-
-    const size = new paper.Size(width, height);
-    paper.setup(size);
+export async function renderSvgJsonToCommands(
+    request: RequestTypes.RenderSVGRequest,
+    updateStatusFn: updateStatusFn
+) {
+    paper.setup({width: request.width, height: request.height});
 
     updateStatusFn("Importing");
-    const svg = paper.project.importJSON(svgJson);
+    const svg = paper.project.importJSON(request.svgJson);
 
-    svg.fitBounds({
-        x: 0,
-        y: 0,
-        width,
-        height,
-    });
-
-    updateStatusFn("Clipping");
-    clipPaths(svg);
+    const affine = request.affine;
+    svg.matrix = new paper.Matrix(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]);
     
-    svg.matrix = new paper.Matrix(scale, 0, 0, scale, x, y);
-
-    const heightNeeded = svg.bounds.y + svg.bounds.height;
-    if (heightNeeded > height) {
-        svg.view.viewSize.height = heightNeeded;
-    }
-
-    const heightUsed = svg.view.viewSize.height;
-
-    clipPaths(svg);
 
     updateStatusFn("Generating paths");
     const paths = generatePaths(svg);
-    
+
     paths.forEach(p => p.flatten(0.5));
 
-    if (doFlattenPaths) {
-        flattenPaths(paths, updateStatusFn);
-    }
-
     updateStatusFn("Generating infill");
-    const pathsWithInfills = generateInfills(paths, infillDensity);
+    const pathsWithInfills = generateInfills(paths, request.infillDensity);
 
     updateStatusFn("Optimizing paths");
-    const optimizedPaths = optimizePaths(pathsWithInfills, homeX, homeY);
+    const optimizedPaths = optimizePaths(pathsWithInfills, request.homeX, request.homeY);
 
-    updateStatusFn("Rendering commands");
+    updateStatusFn("Generating commands");
     const commands = renderPathsToCommands(optimizedPaths);
     commands.push('p0');
 
@@ -66,7 +43,7 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
     const dedupedCommands = dedupeCommands(trimmedCommands);
 
     updateStatusFn("Measuring total distance");
-    dedupedCommands.unshift(`h${heightUsed}`);
+    dedupedCommands.unshift(`h${request.height}`);
     const distances = measureDistance(dedupedCommands);
     const totalDistance = +distances.totalDistance.toFixed(1);
     dedupedCommands.unshift(`d${totalDistance}`);
@@ -74,7 +51,6 @@ export function renderSvgToCommands(svgJson: string, scale: number, x: number, y
     const commandStrings = dedupedCommands.map(stringifyCommand);
     return {
         commands: commandStrings,
-        height,
         distance: totalDistance,
         drawDistance: +distances.drawDistance.toFixed(1),
     };
@@ -86,24 +62,4 @@ function stringifyCommand(cmd: Command): string {
     } else {
         return `${cmd.x} ${cmd.y}`;
     }
-}
-
-function getHeight(svgJson: string, width: number): number {
-    const sizeBeforeFitting = new paper.Size(width, Number.MAX_SAFE_INTEGER);
-    paper.setup(sizeBeforeFitting);
-
-    const svgBeforeFitting = paper.project.importJSON(svgJson);
-
-    svgBeforeFitting.fitBounds({
-        x: 0,
-        y: 0,
-        width: sizeBeforeFitting.width,
-        height: sizeBeforeFitting.height,
-    });
-
-    const height = Math.floor(svgBeforeFitting.bounds.height);
-
-    paper.project.remove();
-
-    return height;
 }

@@ -5,7 +5,6 @@
 #include "pen.h"
 #include "display.h"
 #include "SPIFFS.h"
-#include "distancestate.h"
 using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
@@ -46,15 +45,11 @@ void Runner::initTaskProvider() {
     startPosition = movement->getCoordinates();
 
     auto homeCoordinates = movement->getHomeCoordinates();
-
     finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
-    finishingSequence[1] = new PenTask(false, pen);
-    finishingSequence[2] = new PenTask(true, pen);
 }
 
 void Runner::start() {
     initTaskProvider();
-    DistanceState::deleteStoredDistance();
     currentTask = getNextTask();
     currentTask->startRunning();
     stopped = false;

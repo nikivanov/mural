@@ -23,21 +23,19 @@ export type InfillDensity = 0 | 1 | 2 | 3 | 4;
 export const InfillDensities: InfillDensity[] = [0, 1, 2, 3, 4];
 
 export namespace RequestTypes {
-    export type SvgToCommandsRequest = {
-        json: string,
+    export type RenderSVGRequest = {
+        type: 'renderSvg',
+        svgJson: string,
+        affine: number[],
         width: number,
-        scale: number,
-        x: number,
-        y: number,
+        height: number,
         homeX: number,
         homeY: number,
         infillDensity: InfillDensity,
-        flattenPaths: boolean,
     };
 
-    export type CommandsToSvgRequest = {
-        commands: string,
-        width: number,
-        height: number,
-    };
+    export type VectorizeRequest = {
+        type: 'vectorize',
+        raster: ImageData,
+    }
 }
