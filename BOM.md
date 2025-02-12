@@ -12,7 +12,7 @@ All parts can be found on Amazon, AliExpress, Ebay etc. Make sure the items you'
 | MG90s metal gear servo | ![servo](/images/bom/mg90s.jpg) | $2
 | USB-C PD trigger module | ![display](/images/bom/pd.jpg) | $1
 | LM2596 step down voltage regulator | ![buck](/images/bom/buck.jpg) | $1
-| 20W USB-C power delivery adapter | ![power](/images/bom/power.jpg) | $3 | You can use any PD adapter with at least 20W and can supply 12V
+| 30W USB-C power delivery adapter | ![power](/images/bom/power.jpg) | $3 | You can use any PD adapter with at least 30W and can supply 12V
 | USB-C male-to-male 10ft cable | ![cable](/images/bom/cable.jpg) | $1
 | M-F and F-F breadboard jumper wire 10cm and 20cm | ![wire](/images/bom/wire.jpg) | $2
 | M3 hex bolt set | ![m3](/images/bom/m3.jpg) | $2 | You'll need 6/8/12/25 mm bolt lengths
