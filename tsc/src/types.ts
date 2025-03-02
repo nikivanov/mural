@@ -37,5 +37,6 @@ export namespace RequestTypes {
     export type VectorizeRequest = {
         type: 'vectorize',
         raster: ImageData,
+        turdSize: number,
     }
 }

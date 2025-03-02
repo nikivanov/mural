@@ -127,6 +127,7 @@ export var Potrace = (function () {
     }
 
     function setBitmap(width, height, data) {
+        clear();
         bm = new Bitmap(width, height);
         bm.data = data;
         info.isReady = true;

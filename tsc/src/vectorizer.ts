@@ -6,7 +6,7 @@ const paper = loadPaper();
 
 const WHITE_COLOR = new paper.Color("#FFFFFF");
 
-export function vectorizeImageData(imageData: ImageData): string {
+export function vectorizeImageData(imageData: ImageData, turdSize: number): string {
     const colorMatrix: paper.Color[][] = []
 
     for (let row = 0; row < imageData.height; row++) {
@@ -24,11 +24,11 @@ export function vectorizeImageData(imageData: ImageData): string {
         }
     }
 
-    return createPathsFromColorMatrix(colorMatrix);
+    return createPathsFromColorMatrix(colorMatrix, turdSize);
 }
 
 
-function createPathsFromColorMatrix(colorMatrix: paper.Color[][]): string {
+function createPathsFromColorMatrix(colorMatrix: paper.Color[][], turdSize: number): string {
     const width = colorMatrix[0].length;
     const height = colorMatrix.length;
 
@@ -47,7 +47,9 @@ function createPathsFromColorMatrix(colorMatrix: paper.Color[][]): string {
     }
 
     const tracer = Potrace();
+    tracer.setParameter({"turdsize": turdSize});
     tracer.setBitmap(width, height, data);
+
     const svgString: string = tracer.getSVG(1);
 
     return svgString;

@@ -33,7 +33,7 @@ async function main() {
                 const svgString = file.toString();
                 const [imageData, svgWidth, svgHeight] = await getImageData(svgString, renderScaleFactor);
 
-                const vectorizedSvg = vectorizeImageData(imageData);
+                const vectorizedSvg = vectorizeImageData(imageData, 2);
                 const vectorizedJson = convertSvgToSvgJson(vectorizedSvg);
 
                 const height = Math.floor(svgHeight * (width / svgWidth));

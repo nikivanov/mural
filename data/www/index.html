@@ -153,8 +153,10 @@
           <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="progressBar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
         </div>
         <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
-        <label for="infillDensity" class="form-label">Infill Density</label>
+        <label for="infillDensity" class="form-label mb-0">Infill Density</label>
         <input type="range" class="form-range mb-2 text-center" min="0" max="4" step="1" id="infillDensity" value="0">
+        <label for="turdSize" class="form-label mb-0">Despeckle</label>
+        <input type="range" class="form-range mb-2 text-center" min="2" max="200" step="11" id="turdSize" value="2">
         <button class="w-100 btn btn-lg btn-primary mb-2" id="acceptSvg" disabled>Accept</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5" id="backToSvgSelect">Back</button>
       </div>
