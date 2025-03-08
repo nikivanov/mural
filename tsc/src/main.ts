@@ -22,7 +22,7 @@ self.onmessage = async (e: MessageEvent<any>) => {
 
 function vectorize(request: RequestTypes.VectorizeRequest) {
     updateStatusFn("Vectorizing");
-    const svgString = vectorizeImageData(request.raster);
+    const svgString = vectorizeImageData(request.raster, request.turdSize);
     self.postMessage({
         type: "vectorizer",
         payload: {
@@ -54,6 +54,10 @@ function isVectorizeRequest(obj: any): obj is RequestTypes.VectorizeRequest {
     }
 
     if (!('raster' in obj) || typeof obj.raster !== 'object') {
+        return false;
+    }
+
+    if (!('turdSize' in obj) || typeof obj.turdSize !== 'number') {
         return false;
     }
 

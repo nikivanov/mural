@@ -157,6 +157,7 @@ function init() {
             $("#preview").attr("disabled", "disabled");
             $(".svg-control").hide();
             $("#infillDensity").val(0);
+            $("#turdSize").val(2);
         }
     });
 
@@ -182,6 +183,7 @@ function init() {
         const vectorizeRequest = {
             type: 'vectorize',
             raster,
+            turdSize: getTurdSize(),
         };
         
         if (currentPreviewId == thisPreviewId) {
@@ -256,6 +258,12 @@ function init() {
 
 
     $("#infillDensity").on('input', async function() {
+        activateProgressBar();
+        $("#acceptSvg").attr("disabled", "disabled");
+        await renderPreview();
+    });
+
+    $("#turdSize").on('input', async function() {
         activateProgressBar();
         $("#acceptSvg").attr("disabled", "disabled");
         await renderPreview();
@@ -417,4 +425,8 @@ function getInfillDensity() {
     } else {
         throw new Error('Invalid density');
     }
+}
+
+function getTurdSize() {
+    return parseInt($("#turdSize").val());
 }
