@@ -55,6 +55,8 @@
             display: flex;
             justify-content: center;
             margin: 2rem 0;
+            position: relative;
+            cursor: pointer;
         }
 
         .hero-image {
@@ -62,6 +64,35 @@
             max-width: 1000px;
             border-radius: 8px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .play-triangle {
+            width: 0;
+            height: 0;
+            border-top: 20px solid transparent;
+            border-bottom: 20px solid transparent;
+            border-left: 30px solid white;
+            margin-left: 5px;
+        }
+        
+        .hero:hover .play-button {
+            opacity: 1;
         }
 
         section {
@@ -190,13 +221,16 @@
     </header>
 
     <main class="container">
-        <div class="hero">
+        <div class="hero" id="hero-container">
             <img src="images/mural-einstein.jpg" alt="Mural Wall Plotter in action" class="hero-image">
+            <div class="play-button">
+                <div class="play-triangle"></div>
+            </div>
         </div>
-
+        
         <section id="about">
             <h2>About Mural</h2>
-                Mural is a low cost high precision wall plotter made of readily available parts enclosed in a 3D printed case.
+            Mural is a low cost high precision wall plotter made of readily available parts enclosed in a 3D printed case.
         </section>
         <section id="get-started">
             <h2>Get Started</h2>
@@ -204,7 +238,7 @@
                 <a href="https://github.com/nikivanov/mural/blob/main/BOM.md" class="resource-link">1. Bill of Materials (BOM)</a>
                 <a href="https://github.com/nikivanov/mural/tree/main/STLs" class="resource-link">2. 3D Printed Parts (STL Files)</a>
                 <a href="firmware_flasher.html" class="resource-link">3. Firmware</a>
-                <a href="#" class="resource-link">4. Step By Step Assembly Video</a>
+                <a target="_blank" href="https://www.youtube.com/watch?v=Yg7z5wKEo0o" class="resource-link">4. Step By Step Assembly Video</a>
                 
             </div>
         </section>
@@ -216,5 +250,12 @@
             <p>&copy; 2025 Nik Ivanov</p>
         </div>
     </footer>
+    <script>
+        // YouTube video link functionality
+        document.getElementById('hero-container').addEventListener('click', function() {
+            // Replace this URL with your actual YouTube video URL
+            window.open('https://www.youtube.com/watch?v=SOFXOyFJMoU',  '_blank').focus();
+        });
+    </script>
 </body>
 </html>
