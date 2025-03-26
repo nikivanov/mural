@@ -7,9 +7,11 @@ class SetTopDistancePhase : public CommandHandlingPhase {
     private:
     PhaseManager* manager;
     Movement* movement;
+    Pen* pen;
     public:
-    SetTopDistancePhase(PhaseManager* manager, Movement* movement);
+    SetTopDistancePhase(PhaseManager* manager, Movement* movement, Pen* pen);
     void setTopDistance(AsyncWebServerRequest *request);
+    void setServo(AsyncWebServerRequest *request);
     const char* getName();
 };
 #endif
