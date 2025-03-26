@@ -8,7 +8,7 @@ RetractBeltsPhase::RetractBeltsPhase(PhaseManager* manager, Movement* movement, 
 }
 
 void RetractBeltsPhase::setServo(AsyncWebServerRequest *request) {
-    AsyncWebParameter* p = request->getParam(0);
+    const AsyncWebParameter* p = request->getParam(0);
     int angle = p->value().toInt();
     pen->setRawValue(angle);
     request->send(200, "text/plain", "OK");

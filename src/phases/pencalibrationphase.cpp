@@ -6,14 +6,14 @@ PenCalibrationPhase::PenCalibrationPhase(PhaseManager* manager, Pen* pen) {
 }
 
 void PenCalibrationPhase::setServo(AsyncWebServerRequest *request) {
-    AsyncWebParameter* p = request->getParam(0);
+    const AsyncWebParameter* p = request->getParam(0);
     int angle = p->value().toInt();
     pen->setRawValue(angle);
     request->send(200, "text/plain", "OK"); 
 }
 
 void PenCalibrationPhase::setPenDistance(AsyncWebServerRequest *request) {
-    AsyncWebParameter* p = request->getParam(0);
+    const AsyncWebParameter* p = request->getParam(0);
     int angle = p->value().toInt();
     pen->setPenDistance(angle);
     pen->slowUp();
