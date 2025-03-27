@@ -10,7 +10,7 @@
 #include <stdexcept>
 
 PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server) {
-    retractBeltsPhase = new RetractBeltsPhase(this, movement, pen);
+    retractBeltsPhase = new RetractBeltsPhase(this, movement);
     setTopDistancePhase = new SetTopDistancePhase(this, movement, pen);
     extendToHomePhase = new ExtendToHomePhase(this, movement);
     penCalibrationPhase = new PenCalibrationPhase(this, pen);

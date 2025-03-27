@@ -305,6 +305,7 @@ function init() {
         formData.append("commands", commandsBlob);
 
         $.ajax({
+            url: "/uploadCommands",
             data: formData,
             processData: false,
             contentType: false,

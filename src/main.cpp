@@ -115,7 +115,13 @@ void setup()
     server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleGetState(request); });
 
-    server.onFileUpload(handleUpload);
+    server.on(
+        "/uploadCommands", HTTP_POST,
+        [](AsyncWebServerRequest *request) {
+            handleGetState(request);
+        }, 
+        handleUpload
+    );
 
     server.onNotFound(notFound);
 
