@@ -8,12 +8,9 @@ class RetractBeltsPhase : public CommandHandlingPhase {
     private:
     PhaseManager* manager;
     Movement* movement;
-    Pen* pen;
     public:
-    RetractBeltsPhase(PhaseManager* manager, Movement* movement, Pen* pen);
-    void setServo(AsyncWebServerRequest *request);
+    RetractBeltsPhase(PhaseManager* manager, Movement* movement);
     void doneWithPhase(AsyncWebServerRequest *request);
-    void estepsCalibration(AsyncWebServerRequest *request);
     const char* getName();
 };
 #endif

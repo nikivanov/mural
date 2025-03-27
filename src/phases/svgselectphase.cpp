@@ -24,7 +24,6 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
         request->_tempFile.close();
         Serial.println("Upload finished");
         manager->setPhase(PhaseManager::RetractBelts);
-        manager->respondWithState(request);
     }
 }
 
