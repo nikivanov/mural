@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mural Firmware Flasher</title>
+    <style>
+        :root {
+            --primary: #4b5563;
+            --text: #1f2937;
+            --background: #ffffff;
+            --secondary-bg: #f3f4f6;
+            --border: #e5e7eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            color: var(--text);
+            background-color: var(--background);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        header {
+            padding: 3rem 0;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #4b5563;
+            margin-bottom: 2rem;
+        }
+
+        section {
+            padding: 3rem 0;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #1d4ed8;
+        }
+
+        .button:disabled {
+            background-color: #93c5fd;
+            cursor: not-allowed;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            color: #6b7280;
+            border-top: 1px solid var(--border);
+        }
+
+        .flash-container {
+            background-color: var(--secondary-bg);
+            padding: 2rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+
+        .file-input-container {
+            margin-bottom: 2rem;
+        }
+
+        .file-input-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .file-input {
+            display: block;
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .steps {
+            margin: 2rem 0;
+        }
+
+        .step {
+            display: flex;
+            margin-bottom: 1.5rem;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            background-color: var(--primary);
+            color: white;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex-grow: 1;
+        }
+
+        .log-container {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 1.5rem;
+        }
+
+        .log-line {
+            margin-bottom: 0.25rem;
+            line-height: 1.4;
+        }
+
+        .success {
+            color: var(--success);
+        }
+
+        .warning {
+            color: var(--warning);
+        }
+
+        .error {
+            color: var(--error);
+        }
+
+        .device-info {
+            background-color: white;
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-label {
+            font-weight: 500;
+            width: 150px;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 20px;
+            background-color: var(--secondary-bg);
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: var(--primary);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .note {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .note-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #92400e;
+        }
+
+        .xterm-helpers {
+            visibility: hidden;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">Mural Firmware Flasher</div>
+            <div class="subtitle">Install latest Mural plotter software on your ESP32 microcontroller</div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section>
+            <div class="note">
+                <div class="note-title">Important:</div>
+                <p>For this web flasher to work, you need:</p>
+                <ul>
+                    <li>Chrome or Edge browser (version 89 or later)</li>
+                    <li>A USB data cable (not just a charging cable)</li>
+                    <li>ESP32 in boot mode (hold BOOT button while connecting)</li>
+                </ul>
+            </div>
+
+            <div class="flash-container">
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Connect your ESP32</h3>
+                            <p>Connect your ESP32 to your computer using a USB cable. Hold the BOOT button while connecting to enter flash mode.</p>
+                            <button id="connect-device" class="button">Connect Device</button>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Device Information</h3>
+                            <div class="device-info">
+                                <div class="info-row">
+                                    <div class="info-label">Status:</div>
+                                    <div id="connection-status">Not connected</div>
+                                </div>
+                                <div class="info-row">
+                                    <div class="info-label">Device:</div>
+                                    <div id="device-info">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Flash Firmware</h3>
+                            <p>Click "Flash Firmware" to begin.</p>
+                            <button id="flash-button" class="button" disabled>Flash Firmware</button>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h3>Connect to Mural WiFi hotspot and connect it to your home WiFi</h3>
+                            <p>Once Mural is connected to your home WiFi, you can access it on your phone or computer at <a href="http://mural.local/">http://mural.local/</a> or by its IP</p>
+                        </div>
+                    </div>
+
+                    
+                </div>
+                
+                <h3>Console Output</h3>
+                <div id="terminal" class="log-container"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Released under the CC BY-NC 4.0 License</p>
+            <p>&copy; 2025 Nik Ivanov</p>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { Transport, ESPLoader } from "https://unpkg.com/esptool-js/bundle.js";
+        // DOM elements
+        const connectButton = document.getElementById('connect-device');
+        const flashButton = document.getElementById('flash-button');
+        
+        const terminal = document.getElementById('terminal');
+        const connectionStatus = document.getElementById('connection-status');
+        const deviceInfo = document.getElementById('device-info');
+
+        function setStatusSuccess(chip) {
+            connectionStatus.textContent = 'Connected';
+            connectionStatus.classList.remove('error');
+            connectionStatus.classList.add('success');
+            deviceInfo.textContent = chip;
+            connectButton.disabled = true;
+            flashButton.disabled = false;
+        }
+
+        function setStatusFailed(message) {
+            connectionStatus.textContent = message;
+            connectionStatus.classList.remove('success');
+            connectionStatus.classList.add('error');
+            deviceInfo.textContent = '-';
+            connectButton.disabled = false;
+            flashButton.disabled = true;
+        }
+
+        const espLoaderTerminal = {
+                clean() {
+                    terminal.innerText = '';
+                },
+                writeLine(data) {
+                    const isScrolledToBottom = terminal.scrollHeight - terminal.clientHeight <= terminal.scrollTop + 1;
+                    terminal.innerText += data + '\r\n';
+                    if (isScrolledToBottom) {
+                        terminal.scrollTop = terminal.scrollHeight - terminal.clientHeight;
+                    }
+
+                },
+                write(data) {
+                    const isScrolledToBottom = terminal.scrollHeight - terminal.clientHeight <= terminal.scrollTop + 1;
+                    terminal.innerText += data;
+                    if (isScrolledToBottom) {
+                        terminal.scrollTop = terminal.scrollHeight - terminal.clientHeight;
+                    }
+                },
+            };
+
+        let port;
+        let espLoader;
+        connectButton.addEventListener('click', async () => {
+            connectButton.disabled = true;
+            try {
+                port = await navigator.serial.requestPort();
+                if (!port) {
+                    setStatusFailed("No device selected");
+                    return;
+                }
+            } catch (err) {
+                setStatusFailed("No device selected");
+                return;
+            }
+
+            try {
+                const transport = new Transport(port, true);
+                const flashOptions = {
+                    transport,
+                    baudrate: 115200,
+                    terminal: espLoaderTerminal,
+                    debugLogging: false,
+                };
+
+                espLoader = new ESPLoader(flashOptions);
+                const chip = await espLoader.main();
+                setStatusSuccess(chip);
+            }
+            catch (error) {
+                setStatusFailed("Failed to connect to device: " + error);
+                return;
+            }    
+        });
+
+        flashButton.addEventListener('click', async () => {
+            flashButton.disabled = true;
+
+            const loadData = async (url) => {
+                const response = await fetch(url);
+                const blob = await response.arrayBuffer();
+                const data = new Uint8Array(blob);                
+                
+                let binaryString = "";
+                const chunkSize = 8192; // Safe chunk size
+                for (let i = 0; i < data.length; i += chunkSize) {
+                    binaryString += String.fromCharCode(...data.subarray(i, i + chunkSize));
+                }
+                return binaryString;
+            };
+            
+            const flashOptions = {
+                fileArray: [
+                    {data: await loadData("firmware/bootloader.bin"), address: parseInt("0x1000") },
+                    {data: await loadData("firmware/partitions.bin"), address: parseInt("0x8000") },
+                    {data: await loadData("firmware/boot_app0.bin"), address: parseInt("0xe000") },
+                    {data: await loadData("firmware/firmware.bin"), address: parseInt("0x10000") },
+                    {data: await loadData("firmware/spiffs.bin"), address: parseInt("0x290000") },
+                ],
+                flashSize: "4MB",
+                flashMode: "dio",
+                flashFreq: "40m",
+                eraseAll: true,
+                compress: true,
+                calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
+            };
+            await espLoader.writeFlash(flashOptions);
+            await espLoader.after();
+            espLoaderTerminal.writeLine('Firmware flashed successfully!');
+            espLoaderTerminal.writeLine('Unplug the device and plug it back in to start using the new firmware.');
+        });
+    </script>
+</body>
+</html>

@@ -518,7 +518,7 @@
             ],
             "cStandard": "gnu99",
             "cppStandard": "gnu++11",
-            "compilerPath": "/home/nik/.platformio/packages/toolchain-xtensa-esp32@8.4.0+2021r2-patch5/bin/xtensa-esp32-elf-gcc",
+            "compilerPath": "/home/nik/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc",
             "compilerArgs": [
                 "-mlongcalls",
                 ""
