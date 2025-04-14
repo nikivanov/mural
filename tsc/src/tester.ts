@@ -40,7 +40,6 @@ async function main() {
                 
                 const request: RequestTypes.RenderSVGRequest = {
                     svgJson: vectorizedJson,
-                    affine: [1, 0, 0, 1, 0, 0],
                     height,
                     width,
                     homeX: 0,

@@ -163,7 +163,7 @@ function init() {
 
     
     let currentPreviewId = 0;
-    async function renderPreview() {
+    async function renderPreview(rasterize) {
         if (currentWorker) {
             console.log("Terminating previous worker");
             currentWorker.terminate();
@@ -172,33 +172,47 @@ function init() {
         const thisPreviewId = currentPreviewId;
 
         const svgString = await getUploadedSvgString();
-
         if (!svgString) {
             throw new Error('No SVG string');
         }
 
-        $("#progressBar").text("Rasterizing");
-        const raster = await svgControl.getCurrentSvgImageData();
-
-        const vectorizeRequest = {
-            type: 'vectorize',
-            raster,
-            turdSize: getTurdSize(),
-        };
-        
-        if (currentPreviewId == thisPreviewId) {
-            currentWorker = new Worker('./worker/worker.js');
-
-            currentWorker.onmessage = (e) => {
-                if (e.data.type === 'status') {
-                    $("#progressBar").text(e.data.payload);
-                } else if (e.data.type === 'vectorizer') {
-                    const vectorizedSvg = e.data.payload.svg;
-                    renderSvgInWorker(currentWorker, vectorizedSvg);
+        if (rasterize) {
+            $("#progressBar").text("Rasterizing");
+            const raster = await svgControl.getCurrentSvgImageData();
+    
+            const vectorizeRequest = {
+                type: 'vectorize',
+                raster,
+                turdSize: getTurdSize(),
+            };
+            
+            if (currentPreviewId == thisPreviewId) {
+                currentWorker = new Worker('./worker/worker.js');
+    
+                currentWorker.onmessage = (e) => {
+                    if (e.data.type === 'status') {
+                        $("#progressBar").text(e.data.payload);
+                    } else if (e.data.type === 'vectorizer') {
+                        const vectorizedSvg = e.data.payload.svg;
+                        renderSvgInWorker(currentWorker, vectorizedSvg);
+                    }
                 }
+    
+                currentWorker.postMessage(vectorizeRequest);
             }
+        } else {
+            if (currentPreviewId == thisPreviewId) {
+                currentWorker = new Worker('./worker/worker.js');
+                currentWorker.onmessage = (e) => {
+                    if (e.data.type === 'status') {
+                        $("#progressBar").text(e.data.payload);
+                    }
+                }
 
-            currentWorker.postMessage(vectorizeRequest);
+                const renderSvg = svgControl.getRenderSvg();
+                const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
+                renderSvgInWorker(currentWorker, renderSvgString);
+            }
         }
     }
 
@@ -271,11 +285,18 @@ function init() {
 
     $("#preview").click(async function() {
         $("#svgUploadSlide").hide();
-        $("#drawingPreviewSlide").show();
-        await renderPreview();
+        $("#chooseRendererSlide").show();
     });
 
-    $("#backToSvgSelect").click(function() {
+    $("#pathTracing").click(async function() {
+        await renderPreview(false);
+    });
+
+    $("#vectorRasterVector").click(async function() {
+        await renderPreview(true);
+    });
+
+    $(".backToSvgSelect").click(function() {
         uploadConvertedCommands = null;
 
         $(".loading").show();
@@ -369,7 +390,9 @@ function init() {
 
     svgControl.initSvgControl();
 
-    $("#loadingSlide").show();
+    // $("#loadingSlide").show();
+    $("chooseRendererSlide").show();
+
 
     // adaptToState({
     //     phase: "BeginDrawing",
@@ -379,11 +402,11 @@ function init() {
     //     homeY: 0,
     // });
 
-    $.get("/getState", function(data) {
-        adaptToState(data);
-    }).fail(function() {
-        alert("Failed to retrieve state");
-    });
+    // $.get("/getState", function(data) {
+    //     adaptToState(data);
+    // }).fail(function() {
+    //     alert("Failed to retrieve state");
+    // });
 }
 
 function adaptToState(state) {

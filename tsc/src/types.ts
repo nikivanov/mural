@@ -26,7 +26,6 @@ export namespace RequestTypes {
     export type RenderSVGRequest = {
         type: 'renderSvg',
         svgJson: string,
-        affine: number[],
         width: number,
         height: number,
         homeX: number,

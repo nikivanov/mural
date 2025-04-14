@@ -19,8 +19,8 @@ export async function renderSvgJsonToCommands(
     updateStatusFn("Importing");
     const svg = paper.project.importJSON(request.svgJson);
 
-    const affine = request.affine;
-    svg.matrix = new paper.Matrix(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]);
+    // const affine = request.affine;
+    // svg.matrix = new paper.Matrix(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]);
     
 
     updateStatusFn("Generating paths");
