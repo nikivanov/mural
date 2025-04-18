@@ -31,6 +31,8 @@ export namespace RequestTypes {
         homeX: number,
         homeY: number,
         infillDensity: InfillDensity,
+        preprocess: boolean,
+        flattenPaths: boolean,
     };
 
     export type VectorizeRequest = {

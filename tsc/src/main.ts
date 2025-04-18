@@ -98,6 +98,10 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
         return false;
     }
 
+    if (!('preprocess' in obj) || typeof obj.preprocess !== 'boolean') {
+        return false;
+    }
+
     return true;
 }
 

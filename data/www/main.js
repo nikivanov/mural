@@ -194,7 +194,7 @@ function init() {
                         $("#progressBar").text(e.data.payload);
                     } else if (e.data.type === 'vectorizer') {
                         const vectorizedSvg = e.data.payload.svg;
-                        renderSvgInWorker(currentWorker, vectorizedSvg);
+                        renderSvgInWorker(currentWorker, vectorizedSvg, svgControl.getRasterRenderTransform(), false);
                     }
                 }
     
@@ -211,23 +211,23 @@ function init() {
 
                 const renderSvg = svgControl.getRenderSvg();
                 const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
-                renderSvgInWorker(currentWorker, renderSvgString);
+                renderSvgInWorker(currentWorker, renderSvgString, null, true);
             }
         }
     }
 
-    function renderSvgInWorker(worker, svg) {
+    function renderSvgInWorker(worker, svg, preprocess) {
         const svgJson = svgControl.getSvgJson(svg);
        
         const renderRequest = {
             type: "renderSvg",
             svgJson,
-            affine: svgControl.getRenderTransform(),
             width: svgControl.getTargetWidth(),
             height: svgControl.getTargetHeight(),
             homeX: currentState.homeX,
             homeY: currentState.homeY,
             infillDensity: getInfillDensity(),
+            preprocess,
         }
 
         worker.onmessage = (e) => {
@@ -390,8 +390,8 @@ function init() {
 
     svgControl.initSvgControl();
 
-    // $("#loadingSlide").show();
-    $("chooseRendererSlide").show();
+    $("#loadingSlide").show();
+    //$("chooseRendererSlide").show();
 
 
     // adaptToState({
@@ -402,11 +402,11 @@ function init() {
     //     homeY: 0,
     // });
 
-    // $.get("/getState", function(data) {
-    //     adaptToState(data);
-    // }).fail(function() {
-    //     alert("Failed to retrieve state");
-    // });
+    $.get("/getState", function(data) {
+        adaptToState(data);
+    }).fail(function() {
+        alert("Failed to retrieve state");
+    });
 }
 
 function adaptToState(state) {

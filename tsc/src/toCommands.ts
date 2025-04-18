@@ -7,6 +7,8 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
+import { clipPaths } from './clipper';
+import { flattenPaths } from './flattener';
 
 const paper = loadPaper();
 
@@ -19,14 +21,22 @@ export async function renderSvgJsonToCommands(
     updateStatusFn("Importing");
     const svg = paper.project.importJSON(request.svgJson);
 
-    // const affine = request.affine;
-    // svg.matrix = new paper.Matrix(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]);
-    
+    updateStatusFn("Clipping");
+    clipPaths(svg);
+
+    // scale the document so its coordinates match the world 1:1, in mm
+    const projectToViewRatio = paper.project.view.bounds.width / request.width;
+    svg.scale(projectToViewRatio);
+    svg.applyMatrix = true;
 
     updateStatusFn("Generating paths");
     const paths = generatePaths(svg);
 
     paths.forEach(p => p.flatten(0.5));
+
+    if (request.flattenPaths) {
+        flattenPaths(paths, updateStatusFn);
+    }
 
     updateStatusFn("Generating infill");
     const pathsWithInfills = generateInfills(paths, request.infillDensity);
