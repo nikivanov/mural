@@ -74,10 +74,6 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
         return false;
     }
 
-    if (!('affine' in obj) || typeof obj.affine !== 'object') {
-        return false;
-    }
-
     if (!('width' in obj) || typeof obj.width !== 'number') {
         return false;
     }
@@ -98,7 +94,7 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
         return false;
     }
 
-    if (!('preprocess' in obj) || typeof obj.preprocess !== 'boolean') {
+    if (!('flattenPaths' in obj) || typeof obj.flattenPaths !== 'boolean') {
         return false;
     }
 

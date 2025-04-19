@@ -194,7 +194,7 @@ function init() {
                         $("#progressBar").text(e.data.payload);
                     } else if (e.data.type === 'vectorizer') {
                         const vectorizedSvg = e.data.payload.svg;
-                        renderSvgInWorker(currentWorker, vectorizedSvg, svgControl.getRasterRenderTransform(), false);
+                        renderSvgInWorker(currentWorker, vectorizedSvg, false);
                     }
                 }
     
@@ -211,12 +211,12 @@ function init() {
 
                 const renderSvg = svgControl.getRenderSvg();
                 const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
-                renderSvgInWorker(currentWorker, renderSvgString, null, true);
+                renderSvgInWorker(currentWorker, renderSvgString, false);
             }
         }
     }
 
-    function renderSvgInWorker(worker, svg, preprocess) {
+    function renderSvgInWorker(worker, svg, flattenPaths) {
         const svgJson = svgControl.getSvgJson(svg);
        
         const renderRequest = {
@@ -227,7 +227,7 @@ function init() {
             homeX: currentState.homeX,
             homeY: currentState.homeY,
             infillDensity: getInfillDensity(),
-            preprocess,
+            flattenPaths,
         }
 
         worker.onmessage = (e) => {
@@ -289,10 +289,14 @@ function init() {
     });
 
     $("#pathTracing").click(async function() {
+        $("#chooseRendererSlide").hide();
+        $("#drawingPreviewSlide").show();
         await renderPreview(false);
     });
 
     $("#vectorRasterVector").click(async function() {
+        $("#chooseRendererSlide").hide();
+        $("#drawingPreviewSlide").show();
         await renderPreview(true);
     });
 
