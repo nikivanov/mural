@@ -14,20 +14,22 @@ const paper = loadPaper();
 
 export async function renderSvgJsonToCommands(
     request: RequestTypes.RenderSVGRequest,
-    updateStatusFn: updateStatusFn
+    updateStatusFn: updateStatusFn,
 ) {
     paper.setup({width: request.width, height: request.height});
 
     updateStatusFn("Importing");
     const svg = paper.project.importJSON(request.svgJson);
 
+    // scale the document so its coordinates match the world 1:1, in mm
+    const projectToViewRatio = request.width / request.svgWidth;
+
+    console.log(`Scaling by ${projectToViewRatio}`);
+    svg.scale(projectToViewRatio, {x: 0, y: 0});
+    svg.applyMatrix = true;
+
     updateStatusFn("Clipping");
     clipPaths(svg);
-
-    // scale the document so its coordinates match the world 1:1, in mm
-    const projectToViewRatio = paper.project.view.bounds.width / request.width;
-    svg.scale(projectToViewRatio);
-    svg.applyMatrix = true;
 
     updateStatusFn("Generating paths");
     const paths = generatePaths(svg);

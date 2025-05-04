@@ -187,14 +187,25 @@ function init() {
             };
             
             if (currentPreviewId == thisPreviewId) {
-                currentWorker = new Worker('./worker/worker.js');
+                currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
     
                 currentWorker.onmessage = (e) => {
                     if (e.data.type === 'status') {
                         $("#progressBar").text(e.data.payload);
                     } else if (e.data.type === 'vectorizer') {
                         const vectorizedSvg = e.data.payload.svg;
-                        renderSvgInWorker(currentWorker, vectorizedSvg, false);
+                        console.log(`Vectorized SVG: ${vectorizedSvg}`);
+                        const scale = svgControl.getRenderScale();
+                        renderSvgInWorker(
+                            currentWorker,
+                            vectorizedSvg,
+                            svgControl.getTargetWidth() * scale,
+                            svgControl.getTargetHeight() * scale,
+                            false,
+                        );
+                    }
+                    else if (e.data.type === 'log') {
+                        console.log(`Worker: ${e.data.payload}`);
                     }
                 }
     
@@ -202,21 +213,24 @@ function init() {
             }
         } else {
             if (currentPreviewId == thisPreviewId) {
-                currentWorker = new Worker('./worker/worker.js');
+                currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
                 currentWorker.onmessage = (e) => {
                     if (e.data.type === 'status') {
                         $("#progressBar").text(e.data.payload);
+                    }
+                    else if (e.data.type === 'log') {
+                        console.log(`Worker: ${e.data.payload}`);
                     }
                 }
 
                 const renderSvg = svgControl.getRenderSvg();
                 const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
-                renderSvgInWorker(currentWorker, renderSvgString, false);
+                renderSvgInWorker(currentWorker, renderSvgString, svgControl.getTargetWidth(), svgControl.getTargetHeight(), false);
             }
         }
     }
 
-    function renderSvgInWorker(worker, svg, flattenPaths) {
+    function renderSvgInWorker(worker, svg, svgWidth, svgHeight, flattenPaths) {
         const svgJson = svgControl.getSvgJson(svg);
        
         const renderRequest = {
@@ -224,6 +238,8 @@ function init() {
             svgJson,
             width: svgControl.getTargetWidth(),
             height: svgControl.getTargetHeight(),
+            svgWidth,
+            svgHeight,
             homeX: currentState.homeX,
             homeY: currentState.homeY,
             infillDensity: getInfillDensity(),

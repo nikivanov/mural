@@ -28,6 +28,8 @@ export namespace RequestTypes {
         svgJson: string,
         width: number,
         height: number,
+        svgWidth: number,
+        svgHeight: number,
         homeX: number,
         homeY: number,
         infillDensity: InfillDensity,

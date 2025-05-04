@@ -82,6 +82,14 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
         return false;
     }
 
+    if (!('svgWidth' in obj) || typeof obj.svgWidth !== 'number') {
+        return false;
+    }
+
+    if (!('svgHeight' in obj) || typeof obj.svgHeight !== 'number') {
+        return false;
+    }
+
     if (!('homeX' in obj) || typeof obj.homeX !== 'number') {
         return false;
     }

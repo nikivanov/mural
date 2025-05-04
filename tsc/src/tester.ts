@@ -42,12 +42,15 @@ async function main() {
                     svgJson: vectorizedJson,
                     height,
                     width,
+                    svgWidth: width * renderScaleFactor,
+                    svgHeight: height * renderScaleFactor,
                     homeX: 0,
                     homeY: 0,
                     infillDensity: 4,
-                    type: 'renderSvg'
+                    type: 'renderSvg',
+                    flattenPaths: false,
                 };
-                const result = await renderSvgJsonToCommands(request, updater)
+                const result = await renderSvgJsonToCommands(request, updater);
                 const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
                 const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
                 const fullResultPath = path.join(outDirPath, dirEntry.name);

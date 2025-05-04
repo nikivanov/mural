@@ -145,8 +145,8 @@ export function getTargetHeight() {
     return currentHeight;
 }
 
-export function getRasterRenderTransform() {
-    return [1 / renderScale, 0, 0, 1 / renderScale, 0, 0];
+export function getRenderScale() {
+    return renderScale;
 }
 
 export function getRenderSvg() {
