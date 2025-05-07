@@ -163,7 +163,9 @@ function init() {
 
     
     let currentPreviewId = 0;
-    async function renderPreview(rasterize) {
+    let rendererFn = null;
+
+    async function render_VectorRasterVector() {
         if (currentWorker) {
             console.log("Terminating previous worker");
             currentWorker.terminate();
@@ -176,61 +178,71 @@ function init() {
             throw new Error('No SVG string');
         }
 
-        if (rasterize) {
-            $("#progressBar").text("Rasterizing");
-            const raster = await svgControl.getCurrentSvgImageData();
-    
-            const vectorizeRequest = {
-                type: 'vectorize',
-                raster,
-                turdSize: getTurdSize(),
-            };
-            
-            if (currentPreviewId == thisPreviewId) {
-                currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
-    
-                currentWorker.onmessage = (e) => {
-                    if (e.data.type === 'status') {
-                        $("#progressBar").text(e.data.payload);
-                    } else if (e.data.type === 'vectorizer') {
-                        const vectorizedSvg = e.data.payload.svg;
-                        console.log(`Vectorized SVG: ${vectorizedSvg}`);
-                        const scale = svgControl.getRenderScale();
-                        renderSvgInWorker(
-                            currentWorker,
-                            vectorizedSvg,
-                            svgControl.getTargetWidth() * scale,
-                            svgControl.getTargetHeight() * scale,
-                            false,
-                        );
-                    }
-                    else if (e.data.type === 'log') {
-                        console.log(`Worker: ${e.data.payload}`);
-                    }
-                }
-    
-                currentWorker.postMessage(vectorizeRequest);
-            }
-        } else {
-            if (currentPreviewId == thisPreviewId) {
-                currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
-                currentWorker.onmessage = (e) => {
-                    if (e.data.type === 'status') {
-                        $("#progressBar").text(e.data.payload);
-                    }
-                    else if (e.data.type === 'log') {
-                        console.log(`Worker: ${e.data.payload}`);
-                    }
-                }
+        $("#progressBar").text("Rasterizing");
+        const raster = await svgControl.getCurrentSvgImageData();
 
-                const renderSvg = svgControl.getRenderSvg();
-                const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
-                renderSvgInWorker(currentWorker, renderSvgString, svgControl.getTargetWidth(), svgControl.getTargetHeight(), false);
+        const vectorizeRequest = {
+            type: 'vectorize',
+            raster,
+            turdSize: getTurdSize(),
+        };
+
+        if (currentPreviewId == thisPreviewId) {
+            currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
+
+            currentWorker.onmessage = (e) => {
+                if (e.data.type === 'status') {
+                    $("#progressBar").text(e.data.payload);
+                } else if (e.data.type === 'vectorizer') {
+                    const vectorizedSvg = e.data.payload.svg;
+                    const scale = svgControl.getRenderScale();
+                    renderSvgInWorker(
+                        currentWorker,
+                        vectorizedSvg,
+                        svgControl.getTargetWidth() * scale,
+                        svgControl.getTargetHeight() * scale,
+                    );
+                }
+                else if (e.data.type === 'log') {
+                    console.log(`Worker: ${e.data.payload}`);
+                }
             }
+
+            currentWorker.postMessage(vectorizeRequest);
         }
     }
 
-    function renderSvgInWorker(worker, svg, svgWidth, svgHeight, flattenPaths) {
+    async function render_PathTracing() {
+        if (currentWorker) {
+            console.log("Terminating previous worker");
+            currentWorker.terminate();
+        }
+        currentPreviewId++;
+        const thisPreviewId = currentPreviewId;
+
+        const svgString = await getUploadedSvgString();
+        if (!svgString) {
+            throw new Error('No SVG string');
+        }
+
+        if (currentPreviewId == thisPreviewId) {
+            currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
+            currentWorker.onmessage = (e) => {
+                if (e.data.type === 'status') {
+                    $("#progressBar").text(e.data.payload);
+                }
+                else if (e.data.type === 'log') {
+                    console.log(`Worker: ${e.data.payload}`);
+                }
+            }
+
+            const renderSvg = svgControl.getRenderSvg();
+            const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
+            renderSvgInWorker(currentWorker, renderSvgString, svgControl.getTargetWidth(), svgControl.getTargetHeight());
+        }
+    }
+
+    function renderSvgInWorker(worker, svg, svgWidth, svgHeight) {
         const svgJson = svgControl.getSvgJson(svg);
        
         const renderRequest = {
@@ -243,7 +255,7 @@ function init() {
             homeX: currentState.homeX,
             homeY: currentState.homeY,
             infillDensity: getInfillDensity(),
-            flattenPaths,
+            flattenPaths: getFlattenPaths(),
         }
 
         worker.onmessage = (e) => {
@@ -287,16 +299,10 @@ function init() {
     }
 
 
-    $("#infillDensity").on('input', async function() {
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox").on('input change', async function() {
         activateProgressBar();
         $("#acceptSvg").attr("disabled", "disabled");
-        await renderPreview();
-    });
-
-    $("#turdSize").on('input', async function() {
-        activateProgressBar();
-        $("#acceptSvg").attr("disabled", "disabled");
-        await renderPreview();
+        await rendererFn();
     });
 
     $("#preview").click(async function() {
@@ -305,15 +311,24 @@ function init() {
     });
 
     $("#pathTracing").click(async function() {
+        $("label[for='turdSize'],#turdSize").hide();
+        $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").show();
+
         $("#chooseRendererSlide").hide();
         $("#drawingPreviewSlide").show();
-        await renderPreview(false);
+        rendererFn = render_PathTracing;
+        await rendererFn();
     });
 
     $("#vectorRasterVector").click(async function() {
+        $("#flattenPathsCheckbox").prop("checked", false);
+        $("label[for='turdSize'],#turdSize").show();
+        $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").hide();
+
         $("#chooseRendererSlide").hide();
         $("#drawingPreviewSlide").show();
-        await renderPreview(true);
+        rendererFn = render_VectorRasterVector;
+        await rendererFn();
     });
 
     $(".backToSvgSelect").click(function() {
@@ -473,4 +488,8 @@ function getInfillDensity() {
 
 function getTurdSize() {
     return parseInt($("#turdSize").val());
+}
+
+function getFlattenPaths() {
+    return $("#flattenPathsCheckbox").is(":checked");
 }
