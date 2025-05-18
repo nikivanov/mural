@@ -342,6 +342,7 @@ function init() {
 
         $("#svgUploadSlide").show();
         $("#drawingPreviewSlide").hide();
+        $("#chooseRendererSlide").hide();
     });
     
     $("#acceptSvg").click(function() {

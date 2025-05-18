@@ -16,7 +16,7 @@ function updater(status: string) {
     console.log(status);
 }
 
-async function main() {
+async function main_vectorRasterVector() {
     const dirPath = path.join(__dirname, '../svgs');
     const inDir = fs.opendirSync(dirPath);
 
@@ -26,7 +26,7 @@ async function main() {
     let dirEntry = inDir.readSync();
     while (dirEntry) {
         if (dirEntry.isFile() && dirEntry.name.endsWith(".svg")) {
-            if (dirEntry.name == "albert-einstein.svg") {
+            if (dirEntry.name == "finitecurve.svg") {
                 console.log(`processing ${dirEntry.name}`);
 
                 const file = fs.readFileSync(path.join(dirEntry.path, dirEntry.name));
@@ -107,6 +107,58 @@ async function getImageData(svgString: string, renderScaleFactor: number): Promi
     return [fullImageData, svgWidth, svgHeight];
 }
 
+async function main_pathTracer() {
+    const dirPath = path.join(__dirname, '../svgs');
+    const inDir = fs.opendirSync(dirPath);
+
+    const outDirPath = path.join(__dirname, '../svgs/out/');
+    
+
+    let dirEntry = inDir.readSync();
+    while (dirEntry) {
+        if (dirEntry.isFile() && dirEntry.name.endsWith(".svg")) {
+            if (dirEntry.name == "finitecurve.svg") {
+                console.log(`processing ${dirEntry.name}`);
+
+                const file = fs.readFileSync(path.join(dirEntry.path, dirEntry.name));
+                const svgString = file.toString();
+
+                const jsdom = require("jsdom");
+                const window = new jsdom.JSDOM().window;
+                const parser = new window.DOMParser();
+
+                const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+                const svgElement = svgDoc.documentElement;
+                const svgWidth = parseFloat(svgElement.getAttribute('width')!);
+                const svgHeight = parseFloat(svgElement.getAttribute('height')!);
+
+                const height = Math.floor(svgHeight * (width / svgWidth));
+
+                const svgJson = convertSvgToSvgJson(svgString);
+                const request: RequestTypes.RenderSVGRequest = {
+                    svgJson: svgJson,
+                    height,
+                    width,
+                    svgWidth,
+                    svgHeight,
+                    homeX: 0,
+                    homeY: 0,
+                    infillDensity: 0,
+                    type: 'renderSvg',
+                    flattenPaths: false,
+                };
+                const result = await renderSvgJsonToCommands(request, updater);
+                const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
+                const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
+                const fullResultPath = path.join(outDirPath, dirEntry.name);
+                fs.writeFileSync(fullResultPath, resultSvg);
+            }
+            
+        }
+        dirEntry = inDir.readSync();
+    }
+}
+
 function convertSvgToSvgJson(svgString: string) {
     const size = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
     paper.setup(size);
@@ -131,5 +183,5 @@ function convertSvgJsonToSvg(svgJson: string, width: number, height: number): st
     return svg;
 }
 
-main();
+main_pathTracer();
 
