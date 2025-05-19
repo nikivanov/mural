@@ -7,7 +7,6 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
-import { clipPaths } from './clipper';
 import { flattenPaths } from './flattener';
 
 const paper = loadPaper();
@@ -28,9 +27,6 @@ export async function renderSvgJsonToCommands(
     svg.scale(projectToViewRatio, {x: 0, y: 0});
     svg.applyMatrix = true;
 
-    updateStatusFn("Clipping");
-    clipPaths(svg);
-
     updateStatusFn("Generating paths");
     const paths = generatePaths(svg);
 
@@ -47,7 +43,7 @@ export async function renderSvgJsonToCommands(
     const optimizedPaths = optimizePaths(pathsWithInfills, request.homeX, request.homeY);
 
     updateStatusFn("Generating commands");
-    const commands = renderPathsToCommands(optimizedPaths);
+    const commands = renderPathsToCommands(optimizedPaths, request.width, request.height);
     commands.push('p0');
 
     const trimmedCommands = trimCommands(commands);

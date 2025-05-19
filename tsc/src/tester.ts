@@ -148,6 +148,7 @@ async function main_pathTracer() {
                     flattenPaths: false,
                 };
                 const result = await renderSvgJsonToCommands(request, updater);
+                fs.writeFileSync(path.join(__dirname, '../svgs/out/commands.txt'), result.commands.join('\n'));
                 const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
                 const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
                 const fullResultPath = path.join(outDirPath, dirEntry.name);
