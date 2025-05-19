@@ -427,8 +427,6 @@ function init() {
     svgControl.initSvgControl();
 
     $("#loadingSlide").show();
-    //$("chooseRendererSlide").show();
-
 
     // adaptToState({
     //     phase: "BeginDrawing",
