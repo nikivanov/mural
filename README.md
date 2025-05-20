@@ -15,4 +15,4 @@ Here's how the image is prepared and drawn:
 - Then a processing step is performed on the SVG to figure out what to actually draw, with each SVG unit being treated as millimeter.
 - Finally it's converted into a simple format for Mural to draw, containing mostly its coordinate movement commands and pen up/down. This file is then uploaded to the microcontroller and executed line by line.
 
-![esp32](/images/doc/muralbot_image_positioning.drawio.svg)
+![image_positioning](/images/doc/muralbot_image_positioning.svg)
