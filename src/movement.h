@@ -12,8 +12,8 @@ const auto diameter = 12.65;
 const auto circumference = diameter * PI;
 const auto bottomDistance = 67.4;
 const auto midPulleyToWall = 41;
-const auto safeYFraction = 0.2;
-const auto safeXFraction = 0.2;
+const auto safeYFraction = 0.2;     // Top Margin: Image top to topDistance line.
+const auto safeXFraction = 0.2;     // Left and right margin: from draw area boundaries to line from each pin straight down.
 
 const auto LEFT_STEP_PIN = 13;
 const auto LEFT_DIR_PIN = 12;
@@ -93,7 +93,10 @@ void rightStepper(int dir);
 int extendToHome();
 void runSteppers();
 float beginLinearTravel(double x, double y, int speed);
-void extend100mm();
+
+// Used for calibration of the esteps.
+void extend1000mm(); 
+
 Point getHomeCoordinates();
 void disableMotors();
 };
