@@ -8,12 +8,13 @@ const auto moveSpeedSteps = 1500;
 const long INFINITE_STEPS = 999999999;
 const auto acceleration = 999999999; //essentially infinite, causing instant stop / start
 const int stepsPerRotation = 200 * 8; // 1/8 microstepping
-const auto diameter = 12.65;
+const auto diameter = 12.69;    // while 12.65 being set: measured: 12.70mm left. 12.72 right. -> set to 12.71mm
 const auto circumference = diameter * PI;
-const auto bottomDistance = 67.4;
+const auto bottomDistance = 67.4; // What is this? The inner distance between the pulleys? For me it's 
+                                  // more like 70.0 to 72.00mm (if measuring the point distance of belts touching pulleys.)
 const auto midPulleyToWall = 41;
-const auto safeYFraction = 0.2;
-const auto safeXFraction = 0.2;
+const auto safeYFraction = 0.2;     // Top Margin: Image top to topDistance line.
+const auto safeXFraction = 0.2;     // Left and right margin: from draw area boundaries to line from each pin straight down.
 
 const auto LEFT_STEP_PIN = 13;
 const auto LEFT_DIR_PIN = 12;
@@ -93,7 +94,10 @@ void rightStepper(int dir);
 int extendToHome();
 void runSteppers();
 float beginLinearTravel(double x, double y, int speed);
-void extend100mm();
+
+// Used for calibration of the esteps.
+void extend1000mm(); 
+
 Point getHomeCoordinates();
 void disableMotors();
 };
