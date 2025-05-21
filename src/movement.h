@@ -25,8 +25,9 @@ const auto RIGHT_DIR_PIN = 26;
 const auto RIGHT_ENABLE_PIN = 25;
 
 
-
-const auto homedStepOffsetMM = 17;
+// Length of fully retracted belt hitting stop screw. Measured from outer edge of screw to the point
+// of tangency between belt and pulley.
+constexpr float homedStepOffsetMM = 40.0;
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 
 
