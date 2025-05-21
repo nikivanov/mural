@@ -131,32 +131,32 @@ void Movement::runSteppers()
 };
 
 Movement::Lengths Movement::getBeltLengths(double x, double y) {
-    auto unsafeX = x + minSafeXOffset;
-    auto unsafeY = y + minSafeY;
+    const double unsafeX = x + minSafeXOffset;
+    const double unsafeY = y + minSafeY;
 
     // x deviation from the middle - the farther from the middle we go, the more extreme
     // the angle of Mural gets
-    auto xDev = topDistance / 2 - unsafeX;
+    const double xDev = topDistance / 2 - unsafeX;
     
     // angle of tilt due to deviation from the middle is proportional to that deviation:
     // the closer we are to either edge the closer we get to the 90 degree tilt
-    auto devAngle = (abs(xDev) / (topDistance / 2)) * (PI / 2);
+    const double devAngle = (abs(xDev) / (topDistance / 2)) * (PI / 2);
 
     // we are rotating around the middle of bottomDistance
-    auto halfBottom = bottomDistance / 2;
+    double halfBottom = bottomDistance / 2;
 
     // Flat coordinates of the left and right belt points before compensation for tilt
-    auto flatLeftX = unsafeX - halfBottom;
-    auto flatRightX = unsafeX + halfBottom;
-    auto flatLeftY = unsafeY;
-    auto flatRightY = unsafeY;
+    const double flatLeftX = unsafeX - halfBottom;
+    const double flatRightX = unsafeX + halfBottom;
+    const double flatLeftY = unsafeY;
+    const double flatRightY = unsafeY;
 
     // x compensation is 0 when angle is 0 (in the middle) and grows as the angle grows. The maximum theoretical compensation
     // is halfBottom if Mural is tilted 90 degrees, which it would never be in practice.
     // This is an absolute value of compensation - we'll change the sign later
-    auto xComp = halfBottom - cos(devAngle) * halfBottom;
+    const double xComp = halfBottom - cos(devAngle) * halfBottom;
 
-    auto yComp = sin(devAngle) * halfBottom;
+    const double yComp = sin(devAngle) * halfBottom;
 
     double leftX, leftY, rightX, rightY;
 
@@ -175,15 +175,15 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     }
 
     // left and right leg distances flush to the wall
-    auto leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
-    auto rightLegFlat = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
+    const double leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
+    const double rightLegFlat = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
 
     // left and right leg distances including the standoff length
-    auto leftLeg = sqrt(pow(leftLegFlat, 2) + pow(midPulleyToWall, 2));
-    auto rightLeg = sqrt(pow(rightLegFlat, 2) + pow(midPulleyToWall, 2));
+    const double leftLeg = sqrt(pow(leftLegFlat, 2) + pow(midPulleyToWall, 2));
+    const double rightLeg = sqrt(pow(rightLegFlat, 2) + pow(midPulleyToWall, 2));
 
-    auto leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
-    auto rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
+    const double leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
+    const double rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
 
     return Lengths(leftLegSteps, rightLegSteps);
 }
