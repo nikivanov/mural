@@ -134,6 +134,10 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     const double unsafeX = x + minSafeXOffset;
     const double unsafeY = y + minSafeY;
 
+    // Mural rotates as it moves towards the sides. As this happens, Mural's coordinate
+    // system rotates as well, which would mean straight lines become curved. Therefore, 
+    // a compensation in this rotated system is computed and applied.
+
     // x deviation from the middle - the farther from the middle we go, the more extreme
     // the angle of Mural gets
     const double xDev = topDistance / 2 - unsafeX;
@@ -154,9 +158,14 @@ Movement::Lengths Movement::getBeltLengths(double x, double y) {
     // x compensation is 0 when angle is 0 (in the middle) and grows as the angle grows. The maximum theoretical compensation
     // is halfBottom if Mural is tilted 90 degrees, which it would never be in practice.
     // This is an absolute value of compensation - we'll change the sign later
-    const double xComp = halfBottom - cos(devAngle) * halfBottom;
+    // const double xComp = halfBottom - cos(devAngle) * halfBottom;
 
-    const double yComp = sin(devAngle) * halfBottom;
+    // const double yComp = sin(devAngle) * halfBottom;
+
+    // hack: resetting x and yComp
+    const double xComp = 0.0;
+    const double yComp = 0.0;
+    
 
     double leftX, leftY, rightX, rightY;
 
