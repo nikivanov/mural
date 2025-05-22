@@ -192,8 +192,8 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     // In this stable state the pulley forces cancel out the gravity force in x and y.
     // Note this is an approximation which is refined due to iteratively updating the values (torque, angles, forces). 
     const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
-    double F_R = F_G * cos (phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
-    double F_L = F_G * cos (phi_R) / sin(phi_L + phi_R);    // [N]
+    double F_R = F_G * cos(phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
+    double F_L = F_G * cos(phi_R) / sin(phi_L + phi_R);    // [N]
     double F_Ly = F_L * sin(phi_L);                         // [N] components in y and x
     double F_Lx = F_L * sin(phi_L);                         // [N] ...
     double F_Ry = F_R * sin(phi_R);                         // [N]
@@ -201,15 +201,26 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     
     
     // Solve for torque equilibrium: As the belts are pulling on two distinct point, there's a torque rotating the
-    // bot around a center point. Here, we assume this center point corresponds to the pen center.
+    // bot around a reference point. Here, we assume this reference point corresponds to the pen center.
     // In the static case the residual torque is zero, which occurs at a certain inclination gamma. The goal here is
     // to find this gamma.
-    const double s_L = d_t / 2.0;   // [mm] Lenght of the effective arm for the left pulley.
-    const double s_R = d_t / 2.0;   // [mm]
+    // const double s_L = d_t / 2.0;   // [mm] Lenght of the effective arm for the left pulley.
+    // const double s_R = d_t / 2.0;   // [mm]
     double alpha = phi_L - gamma;   // [rad] Angle between left belt and line connecting tangent points (of pulleys and belts).
     double beta = phi_R + gamma;    // [rad] Angle between right belt and line connecting tangent points.
     
-    // double T_L = /* s_L * F_L = */ s_L * sin(alpha) * F_L
+    double T_L = /* s_L * F_L = */ s_L * sin(alpha) * F_L;
+    double T_R = s_R * sin(beta) * F_R;
+
+    // The center of mass sits under the center of line connecting the tangent points.
+    double s_m = d_m * tan(gamma);
+    double F_m = F_G * cos(gamma);
+    double T_m = s_m * F_m;
+
+    // Left pulley tries to turn the bot clockwise. Right pulley ccw. Gravity ccw if gamma is positive (i.e. the bot inclined to the right).
+    double T_delta = T_R - T_L + T_m;
+    // Solve gamma for T_delta = 0.0 .
+
     
     // Hack: copying into variables for backwards compatibility.
     double leftX = x_PL;
