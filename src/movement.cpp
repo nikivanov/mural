@@ -26,14 +26,14 @@ Movement::Movement(Display *display)
 
 void Movement::setTopDistance(int distance) {
     Serial.printf("Top distance set to %s\n", String(distance));
-    topDistance = distance;
+    topDistance = distance;                         // = d_pins [mm]
 
-    minSafeY = safeYFraction * topDistance;
-    minSafeXOffset = safeXFraction * topDistance;
-    width = topDistance - 2 * minSafeXOffset;
+    minSafeY = safeYFraction * topDistance;         // = top_margin * d_pins [mm]
+    minSafeXOffset = safeXFraction * topDistance;   // = side_margin * d_pins [mm]
+    width = topDistance - 2 * minSafeXOffset;       // width of the drawing area [mm]
 };
 
-void Movement::resumeTopDistance(int distance) {
+void Movement::resumeTopDistance(int distance /* = d_pin in mm */) {
     setTopDistance(distance);
     homed = true;
 
@@ -102,7 +102,7 @@ Movement::Point Movement::getHomeCoordinates() {
         return Point(0, 0);
     }
 
-    return Point(width / 2, HOME_Y_OFFSET);
+    return Point(width / 2, HOME_Y_OFFSET_MM);
 }
 
 int Movement::extendToHome()
@@ -130,7 +130,7 @@ void Movement::runSteppers()
     }
 };
 
-Movement::Lengths Movement::getBeltLengths(double x, double y) {
+Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     const double unsafeX = x + minSafeXOffset;
     const double unsafeY = y + minSafeY;
 
@@ -247,7 +247,7 @@ float Movement::beginLinearTravel(double x, double y, int speed)
     rightMotor->setSpeed(rightSpeed);
 
     //display->displayText(String(X) + ", " + String(Y));
-    //delay(sleepAfterMove);
+    delay(sleepDurationAfterMove_ms);
 
     moving = true;
     return moveTime;
