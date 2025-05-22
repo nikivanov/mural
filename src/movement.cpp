@@ -130,64 +130,98 @@ void Movement::runSteppers()
     }
 };
 
+// Calculate the lengths of the left and right belt in mm based on the input coordinates.
+// input: x [mm], y [mm] ; both in image coordinate system
 Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
-    const double unsafeX = x + minSafeXOffset;
-    const double unsafeY = y + minSafeY;
-
     // Mural rotates as it moves towards the sides. As this happens, Mural's coordinate
     // system rotates as well, which would mean straight lines become curved. Therefore, 
     // a compensation in this rotated system is computed and applied.
+    //
+    // This function works as follows:
+    // 1 Compute the belt length in the wall plane first:
+    //   {
+    //      init belt angles phi_L and phi_R
+    //      compute forces on both belts
+    //      compute torque on mural, solve for mural inclination gamma
+    //      update belt angles
+    //      loop (if needed)
+    //      result: mural inclination, x and y correction, and belt forces
+    //   }
+    // 2 Compute 3D belt length: Euclidean distance due to Pulleys not being in same plane as belt anchors (pins).
+    // 3 Apply dilation correction to account for non-rigid belts.
 
-    // x deviation from the middle - the farther from the middle we go, the more extreme
-    // the angle of Mural gets
-    const double xDev = topDistance / 2 - unsafeX;
+
+    // Coordinate systems:
+    // Frame coordinate system: Outer frame defined by the belt pins. Origin is the center of the left pin.
+    //      x-axis points right towards the right pin. y-axis is perpendicular to x, pointing down.
+    // Image coordinate system:
+    //      This coordinate system defines the actual drawing area. The origin is in the top left corner 
+    //      of the image to be drawn. It is shifted by safeYFraction * d_pins down from the line connecting the pins.
+    //      Additionally, it's shifted safeXFraction to the right from the y-axis of the frame coordinate system.
+    //      So, in frame coordinates the origin of the image coordinate system is 
+    //      (safeYFraction * d_pins, safeXFraction * d_pins).
+    //      See also /images/doc/muralbot_image_positioning.svg . 
+
+    // Pen coordinates in frame coordinate system.
+    const double frameX = x + minSafeXOffset;
+    const double frameY = y + minSafeY;
+
+    // Initial guess for belt angles phi_L and phi_R, and mural inclination gamma.
+    double gamma = 0.0;     // Inclination of the bot. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
+    double phi_L = 
+
+
+    // const double unsafeX = x + minSafeXOffset;
+    // const double unsafeY = y + minSafeY;
+
+    // // x deviation from the middle - the farther from the middle we go, the more extreme
+    // // the angle of Mural gets
+    // const double xDev = topDistance / 2 - unsafeX;
     
-    // angle of tilt due to deviation from the middle is proportional to that deviation:
-    // the closer we are to either edge the closer we get to the 90 degree tilt
-    const double devAngle = (abs(xDev) / (topDistance / 2)) * (PI / 2);
+    // // angle of tilt due to deviation from the middle is proportional to that deviation:
+    // // the closer we are to either edge the closer we get to the 90 degree tilt
+    // const double devAngle = (abs(xDev) / (topDistance / 2)) * (PI / 2);
 
-    // we are rotating around the middle of bottomDistance
-    double halfBottom = bottomDistance / 2;
+    // // we are rotating around the middle of bottomDistance
+    // double halfBottom = bottomDistance / 2;
 
-    // Flat coordinates of the left and right belt points before compensation for tilt
-    const double flatLeftX = unsafeX - halfBottom;
-    const double flatRightX = unsafeX + halfBottom;
-    const double flatLeftY = unsafeY;
-    const double flatRightY = unsafeY;
+    // // Flat coordinates of the left and right belt points before compensation for tilt
+    // const double flatLeftX = unsafeX - halfBottom;
+    // const double flatRightX = unsafeX + halfBottom;
+    // const double flatLeftY = unsafeY;
+    // const double flatRightY = unsafeY;
 
     // x compensation is 0 when angle is 0 (in the middle) and grows as the angle grows. The maximum theoretical compensation
     // is halfBottom if Mural is tilted 90 degrees, which it would never be in practice.
     // This is an absolute value of compensation - we'll change the sign later
     // const double xComp = halfBottom - cos(devAngle) * halfBottom;
-
     // const double yComp = sin(devAngle) * halfBottom;
 
-    // hack: resetting x and yComp
-    const double xComp = 0.0;
-    const double yComp = 0.0;
-    
+    // double leftX, leftY, rightX, rightY;
 
-    double leftX, leftY, rightX, rightY;
+    // if (xDev < 0) {
+    //     // we're to the right of the middle axis, Mural is going to be tilting counterclockwise 
+    //     leftX = flatLeftX + xComp;
+    //     leftY = flatLeftY + yComp;
+    //     rightX = flatRightX - xComp;
+    //     rightY = flatRightY - yComp;  
+    // } else {
+    //     // we're to the left of the middle axis, Mural is going to be tilting clockwise
+    //     leftX = flatLeftX + xComp;
+    //     leftY = flatLeftY - yComp;
+    //     rightX = flatRightX - xComp;
+    //     rightY = flatRightY + yComp;
+    // }
 
-    if (xDev < 0) {
-        // we're to the right of the middle axis, Mural is going to be tilting counterclockwise 
-        leftX = flatLeftX + xComp;
-        leftY = flatLeftY + yComp;
-        rightX = flatRightX - xComp;
-        rightY = flatRightY - yComp;  
-    } else {
-        // we're to the left of the middle axis, Mural is going to be tilting clockwise
-        leftX = flatLeftX + xComp;
-        leftY = flatLeftY - yComp;
-        rightX = flatRightX - xComp;
-        rightY = flatRightY + yComp;
-    }
 
-    // left and right leg distances flush to the wall
+
+
+
+    // Left and right leg distances flush to the wall.
     const double leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
     const double rightLegFlat = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
 
-    // left and right leg distances including the standoff length
+    // Left and right leg distances including the standoff length.
     const double leftLeg = sqrt(pow(leftLegFlat, 2) + pow(midPulleyToWall, 2));
     const double rightLeg = sqrt(pow(rightLegFlat, 2) + pow(midPulleyToWall, 2));
 
