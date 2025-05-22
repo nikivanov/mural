@@ -27,7 +27,7 @@ const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerR
 constexpr double mass_bot = 0.55;   // Mass of the mural bot [kg].
 constexpr double g_constant = 9.81; // Earth's gravitational acceleration constant [m/s^2]. Please change when running Mural on other planets!.
 constexpr double d_t = 72.0;        // Distance of tangent points, wher belts touch the pulley. [mm]
-constexpr double d_m = 10.0;        // Distance from line connecting tangent points to center of mass of bot (projected onto wall plane). [mm]
+constexpr double d_m = 16.0;        // Distance from line connecting tangent points to center of mass of bot (projected onto wall plane). [mm]
                                     // The center of mass sits roughly at the bottom of the pen opening. 
 const int HOME_Y_OFFSET_MM = 350;   // Y coordinate of mural home position in image coordinate system [mm].
 
