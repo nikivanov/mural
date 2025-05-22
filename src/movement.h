@@ -1,28 +1,34 @@
 #ifndef Movement_h
 #define Movement_h
+
+#include "AccelStepper.h"
 #include "Arduino.h" 
 #include "display.h"
-#include "AccelStepper.h"
-const auto printSpeedSteps = 500;
-const auto moveSpeedSteps = 1500;
-const long INFINITE_STEPS = 999999999;
-const auto acceleration = 999999999; //essentially infinite, causing instant stop / start
-const int stepsPerRotation = 200 * 8; // 1/8 microstepping
-const auto diameter = 12.69;    // while 12.65 being set: measured: 12.70mm left. 12.72 right. -> set to 12.71mm
-const auto circumference = diameter * PI;
-const auto bottomDistance = 67.4; // What is this? The inner distance between the pulleys? For me it's 
-                                  // more like 70.0 to 72.00mm (if measuring the point distance of belts touching pulleys.)
-const auto midPulleyToWall = 41;
-const auto safeYFraction = 0.2;     // Top Margin: Image top to topDistance line.
-const auto safeXFraction = 0.2;     // Left and right margin: from draw area boundaries to line from each pin straight down.
 
-const auto LEFT_STEP_PIN = 13;
-const auto LEFT_DIR_PIN = 12;
-const auto LEFT_ENABLE_PIN = 14;
+constexpr int printSpeedSteps = 500;
+constexpr int  moveSpeedSteps = 1500;
+constexpr long INFINITE_STEPS = 999999999;
+constexpr long acceleration = 999999999; //essentially infinite, causing instant stop / start
+constexpr int stepsPerRotation = 200 * 8; // 1/8 microstepping
 
-const auto RIGHT_STEP_PIN = 27;
-const auto RIGHT_DIR_PIN = 26;
-const auto RIGHT_ENABLE_PIN = 25;
+// Effective diameter of the pulley+belts. Use EStep calibration to refine this value.
+constexpr double diameter = 12.69;
+const double circumference = diameter * PI;
+
+// What is this? The inner distance between the pulleys? For me it's 
+// more like 70.0 to 72.00mm (if measuring the point distance of belts touching pulleys.)
+constexpr double bottomDistance = 67.4; 
+constexpr double midPulleyToWall = 41.0;
+constexpr double safeYFraction = 0.2;     // Top Margin: Image top to topDistance line.
+constexpr double safeXFraction = 0.2;     // Left and right margin: from draw area boundaries to line from each pin straight down.
+
+constexpr int LEFT_STEP_PIN = 13;
+constexpr int LEFT_DIR_PIN = 12;
+constexpr int LEFT_ENABLE_PIN = 14;
+
+constexpr int RIGHT_STEP_PIN = 27;
+constexpr int RIGHT_DIR_PIN = 26;
+constexpr int RIGHT_ENABLE_PIN = 25;
 
 
 // Length of fully retracted belt hitting stop screw. Measured from outer edge of screw to the point
