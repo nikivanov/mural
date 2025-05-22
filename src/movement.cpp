@@ -166,10 +166,30 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     const double frameX = x + minSafeXOffset;
     const double frameY = y + minSafeY;
 
+    
     // Initial guess for belt angles phi_L and phi_R, and mural inclination gamma.
-    double gamma = 0.0;     // Inclination of the bot. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
-    double phi_L = 
+    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from pen center. [mm]
+    const double s_R = d_t / 2.0;
+    double gamma = 0.0;             // Inclination of the bot [rad]. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
+    // Coordinates of left pulley tangent point:
+    const double P_LX = s_L * cos(gamma); // [mm] distance from pen center in x
+    const double P_LY = s_L * sin(gamma); // [mm] .. and y
+    const double x_PL = frameX - P_LX;    // [mm] Coordinate in frame coordinate system.
+    const double y_PL = frameY - P_LY;    // [mm]
+    double phi_L = atan2(x_PL, y_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
 
+    // Coordinates of right pulley tangent point:
+    const double P_RX = s_R * cos(gamma); // [mm]
+    const double P_RY = s_R * sin(gamma); // [mm]
+    const double x_PR = frameX + P_RX;    // [mm]
+    const double y_PR = frameY + P_RY;    // [mm]
+    double phi_R = atan2(x_PR, y_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
+
+    // Hack: copying into variables for backwards compatibility.
+    double leftX = x_PL;
+    double leftY = y_PL;
+    double rightX = x_PR;
+    double rightY = y_PR;
 
     // const double unsafeX = x + minSafeXOffset;
     // const double unsafeY = y + minSafeY;
