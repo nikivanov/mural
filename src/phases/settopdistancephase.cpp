@@ -23,8 +23,8 @@ void SetTopDistancePhase::setServo(AsyncWebServerRequest *request) {
 }
 
 void SetTopDistancePhase::estepsCalibration(AsyncWebServerRequest* request) {
-    Serial.println("Extending 100mm");
-    movement->extend100mm();
+    Serial.println("Extending 1000mm");
+    movement->extend1000mm();
     request->send(200, "text/plain", "OK");
 }
 

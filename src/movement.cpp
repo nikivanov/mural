@@ -102,7 +102,7 @@ Movement::Point Movement::getHomeCoordinates() {
         return Point(0, 0);
     }
 
-    return Point(width / 2, HOME_Y_OFFSET);
+    return Point(width / 2, HOME_Y_OFFSE_MM);
 }
 
 int Movement::extendToHome()
@@ -264,13 +264,13 @@ Movement::Point Movement::getCoordinates() {
     return Movement::Point(X, Y);
 }
 
-void Movement::extend100mm() {
-    auto steps = int((100 / circumference) * stepsPerRotation);
-    
+void Movement::extend1000mm() {
+    const int steps = int((1000 / circumference) * stepsPerRotation);
+
     leftMotor->move(steps);
     leftMotor->setSpeed(moveSpeedSteps);
 
-    rightMotor->move(-steps);
+    rightMotor->move(steps);
     rightMotor->setSpeed(moveSpeedSteps);
 
     moving = true;
