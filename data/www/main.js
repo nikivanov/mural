@@ -356,7 +356,7 @@ function init() {
         });
 
         $(".muralSlide").hide();
-        $("#loadingSlide").show();
+        $("#uploadProgress").show();
 
         const formData = new FormData();
         formData.append("commands", commandsBlob);
@@ -368,13 +368,31 @@ function init() {
             contentType: false,
             type: 'POST',
             success: function(data) {
-                adaptToState(data);
+                verifyUpload(data);
             },
             error: function(err) {
                 alert('Upload to Mural failed! ' + err);
-            }
+                window.location.reload();
+            },
+            xhr: function () {
+                var xhr = new window.XMLHttpRequest();
+
+                xhr.upload.addEventListener("progress", function (evt) {
+                    if (evt.lengthComputable) {
+                        var percentComplete = evt.loaded / evt.total;
+                        percentComplete = parseInt(percentComplete * 100);
+                        $("#uploadProgress").attr("aria-valuemax", evt.total.toString());
+                        $("#uploadProgress").attr("aria-valuenow", evt.loaded.toString());
+                        $("#uploadProgress > .progress-bar").attr("style", `width: ${percentComplete}%`);
+                    }
+                }, false);
+
+                return xhr;
+            },
         });
     });
+
+
 
     $("#beginDrawing").click(function() {
         $(".muralSlide").hide();
@@ -441,6 +459,51 @@ function init() {
     }).fail(function() {
         alert("Failed to retrieve state");
     });
+}
+
+function verifyUpload(state) {
+    $.ajax({
+            url: "/downloadCommands",
+            processData: false,
+            contentType: false,
+            type: 'GET',
+            success: function(data) {
+                const receivedData = data.split('\n');
+                const sentData = uploadConvertedCommands.split('\n');
+                if (receivedData.length !== sentData.length) {
+                    alert("Data verification failed");
+                    window.location.reload();
+                    return;
+                }
+                for (let i = 0; i < receivedData.length; i++) {
+                    if (receivedData[i] !== sentData[i]) {
+                        alert("Data verification failed");
+                        window.location.reload();
+                        return;
+                    }
+                }
+                adaptToState(state);
+            },
+            error: function(err) {
+                alert('Failed to download commands from Mural! ' + err);
+                window.location.reload();
+            },
+            xhr: function () {
+                var xhr = new window.XMLHttpRequest();
+                xhr.addEventListener("progress", function (evt) {
+                    if (evt.lengthComputable) {
+                        var percentComplete = evt.loaded / evt.total;
+                        percentComplete = parseInt(percentComplete * 100);
+                        $("#verificationProgress").attr("aria-valuemax", evt.total.toString());
+                        $("#verificationProgress").attr("aria-valuenow", evt.loaded.toString());
+                        $("#verificationProgress > .progress-bar").attr("style", `width: ${percentComplete}%`);
+                    }
+                }, false);
+
+                return xhr;
+            },
+        });
+    
 }
 
 function adaptToState(state) {
