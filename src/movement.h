@@ -80,6 +80,7 @@ private:
 
     void getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R);
     void getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R);
+    double solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_start);
 public:
     Movement(Display *display);
     struct Point {
