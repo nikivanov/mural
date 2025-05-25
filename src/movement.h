@@ -78,6 +78,8 @@ private:
 
     Lengths getBeltLengths(double x, double y);
 
+    void getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R);
+    void getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R);
 public:
     Movement(Display *display);
     struct Point {

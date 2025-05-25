@@ -130,6 +130,45 @@ void Movement::runSteppers()
     }
 };
 
+// Compute angles of the belts and the forces on them.
+// Input: - Mural coordinates X and Y in frame coordinate system [mm].
+//        - Mural inclination gamma [rad].
+// Output: - belt angles phi_L, phi_R [rad], measured against the line connecting the pins.
+void Movement::getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R){
+    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from pen center. [mm]
+    const double s_R = d_t / 2.0;
+
+    // Coordinates of left pulley tangent point:
+    const double P_LX = s_L * cos(gamma); // [mm] distance from pen center in x
+    const double P_LY = s_L * sin(gamma); // [mm] .. and y
+    const double x_PL = frameX - P_LX;    // [mm] Left pulley tangent point in frame coordinate system.
+    const double y_PL = frameY - P_LY;    // [mm]
+    phi_L = atan2(x_PL, y_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
+
+    // Coordinates of right pulley tangent point:
+    const double P_RX = s_R * cos(gamma); // [mm]
+    const double P_RY = s_R * sin(gamma); // [mm]
+    const double x_PR = frameX + P_RX;    // [mm] Right pulley tangent point in frame coordinate system.
+    const double y_PR = frameY + P_RY;    // [mm]
+    phi_R = atan2(topDistance - x_PR, y_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
+}
+
+void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R){
+    // Computing the Forces. 
+    // Force vectors are parallel to their belts, so the direction is given by phi_R and phi_L.
+    // We assume that the bot is in a stable state (no torque), which allows us for having
+    // the force vectors of left (L) and right (R) pulley meet in a single point. 
+    // In this stable state the pulley forces cancel out the gravity force in x and y.
+    // Note this is an approximation which is refined due to iteratively updating the values (torque, angles, forces). 
+    const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
+    F_R = F_G * cos(phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
+    F_L = F_G * cos(phi_R) / sin(phi_L + phi_R);    // [N]
+    // double F_Ly = F_L * sin(phi_L);                         // [N] components in y and x
+    // double F_Lx = F_L * sin(phi_L);                         // [N] ...
+    // double F_Ry = F_R * sin(phi_R);                         // [N]
+    // double F_Rx = F_R * sin(phi_R);                         // [N]
+}
+
 // Calculate the lengths of the left and right belt in mm based on the input coordinates.
 // input: x [mm], y [mm] ; both in image coordinate system
 Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
@@ -168,36 +207,16 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
     
     // Initial guess for belt angles phi_L and phi_R, and mural inclination gamma.
-    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from pen center. [mm]
-    const double s_R = d_t / 2.0;
     double gamma = 0.0;             // Inclination of the bot [rad]. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
-    // Coordinates of left pulley tangent point:
-    const double P_LX = s_L * cos(gamma); // [mm] distance from pen center in x
-    const double P_LY = s_L * sin(gamma); // [mm] .. and y
-    const double x_PL = frameX - P_LX;    // [mm] Left pulley tangent point in frame coordinate system.
-    const double y_PL = frameY - P_LY;    // [mm]
-    double phi_L = atan2(x_PL, y_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
+    double phi_L = 0.0;
+    double phi_R = 0.0;
+    getBeltAngles(frameX, frameY, gamma, phi_L, phi_R);
 
-    // Coordinates of right pulley tangent point:
-    const double P_RX = s_R * cos(gamma); // [mm]
-    const double P_RY = s_R * sin(gamma); // [mm]
-    const double x_PR = frameX + P_RX;    // [mm] Right pulley tangent point in frame coordinate system.
-    const double y_PR = frameY + P_RY;    // [mm]
-    double phi_R = atan2(topDistance - x_PR, y_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
+    double F_L = 0.0; // [N] magnitude of the force vector (left belt)
+    double F_R = 0.0; // [N] magnitude of the force vector (right belt)
+    getBeltForces(phi_L, phi_R, F_L, F_R);
 
-    // Computing the Forces. 
-    // Force vectors are parallel to their belts, so the direction is given by phi_R and phi_L.
-    // We assume that the bot is in a stable state (no torque), which allows us for having
-    // the force vectors of left (L) and right (R) pulley meet in a single point. 
-    // In this stable state the pulley forces cancel out the gravity force in x and y.
-    // Note this is an approximation which is refined due to iteratively updating the values (torque, angles, forces). 
-    const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
-    double F_R = F_G * cos(phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
-    double F_L = F_G * cos(phi_R) / sin(phi_L + phi_R);    // [N]
-    double F_Ly = F_L * sin(phi_L);                         // [N] components in y and x
-    double F_Lx = F_L * sin(phi_L);                         // [N] ...
-    double F_Ry = F_R * sin(phi_R);                         // [N]
-    double F_Rx = F_R * sin(phi_R);                         // [N]
+    
     
     
     // Solve for torque equilibrium: As the belts are pulling on two distinct point, there's a torque rotating the
@@ -209,11 +228,14 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     double alpha = phi_L - gamma;   // [rad] Angle between left belt and line connecting tangent points (of pulleys and belts).
     double beta = phi_R + gamma;    // [rad] Angle between right belt and line connecting tangent points.
     
+    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from pen center. [mm]
+    const double s_R = d_t / 2.0;
     double T_L = /* s_L * F_L = */ s_L * sin(alpha) * F_L;
     double T_R = s_R * sin(beta) * F_R;
 
     // The center of mass sits under the center of line connecting the tangent points.
     double s_m = d_m * tan(gamma);
+    const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
     double F_m = F_G * cos(gamma);
     double T_m = s_m * F_m;
 
@@ -223,10 +245,10 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
     
     // Hack: copying into variables for backwards compatibility.
-    double leftX = x_PL;
-    double leftY = y_PL;
-    double rightX = x_PR;
-    double rightY = y_PR;
+    double leftX = frameX - d_t / 2.0;
+    double leftY = frameY;
+    double rightX = frameX + d_t / 2.0;
+    double rightY = frameY;
 
 
 
