@@ -1,5 +1,5 @@
 #include "svgselectphase.h"
-#include "SPIFFS.h"
+#include "LittleFS.h"
 
 SvgSelectPhase::SvgSelectPhase(PhaseManager* manager) {
     this->manager = manager;
@@ -9,7 +9,11 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
 {
     if (!index)
     {
-        request->_tempFile = SPIFFS.open("/commands", "w");
+        if (LittleFS.exists("/commands")) {
+            LittleFS.remove("/commands");
+        }
+            
+        request->_tempFile = LittleFS.open("/commands", "w");
         Serial.println("Upload started");
     }
 
