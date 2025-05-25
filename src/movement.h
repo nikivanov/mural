@@ -78,9 +78,13 @@ private:
 
     Lengths getBeltLengths(double x, double y);
 
-    void getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R);
-    void getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R);
-    double solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_start);
+    void getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R) const;
+    void getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const;
+    double solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_start) const;
+    inline void getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const;
+    inline void getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const;
+    double getDilationCorrectedBeltLength(double belt_length, double F_belt) const;
+    
 public:
     Movement(Display *display);
     struct Point {
