@@ -160,8 +160,9 @@ void Movement::getBeltAngles(const double frameX, const double frameY, const dou
     double x_PL;
     double y_PL;
     getLeftTangetPoint(frameX, frameY, gamma, x_PL, y_PL);
-    phi_L = atan2(x_PL, y_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
-
+    phi_L = atan2(y_PL, x_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
+    Serial.printf("  getLeftTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_L(%s)\n", 
+            String(frameX), String(frameY), String(gamma), String(x_PL), String(y_PL), String(phi_L));
     // Coordinates of right pulley tangent point:
     // const double P_RX = s_R * cos(gamma); // [mm]
     // const double P_RY = s_R * sin(gamma); // [mm]
@@ -170,7 +171,9 @@ void Movement::getBeltAngles(const double frameX, const double frameY, const dou
     double x_PR;
     double y_PR;
     getRightTangetPoint(frameX, frameY, gamma, x_PR, y_PR);
-    phi_R = atan2(topDistance - x_PR, y_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
+    phi_R = atan2(y_PR, topDistance - x_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
+    Serial.printf("  getRightTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_R(%s)\n", 
+            String(frameX), String(frameY), String(gamma), String(topDistance - x_PR), String(y_PR), String(phi_R));
 }
 
 void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const {
@@ -201,10 +204,10 @@ double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, 
     double T_delta_best = 99999999;
 
     // Solver parameters.
-    constexpr double gamma_step = 0.1 * PI / 180.0;    // [rad] solver step width.
-    constexpr double gamma_max = 25.0 * PI / 180.0;    // [rad] Solver search range: max and min values.
-    constexpr double gamma_min = -25.0 * PI / 180.0;    // [rad]
-    constexpr double gamma_search_window = 5.0 * PI / 180.0;    // [rad] Solver will focus on gamma_init +- gamma_search_window.
+    constexpr double gamma_step = 1.0 * PI / 180.0;    // [rad] solver step width.
+    constexpr double gamma_max = 10.0 * PI / 180.0;    // [rad] Solver search range: max and min values.
+    constexpr double gamma_min = -10.0 * PI / 180.0;    // [rad]
+    constexpr double gamma_search_window = 3.0 * PI / 180.0;    // [rad] Solver will focus on gamma_init +- gamma_search_window.
     
     // Simple solver: finding the minimum T_delta by looping over the range specified above:
     for (double gamma = gamma_init - gamma_search_window; gamma > gamma_min && gamma < gamma_max; gamma += gamma_step){
@@ -286,13 +289,18 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     double F_R = 0.0;               // [N] magnitude of the force vector (right belt)
         
     // Solve for belt angles phi and bot inclination gamma by running a few rounds.
-    for (int i = 0; i<10; i++){
+    for (int i = 0; i<6; i++){
         getBeltAngles(frameX, frameY, gamma, phi_L, phi_R);
 
         getBeltForces(phi_L, phi_R, F_L, F_R);
 
         gamma = solveTorqueEquilibrium(phi_L, phi_R, F_L, F_R, gamma);
+        Serial.printf("Solver loop: i(%s), frameX(%s), frameY(%s), phi_L(%s), phi_R(%s), F_L(%s), F_R(%s), gamma(%s)\n", 
+            String(i), String(frameX), String(frameY), String(phi_L), String(phi_R), String(F_L), String(F_R), String(gamma));
+    
     }
+    Serial.printf("Solver found: frameX(%s), frameY(%s), phi_L(%s), phi_R(%s), F_L(%s), F_R(%s), gamma(%s)\n", 
+            String(frameX), String(frameY), String(phi_L), String(phi_R), String(F_L), String(F_R), String(gamma));
 
     double leftX, leftY;
     double rightX, rightY;
