@@ -102,7 +102,7 @@ Movement::Point Movement::getHomeCoordinates() {
         return Point(0, 0);
     }
 
-    return Point(width / 2, HOME_Y_OFFSE_MM);
+    return Point(width / 2, HOME_Y_OFFSET_MM);
 }
 
 int Movement::extendToHome()
