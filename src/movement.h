@@ -28,7 +28,8 @@ constexpr double mass_bot = 0.55;   // Mass of the mural bot [kg].
 constexpr double g_constant = 9.81; // Earth's gravitational acceleration constant [m/s^2]. Please change when running Mural on other planets!.
 constexpr double d_t = 72.0;        // Distance of tangent points, wher belts touch the pulley. [mm]
 constexpr double d_m = 16.0;        // Distance from line connecting tangent points to center of mass of bot (projected onto wall plane). [mm]
-                                    // The center of mass sits roughly at the bottom of the pen opening. 
+                                    // The center of mass sits roughly at the bottom of the pen opening.
+constexpr double belt_elongation_coefficient = 5e-5; // [N/m] elongation of the belts under force.
 const int HOME_Y_OFFSET_MM = 350;   // Y coordinate of mural home position in image coordinate system [mm].
 
 
@@ -77,12 +78,13 @@ private:
     };
 
     Lengths getBeltLengths(double x, double y);
-
+    double gamma_last_position = 0.0;   // [rad] The last known inclination of the mural bot. As the angle changes only slowly 
+                                        // with position we can compute updates faster by keeping track of the last solution.
+    inline void getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const;
+    inline void getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const;
     void getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R) const;
     void getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const;
     double solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_start) const;
-    inline void getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const;
-    inline void getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const;
     double getDilationCorrectedBeltLength(double belt_length, double F_belt) const;
     
 public:

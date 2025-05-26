@@ -161,8 +161,8 @@ void Movement::getBeltAngles(const double frameX, const double frameY, const dou
     double y_PL;
     getLeftTangetPoint(frameX, frameY, gamma, x_PL, y_PL);
     phi_L = atan2(y_PL, x_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
-    Serial.printf("  getLeftTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_L(%s)\n", 
-            String(frameX), String(frameY), String(gamma), String(x_PL), String(y_PL), String(phi_L));
+    // Serial.printf("  getLeftTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_L(%s)\n", 
+    //         String(frameX), String(frameY), String(gamma), String(x_PL), String(y_PL), String(phi_L));
     // Coordinates of right pulley tangent point:
     // const double P_RX = s_R * cos(gamma); // [mm]
     // const double P_RY = s_R * sin(gamma); // [mm]
@@ -172,8 +172,8 @@ void Movement::getBeltAngles(const double frameX, const double frameY, const dou
     double y_PR;
     getRightTangetPoint(frameX, frameY, gamma, x_PR, y_PR);
     phi_R = atan2(y_PR, topDistance - x_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
-    Serial.printf("  getRightTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_R(%s)\n", 
-            String(frameX), String(frameY), String(gamma), String(topDistance - x_PR), String(y_PR), String(phi_R));
+    // Serial.printf("  getRightTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_R(%s)\n", 
+    //         String(frameX), String(frameY), String(gamma), String(topDistance - x_PR), String(y_PR), String(phi_R));
 }
 
 void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const {
@@ -204,50 +204,61 @@ double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, 
     double T_delta_best = 99999999;
 
     // Solver parameters.
-    constexpr double gamma_step = 1.0 * PI / 180.0;    // [rad] solver step width.
-    constexpr double gamma_max = 10.0 * PI / 180.0;    // [rad] Solver search range: max and min values.
-    constexpr double gamma_min = -10.0 * PI / 180.0;    // [rad]
-    constexpr double gamma_search_window = 3.0 * PI / 180.0;    // [rad] Solver will focus on gamma_init +- gamma_search_window.
+    constexpr double gamma_step = 0.20 * PI / 180.0;   // [rad] solver step width.
+    constexpr double gamma_min = -20.0 * PI / 180.0;   // [rad] Solver search range: max and min values.
+    constexpr double gamma_max = 20.0 * PI / 180.0;    // [rad]
+    constexpr double gamma_search_window = 2.0 * PI / 180.0;    // [rad] Solver will focus on gamma_init +- gamma_search_window.
     
-    // Simple solver: finding the minimum T_delta by looping over the range specified above:
-    for (double gamma = gamma_init - gamma_search_window; gamma > gamma_min && gamma < gamma_max; gamma += gamma_step){
+    // Simple solver: finding the minimum T_delta by searching over the range specified above:
+    for (double gamma = gamma_init - gamma_search_window;
+            gamma > gamma_min &&
+            gamma < gamma_max &&
+            gamma <= gamma_init + gamma_search_window;
+            gamma += gamma_step){
         const double alpha = phi_L - gamma;   // [rad] Angle between left belt and line connecting tangent points (of pulleys and belts).
         const double beta = phi_R + gamma;    // [rad] Angle between right belt and line connecting tangent points.
     
-        double T_L = /* s_L * F_L = */ s_L * sin(alpha) * F_L;
-        double T_R = s_R * sin(beta) * F_R;
+        double T_L = /* s_L * F_L = */ s_L * sin(alpha) * F_L;  // [N * mm]
+        double T_R = s_R * sin(beta) * F_R;                     // [N * mm]
 
         // The center of mass sits under the center of line connecting the tangent points.
-        double s_m = d_m * tan(gamma);
+        double s_m = d_m * tan(gamma);                          // [mm]
         const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
         double F_m = F_G * cos(gamma);
-        double T_m = s_m * F_m;
+        double T_m = s_m * F_m;                                 // [N * mm]
 
         // Left pulley tries to turn the bot clockwise. Right pulley ccw. Gravity ccw if gamma is positive (i.e. the bot inclined to the right).
-        double T_delta = T_R - T_L + T_m;
+        double T_delta = T_R - T_L + T_m;                       // [N * mm]
         // Solve gamma for T_delta = 0.0 .
-
-        if (T_delta < T_delta_best){
+        if (abs(T_delta) < abs(T_delta_best)){
             T_delta_best = T_delta;
             gamma_best = gamma;
-            // TODO: There should be only one zero crossing: terminate early if T_delta gets worse.
+            // Serial.printf("  solveTorqueEquilibrium: T_delta=%1.4f @ gamma=%1.4f, T_delta_best=%1.4f @ gamma_best=%1.4f\n",
+            //     T_delta, gamma, T_delta_best, gamma_best);
+        } else {
+            // There is only one zero crossing: terminate early if T_delta gets worse than best one so far.
+
+            // Serial.printf("  solveTorqueEquilibrium: T_delta=%1.4f @ gamma=%1.4f, T_delta_best=%1.4f @ gamma_best=%1.4f Exit function.\n",
+            //     T_delta, gamma, T_delta_best, gamma_best);
+            return gamma_best;
         }
     }
 
     return gamma_best;
 }
 
-double Movement::getDilationCorrectedBeltLength(double belt_length, double F_belt) const {
+inline double Movement::getDilationCorrectedBeltLength(double belt_length, double F_belt) const {
     // Apply belt length correction: The belts stretch because of Mural's mass. 
     // This function returns a (shorter) length of the belt, such that with gravity the belt
     // exactly as long as required.
-    const double dilation_factor = 1 + 5e-5 * F_belt;
-    const double belth_length_corrected = belt_length / dilation_factor;
+    const double elongation_factor = 1 + belt_elongation_coefficient * F_belt;
+    const double belth_length_corrected = belt_length / elongation_factor;
     return belth_length_corrected;
 }
 
 // Calculate the lengths of the left and right belt in mm based on the input coordinates.
 // input: x [mm], y [mm] ; both in image coordinate system
+// output: Struct containing the target stepper position for each motor to move.
 Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     // Mural rotates as it moves towards the sides. As this happens, Mural's coordinate
     // system rotates as well, which would mean straight lines become curved. Therefore, 
@@ -256,10 +267,9 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     // This function works as follows:
     // 1 Compute the belt length in the wall plane first:
     //   {
-    //      init belt angles phi_L and phi_R
+    //      compute belt angles phi_L and phi_R
     //      compute forces on both belts
     //      compute torque on mural, solve for mural inclination gamma
-    //      update belt angles
     //      loop (if needed)
     //      result: mural inclination, x and y correction, and belt forces
     //   }
@@ -282,82 +292,37 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     const double frameX = x + minSafeXOffset;
     const double frameY = y + minSafeY;
 
-    double gamma = 0.0;             // Inclination of the bot [rad]. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
+    double gamma = gamma_last_position;              // Inclination of the bot [rad]. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
     double phi_L = 0.0;
     double phi_R = 0.0;
-    double F_L = 0.0;               // [N] magnitude of the force vector (left belt)
-    double F_R = 0.0;               // [N] magnitude of the force vector (right belt)
-        
+    double F_L = 0.0;                               // [N] magnitude of the force vector (left belt)
+    double F_R = 0.0;                               // [N] magnitude of the force vector (right belt)
+    constexpr int solver_max_iterations = 20;       // Maximum number of outer loop iterations of the solver.
+    constexpr double gamma_delta_termination = 0.25 / 180.0 * PI; // [rad] Outer loop of solver will break if update is smaller than this. Value
+    //                                                            // should be greater than gamma step size in solveTorqueEquilibrium.
+
     // Solve for belt angles phi and bot inclination gamma by running a few rounds.
-    for (int i = 0; i<6; i++){
+    int debug_step_count = 0;
+    for (int i = 0; i < solver_max_iterations; i++){
         getBeltAngles(frameX, frameY, gamma, phi_L, phi_R);
 
         getBeltForces(phi_L, phi_R, F_L, F_R);
 
+        const double gamma_last = gamma;
         gamma = solveTorqueEquilibrium(phi_L, phi_R, F_L, F_R, gamma);
-        Serial.printf("Solver loop: i(%s), frameX(%s), frameY(%s), phi_L(%s), phi_R(%s), F_L(%s), F_R(%s), gamma(%s)\n", 
-            String(i), String(frameX), String(frameY), String(phi_L), String(phi_R), String(F_L), String(F_R), String(gamma));
-    
+        // Serial.printf(" Solver loop: i=%d, frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, gamma=%1.4f\n", 
+        //     i, frameX, frameY, phi_L, phi_R, F_L, F_R, gamma);
+        debug_step_count = i;
+        if (abs(gamma_last - gamma) < gamma_delta_termination) break;
     }
-    Serial.printf("Solver found: frameX(%s), frameY(%s), phi_L(%s), phi_R(%s), F_L(%s), F_R(%s), gamma(%s)\n", 
-            String(frameX), String(frameY), String(phi_L), String(phi_R), String(F_L), String(F_R), String(gamma));
+    gamma_last_position = gamma;
+    // Serial.printf("Solver found: frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, debug_step_count=%d, gamma=%1.4f\n", 
+    //         frameX, frameY, phi_L, phi_R, F_L, F_R, debug_step_count, gamma);
 
     double leftX, leftY;
     double rightX, rightY;
     getLeftTangetPoint(frameX, frameY, gamma, leftX, leftY);
     getRightTangetPoint(frameX, frameY, gamma, rightX, rightY);
-
-  
-
-
-
-
-
-    // const double unsafeX = x + minSafeXOffset;
-    // const double unsafeY = y + minSafeY;
-
-    // // x deviation from the middle - the farther from the middle we go, the more extreme
-    // // the angle of Mural gets
-    // const double xDev = topDistance / 2 - unsafeX;
-    
-    // // angle of tilt due to deviation from the middle is proportional to that deviation:
-    // // the closer we are to either edge the closer we get to the 90 degree tilt
-    // const double devAngle = (abs(xDev) / (topDistance / 2)) * (PI / 2);
-
-    // // we are rotating around the middle of bottomDistance
-    // double halfBottom = bottomDistance / 2;
-
-    // // Flat coordinates of the left and right belt points before compensation for tilt
-    // const double flatLeftX = unsafeX - halfBottom;
-    // const double flatRightX = unsafeX + halfBottom;
-    // const double flatLeftY = unsafeY;
-    // const double flatRightY = unsafeY;
-
-    // x compensation is 0 when angle is 0 (in the middle) and grows as the angle grows. The maximum theoretical compensation
-    // is halfBottom if Mural is tilted 90 degrees, which it would never be in practice.
-    // This is an absolute value of compensation - we'll change the sign later
-    // const double xComp = halfBottom - cos(devAngle) * halfBottom;
-    // const double yComp = sin(devAngle) * halfBottom;
-
-    // double leftX, leftY, rightX, rightY;
-
-    // if (xDev < 0) {
-    //     // we're to the right of the middle axis, Mural is going to be tilting counterclockwise 
-    //     leftX = flatLeftX + xComp;
-    //     leftY = flatLeftY + yComp;
-    //     rightX = flatRightX - xComp;
-    //     rightY = flatRightY - yComp;  
-    // } else {
-    //     // we're to the left of the middle axis, Mural is going to be tilting clockwise
-    //     leftX = flatLeftX + xComp;
-    //     leftY = flatLeftY - yComp;
-    //     rightX = flatRightX - xComp;
-    //     rightY = flatRightY + yComp;
-    // }
-
-
-
-
 
     // Left and right leg distances flush to the wall.
     const double leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
@@ -370,8 +335,6 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     leftLeg = getDilationCorrectedBeltLength(leftLeg, F_L);
     rightLeg = getDilationCorrectedBeltLength(rightLeg, F_R);
     
-
-
     const double leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
     const double rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
 
