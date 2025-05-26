@@ -24,7 +24,7 @@ Movement::Movement(Display *display)
     startedHoming = false;
 };
 
-void Movement::setTopDistance(int distance) {
+void Movement::setTopDistance(const int distance) {
     Serial.printf("Top distance set to %s\n", String(distance));
     topDistance = distance;                         // = d_pins [mm]
 
@@ -37,11 +37,11 @@ void Movement::resumeTopDistance(int distance /* = d_pin in mm */) {
     setTopDistance(distance);
     homed = true;
 
-    auto homeCoordinates = getHomeCoordinates();
+    const Point homeCoordinates = getHomeCoordinates();
     X = homeCoordinates.x;
     Y = homeCoordinates.y;
 
-    auto lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
+    const Lengths lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
     leftMotor->setCurrentPosition(lengths.left);
     rightMotor->setCurrentPosition(lengths.right);
 
@@ -55,7 +55,7 @@ void Movement::setOrigin()
     homed = true;
 };
 
-void Movement::leftStepper(int dir)
+void Movement::leftStepper(const int dir)
 {
     if (dir > 0)
     {
@@ -76,7 +76,7 @@ void Movement::leftStepper(int dir)
     moving = true;
 };
 
-void Movement::rightStepper(int dir)
+void Movement::rightStepper(const int dir)
 {
     if (dir > 0)
     {
@@ -130,7 +130,7 @@ void Movement::runSteppers()
     }
 };
 
-inline void Movement::getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const{
+inline void Movement::getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const {
     const double s_L = d_t / 2.0;   // Distance of left and right tangent point from pen center. [mm]    
     const double P_LX = s_L * cos(gamma); // [mm] distance from pen center in x
     const double P_LY = s_L * sin(gamma); // [mm] .. and y
@@ -138,7 +138,7 @@ inline void Movement::getLeftTangetPoint(const double frameX, const double frame
     y_PL = frameY - P_LY;    // [mm]
 }
 
-inline void Movement::getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const{
+inline void Movement::getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const {
     // Coordinates of right pulley tangent point:
     const double s_R = d_t / 2.0;
     const double P_RX = s_R * cos(gamma); // [mm]
@@ -152,28 +152,15 @@ inline void Movement::getRightTangetPoint(const double frameX, const double fram
 //        - Mural inclination gamma [rad].
 // Output: - belt angles phi_L, phi_R [rad], measured against the line connecting the pins.
 void Movement::getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R) const {
-    // // Coordinates of left pulley tangent point:
-    // const double P_LX = s_L * cos(gamma); // [mm] distance from pen center in x
-    // const double P_LY = s_L * sin(gamma); // [mm] .. and y
-    // const double x_PL = frameX - P_LX;    // [mm] Left pulley tangent point in frame coordinate system.
-    // const double y_PL = frameY - P_LY;    // [mm]
     double x_PL;
     double y_PL;
     getLeftTangetPoint(frameX, frameY, gamma, x_PL, y_PL);
     phi_L = atan2(y_PL, x_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
-    // Serial.printf("  getLeftTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_L(%s)\n", 
-    //         String(frameX), String(frameY), String(gamma), String(x_PL), String(y_PL), String(phi_L));
-    // Coordinates of right pulley tangent point:
-    // const double P_RX = s_R * cos(gamma); // [mm]
-    // const double P_RY = s_R * sin(gamma); // [mm]
-    // const double x_PR = frameX + P_RX;    // [mm] Right pulley tangent point in frame coordinate system.
-    // const double y_PR = frameY + P_RY;    // [mm]
+
     double x_PR;
     double y_PR;
     getRightTangetPoint(frameX, frameY, gamma, x_PR, y_PR);
     phi_R = atan2(y_PR, topDistance - x_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
-    // Serial.printf("  getRightTangetPoint: frameX(%s), frameY(%s), gamma(%s), x(%s), y(%s), phi_R(%s)\n", 
-    //         String(frameX), String(frameY), String(gamma), String(topDistance - x_PR), String(y_PR), String(phi_R));
 }
 
 void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const {
@@ -192,9 +179,10 @@ void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L
     // double F_Rx = F_R * sin(phi_R);                         // [N]
 }
 
-double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_init) const{
+double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_init) const {
     // Solve for torque equilibrium: As the belts are pulling on two distinct point, there's a torque rotating the
-    // bot around a reference point. Here, we assume this reference point corresponds to the pen center.
+    // bot around a reference point. Here, we assume this reference point corresponds to Q, where tangent line d_t 
+    // and mass line d_m meet.
     // In the static case the residual torque is zero, which occurs at a certain inclination gamma. The goal here is
     // to find this gamma.
     const double s_L = d_t / 2.0;   // [mm] Lenght of the effective arm for the left pulley.
@@ -310,14 +298,14 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
         const double gamma_last = gamma;
         gamma = solveTorqueEquilibrium(phi_L, phi_R, F_L, F_R, gamma);
-        // Serial.printf(" Solver loop: i=%d, frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, gamma=%1.4f\n", 
-        //     i, frameX, frameY, phi_L, phi_R, F_L, F_R, gamma);
+        Serial.printf(" Solver loop: i=%d, frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, gamma=%1.4f\n", 
+            i, frameX, frameY, phi_L, phi_R, F_L, F_R, gamma);
         debug_step_count = i;
         if (abs(gamma_last - gamma) < gamma_delta_termination) break;
     }
     gamma_last_position = gamma;
-    // Serial.printf("Solver found: frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, debug_step_count=%d, gamma=%1.4f\n", 
-    //         frameX, frameY, phi_L, phi_R, F_L, F_R, debug_step_count, gamma);
+    Serial.printf("Solver found: frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, debug_step_count=%d, gamma=%1.4f\n", 
+            frameX, frameY, phi_L, phi_R, F_L, F_R, debug_step_count, gamma);
 
     double leftX, leftY;
     double rightX, rightY;
