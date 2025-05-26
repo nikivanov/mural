@@ -513,7 +513,7 @@
                 "ARDUINO=10812",
                 "ARDUINO_VARIANT=\"esp32\"",
                 "ARDUINO_BOARD=\"Espressif ESP32 Dev Module\"",
-                "ARDUINO_PARTITION_default",
+                "ARDUINO_PARTITION_partitions",
                 ""
             ],
             "cStandard": "gnu99",

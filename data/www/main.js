@@ -482,7 +482,9 @@ function verifyUpload(state) {
                         return;
                     }
                 }
-                adaptToState(state);
+                setTimeout(function() {
+                    adaptToState(state);
+                }, 1000);
             },
             error: function(err) {
                 alert('Failed to download commands from Mural! ' + err);
