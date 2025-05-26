@@ -131,9 +131,10 @@ void Movement::runSteppers()
 };
 
 inline void Movement::getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const {
-    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from pen center. [mm]    
-    const double P_LX = s_L * cos(gamma); // [mm] distance from pen center in x
-    const double P_LY = s_L * sin(gamma); // [mm] .. and y
+    // Input frameX and frameY are the coordinates of the pen center.
+    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from point Q. [mm]
+    const double P_LX = s_L * cos(gamma) - d_p * sin(gamma); // [mm] distance from pen center in x
+    const double P_LY = s_L * sin(gamma) + d_p * cos(gamma); // [mm] .. and y
     x_PL = frameX - P_LX;    // [mm] Left pulley tangent point in frame coordinate system.
     y_PL = frameY - P_LY;    // [mm]
 }
@@ -141,8 +142,8 @@ inline void Movement::getLeftTangetPoint(const double frameX, const double frame
 inline void Movement::getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const {
     // Coordinates of right pulley tangent point:
     const double s_R = d_t / 2.0;
-    const double P_RX = s_R * cos(gamma); // [mm]
-    const double P_RY = s_R * sin(gamma); // [mm]
+    const double P_RX = s_R * cos(gamma) + d_p * sin(gamma); // [mm]
+    const double P_RY = s_R * sin(gamma) - d_p * cos(gamma); // [mm]
     x_PR = frameX + P_RX;    // [mm] Right pulley tangent point in frame coordinate system.
     y_PR = frameY + P_RY;    // [mm]
 }
@@ -181,7 +182,7 @@ void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L
 
 double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_init) const {
     // Solve for torque equilibrium: As the belts are pulling on two distinct point, there's a torque rotating the
-    // bot around a reference point. Here, we assume this reference point corresponds to Q, where tangent line d_t 
+    // bot around a reference point. Here, we assume this reference point corresponds to Q, where tangent line d_t
     // and mass line d_m meet.
     // In the static case the residual torque is zero, which occurs at a certain inclination gamma. The goal here is
     // to find this gamma.
