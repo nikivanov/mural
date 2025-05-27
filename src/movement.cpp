@@ -130,7 +130,7 @@ void Movement::runSteppers()
     }
 };
 
-inline void Movement::getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const {
+inline void Movement::getLeftTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const {
     // Input frameX and frameY are the coordinates of the pen center.
     const double s_L = d_t / 2.0;   // Distance of left and right tangent point from point Q. [mm]
     const double P_LX = s_L * cos(gamma) - d_p * sin(gamma); // [mm] distance from pen center in x
@@ -139,7 +139,7 @@ inline void Movement::getLeftTangetPoint(const double frameX, const double frame
     y_PL = frameY - P_LY;    // [mm]
 }
 
-inline void Movement::getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const {
+inline void Movement::getRightTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const {
     // Coordinates of right pulley tangent point:
     const double s_R = d_t / 2.0;
     const double P_RX = s_R * cos(gamma) + d_p * sin(gamma); // [mm]
@@ -171,7 +171,7 @@ void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L
     // the force vectors of left (L) and right (R) pulley meet in a single point. 
     // In this stable state the pulley forces cancel out the gravity force in x and y.
     // Note this is an approximation which is refined due to iteratively updating the values (torque, angles, forces). 
-    const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
+    const double F_G = mass_bot * g_constant;       // [N] Gravity force is pulling bot down. No x component.
     F_R = F_G * cos(phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
     F_L = F_G * cos(phi_R) / sin(phi_L + phi_R);    // [N]
     // double F_Ly = F_L * sin(phi_L);                         // [N] components in y and x
@@ -262,7 +262,8 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     //      loop (if needed)
     //      result: mural inclination, x and y correction, and belt forces
     //   }
-    // 2 Compute 3D belt length: Euclidean distance due to Pulleys not being in same plane as belt anchors (pins).
+    // 2 Compute 3D belt length: Euclidean distance due to Pulleys not being in same (wall) plane
+    //   as belt anchors (pins).
     // 3 Apply dilation correction to account for non-rigid belts.
 
 
@@ -287,8 +288,8 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     double F_L = 0.0;                               // [N] magnitude of the force vector (left belt)
     double F_R = 0.0;                               // [N] magnitude of the force vector (right belt)
     constexpr int solver_max_iterations = 20;       // Maximum number of outer loop iterations of the solver.
-    constexpr double gamma_delta_termination = 0.25 / 180.0 * PI; // [rad] Outer loop of solver will break if update is smaller than this. Value
-    //                                                            // should be greater than gamma step size in solveTorqueEquilibrium.
+    constexpr double gamma_delta_termination = 0.25 / 180.0 * PI; // [rad] Outer loop of solver will stop if last update is smaller than this. 
+                                                                  // Value should be greater than gamma step size in solveTorqueEquilibrium.
 
     // Solve for belt angles phi and bot inclination gamma by running a few rounds.
     int debug_step_count = 0;
