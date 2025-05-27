@@ -155,12 +155,12 @@ inline void Movement::getRightTangentPoint(const double frameX, const double fra
 void Movement::getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R) const {
     double x_PL;
     double y_PL;
-    getLeftTangetPoint(frameX, frameY, gamma, x_PL, y_PL);
+    getLeftTangentPoint(frameX, frameY, gamma, x_PL, y_PL);
     phi_L = atan2(y_PL, x_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
 
     double x_PR;
     double y_PR;
-    getRightTangetPoint(frameX, frameY, gamma, x_PR, y_PR);
+    getRightTangentPoint(frameX, frameY, gamma, x_PR, y_PR);
     phi_R = atan2(y_PR, topDistance - x_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
 }
 
@@ -194,8 +194,8 @@ double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, 
 
     // Solver parameters.
     constexpr double gamma_step = 0.20 * PI / 180.0;   // [rad] solver step width.
-    constexpr double gamma_min = -20.0 * PI / 180.0;   // [rad] Solver search range: max and min values.
-    constexpr double gamma_max = 20.0 * PI / 180.0;    // [rad]
+    constexpr double gamma_min = -90.0 * PI / 180.0;   // [rad] Solver search range: max and min values.
+    constexpr double gamma_max = 90.0 * PI / 180.0;    // [rad]
     constexpr double gamma_search_window = 2.0 * PI / 180.0;    // [rad] Solver will focus on gamma_init +- gamma_search_window.
     
     // Simple solver: finding the minimum T_delta by searching over the range specified above:
@@ -311,8 +311,8 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
     double leftX, leftY;
     double rightX, rightY;
-    getLeftTangetPoint(frameX, frameY, gamma, leftX, leftY);
-    getRightTangetPoint(frameX, frameY, gamma, rightX, rightY);
+    getLeftTangentPoint(frameX, frameY, gamma, leftX, leftY);
+    getRightTangentPoint(frameX, frameY, gamma, rightX, rightY);
 
     // Left and right leg distances flush to the wall.
     const double leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
