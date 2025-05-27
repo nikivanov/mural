@@ -299,14 +299,14 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
         const double gamma_last = gamma;
         gamma = solveTorqueEquilibrium(phi_L, phi_R, F_L, F_R, gamma);
-        Serial.printf(" Solver loop: i=%d, frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, gamma=%1.4f\n", 
-            i, frameX, frameY, phi_L, phi_R, F_L, F_R, gamma);
+        // Serial.printf(" Solver loop: i=%d, frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, gamma=%1.4f\n", 
+        //     i, frameX, frameY, phi_L, phi_R, F_L, F_R, gamma);
         debug_step_count = i;
         if (abs(gamma_last - gamma) < gamma_delta_termination) break;
     }
     gamma_last_position = gamma;
-    Serial.printf("Solver found: frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, debug_step_count=%d, gamma=%1.4f\n", 
-            frameX, frameY, phi_L, phi_R, F_L, F_R, debug_step_count, gamma);
+    // Serial.printf("Solver found: frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, debug_step_count=%d, gamma=%1.4f\n", 
+    //     frameX, frameY, phi_L, phi_R, F_L, F_R, debug_step_count, gamma);
 
     double leftX, leftY;
     double rightX, rightY;
