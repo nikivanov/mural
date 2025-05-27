@@ -14,18 +14,15 @@ constexpr int stepsPerRotation = 200 * 8; // 1/8 microstepping
 
 // Geometry parameters:
 // Effective diameter of the pulley+belts. Use EStep calibration to refine this value.
-constexpr double diameter = 12.69;
-const double circumference = diameter * PI;
-// What is this? The inner distance between the pulleys? For me it's 
-// more like 70.0 to 72.00mm (if measuring the point distance of belts touching pulleys.)
-constexpr double bottomDistance = 67.4; 
+constexpr double diameter = 12.69;          // [mm]
+const double circumference = diameter * PI; // [mm]
 constexpr double midPulleyToWall = 41.0;    // (Height) distance from mid of pulley to wall [mm].
 constexpr float homedStepOffsetMM = 40.0;   // Length of fully retracted belt hitting stop screw.
                                             // Measured from outer edge of screw to the point
                                             // of tangency between belt and pulley. [mm]
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 constexpr double mass_bot = 0.55;   // Mass of the mural bot [kg].
-constexpr double g_constant = 9.81; // Earth's gravitational acceleration constant [m/s^2]. Please change when running Mural on other planets!
+constexpr double g_constant = 9.81; // Earth's gravitational acceleration constant [m/s^2]. Please adjust when running Mural on other planets!
 constexpr double d_t = 76.027;      // [mm] Distance of tangent points, where belts touch the pulleys.
                                     // Calculated as (axis distance) 85.00 - (diameter) 12.69/sqrt(2).
 constexpr double d_p = 4.4866;      // [mm] distance from Q to center of pen. Calculated as diameter/(2 * sqrt(2)).
