@@ -80,8 +80,8 @@ private:
     Lengths getBeltLengths(double x, double y);
     double gamma_last_position = 0.0;   // [rad] The last known inclination of the mural bot. As the angle changes only slowly 
                                         // with position we can compute updates faster by keeping track of the last solution.
-    inline void getLeftTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const;
-    inline void getRightTangetPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const;
+    inline void getLeftTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const;
+    inline void getRightTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const;
     void getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R) const;
     void getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const;
     double solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_start) const;
