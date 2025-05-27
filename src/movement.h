@@ -9,7 +9,7 @@
 constexpr int printSpeedSteps = 500;
 constexpr int  moveSpeedSteps = 1500;
 constexpr long INFINITE_STEPS = 999999999;
-constexpr long acceleration = 999999999; //essentially infinite, causing instant stop / start
+constexpr long acceleration = 999999999;  // Essentially infinite, causing instant stop / start
 constexpr int stepsPerRotation = 200 * 8; // 1/8 microstepping
 
 // Geometry parameters:
@@ -78,6 +78,7 @@ private:
     };
 
     Lengths getBeltLengths(double x, double y);
+
     double gamma_last_position = 0.0;   // [rad] The last known inclination of the mural bot. As the angle changes only slowly 
                                         // with position we can compute updates faster by keeping track of the last solution.
     inline void getLeftTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const;
@@ -97,7 +98,6 @@ public:
             this->y = y;
         }
         Point() {
-            
         }
     };
 
