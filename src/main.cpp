@@ -82,7 +82,7 @@ void setup()
     runner = new Runner(movement, pen, display);
     Serial.println("Initialized runner");
 
-    server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
+    server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html").setCacheControl("no-cache");
 
     server.on("/command", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->handleCommand(request); });
