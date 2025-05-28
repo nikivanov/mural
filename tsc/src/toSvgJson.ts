@@ -13,7 +13,6 @@ export function renderCommandsToSvgJson(commands: string[], width: number, heigh
     let pathPoints: paper.Point[] = [];
 
     let penUp = true;
-
     function handlePenChange(newPenUp: boolean) {
         if (penUp === newPenUp) {
             // no change in state, nothing to do
