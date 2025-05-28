@@ -17,7 +17,7 @@ Here's how the image is prepared and drawn:
 
 ![image_positioning](/images/doc/muralbot_image_positioning.svg)
 
-## Mural's Kinematic Model
+# Mural's Kinematic Model
 
 The Mural bot is suspended on two belts. As it moves across the wall it rotates slightly,
 in particular it tilts towards the center as it moves to the edges of the drawing region.
@@ -33,6 +33,7 @@ The bot is modeled as a rigid body in 2D and all features are assumed to be proj
 In this representation it can be represented as two lines: One connecting the pulley tangent points
 and orthogonal to it the line which goes through the pen center and the bot's center of mass $m$. The 
 two lines coincide in a reference point called $Q$. 
+The distance of the two tangent points is calles $s$.
 The bot's mass is assumed to be concentrated into a single point (its center of gravity) which is
 located in distance $d_m$ from $Q$. The pen center is located in distance $d_p$ from $Q$ .
 
@@ -41,35 +42,92 @@ and the gravitational force $F_G$ affecting the center of mass.
 
 ![kinematic_model1](/images/doc/kinematic_model1.drawio.svg)
 
+Assumptions:
+
+- all mass is concentrated in a single point
+- the belts mass is negligible
+- the pin distance is much larger than the bot width $d_{pins} >> width_{bot}$ 
+
+## Solving for the Equilibrium State
+
+With forces affecting the Mural bot they are moving it (translation) and rotating it by generating torques. 
+We are looking for the static state of the bot, in which the forces as well as the torques cancel out.
+We'll find this state by updating the values describing the bot's location, the forces and the torques 
+in a consecutive and decoupled manner. I.e. while computing the forces we assume there's no torque, and while 
+computing the torque there's no translating force, etc.. Updating these values repeatedly and in a loop
+will lead to convergence of all quantities towards their true equilibrium states.
+
+On a top level, we run the following steps in a loop:
+- compute belt angles $\varphi_L$ and $\varphi_R$
+- compute forces on both belts
+- compute torque on mural, solve for mural inclination $\gamma$
+
+With the result: mural inclination $\gamma$, length of both belts in wall plane, and belt forces $F_L$ and $F_R$ .
+
+In subsequent steps, these quantities are used to compute the belt lengths in 3D and to apply a dilation correction to account for non-rigidity of the belts under force.
+
+## Forces
+
+In the equilibrium state the overall torque on the bot is zero and can be ignored. In this case
+all forces can be assumed to be applied to a single point:
+
+![kinematic_model_forces](/images/doc/kinematic_model_forces.jpg)
+
+Introducing the angles $\rho = 90^\circ-\varphi_R$ and $\delta = 90^\circ-\varphi_L$ we can apply the [Law of Sines](https://en.wikipedia.org/wiki/Law_of_sines) and get:
+
+$\frac{F_R}{F_G}=\frac{\sin(\delta)}{\sin\left( \varphi_R + \varphi_L \right)}$
+
+$\Leftrightarrow F_R=\frac{F_G\cdot\sin(\delta)}{\sin\left( \varphi_L + \varphi_R \right)} =
+\frac{F_G\cdot\cos(\varphi_L)}{\sin\left( \varphi_L + \varphi_R \right)}$
+
+and likewise
+
+$\frac{F_L}{F_G}=\frac{\sin(\rho)}{\sin\left( \varphi_L + \varphi_R \right)}$
+
+$\Leftrightarrow F_L=\frac{F_G\cdot\sin(\rho)}{\sin\left( \varphi_L + \varphi_R \right)} =
+\frac{F_G\cdot\cos(\varphi_R)}{\sin\left( \varphi_L + \varphi_R \right)}$
 
 
+## Torques
 
-rotates as it moves towards the sides. As this happens, Mural's coordinate
-    // system rotates as well, which would mean straight lines become curved. Therefore, 
-    // a compensation in this rotated system is computed and applied.
-    //
-    // This function works as follows:
-    // 1 Compute the belt length in the wall plane first:
-    //   {
-    //      compute belt angles phi_L and phi_R
-    //      compute forces on both belts
-    //      compute torque on mural, solve for mural inclination gamma
-    //      loop (if needed)
-    //      result: mural inclination, x and y correction, and belt forces
-    //   }
-    // 2 Compute 3D belt length: Euclidean distance due to Pulleys not being in same (wall) plane
-    //   as belt anchors (pins).
-    // 3 Apply dilation correction to account for non-rigid belts.
+![kinematic_model_torques](/images/doc/kinematic_model_torques.jpg)
 
+Given the forces we can compute the torque values $T_L$ ,  $T_R$ and  $T_m$ they induce on the reference point $Q$.
+What we are interested in is the bot inclination angle $\gamma$. A positive $\gamma$ means the bot tilts to the right,
+while a negative $\gamma$ represents a tilt to the left.
 
-    // Coordinate systems:
-    // Frame coordinate system: Outer frame defined by the belt pins. Origin is the center of the left pin.
-    //      x-axis points right towards the right pin. y-axis is perpendicular to x, pointing down.
-    // Image coordinate system:
-    //      This coordinate system defines the actual drawing area. The origin is in the top left corner 
-    //      of the image to be drawn. It is shifted by safeYFraction * d_pins down from the line connecting the pins.
-    //      Additionally, it's shifted safeXFraction to the right from the y-axis of the frame coordinate system.
-    //      So, in frame coordinates the origin of the image coordinate system is 
-    //      (safeYFraction * d_pins, safeXFraction * d_pins).
-    //      See also /images/doc/muralbot_image_positioning.svg . 
+Let's introduce the auxilliary angles $\alpha$ and $\beta$ representing the direction of the belts relative to the
+line connecting the tangent points:
+$\varphi_L = \alpha + \gamma$
+and 
+$\varphi_R = \beta - \gamma$ .
 
+As $Q$ is located in the center between the tangent points we get $s_L = 0.5\cdot s$ and $s_R = 0.5\cdot s$.
+
+The torque induced on the left tangent point is 
+
+$T_L = s_L \cdot \sin(\alpha)\cdot F_L$ 
+
+, and it is pushing the bot clockwise.
+
+Analogously, $T_R$ is affecting the right tangent point and rotating the bot counter-clockwise around $Q$:
+
+$T_R = s_R \cdot \sin(\beta)\cdot F_R$ 
+
+The mass of the bot results in torque $T_m$ which is rotating it counter-clockwise (for $\gamma>0$):
+
+$T_m = s_m * F_m$ , with
+
+$s_m = d_m \cdot \tan(\gamma)$ and
+
+$F_m = F_g \cdot \cos(\gamma)$ .
+
+So we get
+
+$T_m = d_m \cdot \tan(\gamma) \cdot F_G \cdot \cos(\gamma)$
+
+In the static state the resulting torque is zero, so
+
+$T_R - T_L + T_m a\stackrel{!}{=} 0$
+
+, and the implementation numerically searches for a $\gamma$ which fulfills this condition.
