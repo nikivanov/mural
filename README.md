@@ -16,3 +16,7 @@ Here's how the image is prepared and drawn:
 - Finally it's converted into a simple format for Mural to draw, containing mostly its coordinate movement commands and pen up/down. This file is then uploaded to the microcontroller and executed line by line.
 
 ![image_positioning](/images/doc/muralbot_image_positioning.svg)
+
+## Mural's Kinematic Model
+
+Please find the kinematic model [here](KinematicModel.md).

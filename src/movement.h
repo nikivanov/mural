@@ -38,7 +38,7 @@ constexpr double safeYFraction = 0.2;           // Top Margin: Image top to topD
 constexpr double safeXFraction = 0.2;           // Left and right margin: from draw area boundaries to line from each pin straight down.
 
 // Variables used for debugging:
-constexpr int sleepDurationAfterMove_ms = 0;    // Delay after linear movement [ms], e.g. 50.
+// constexpr int sleepDurationAfterMove_ms = 0;    // Delay after linear movement [ms], e.g. 50.
 
 // ESP setup:
 constexpr int LEFT_STEP_PIN = 13;
