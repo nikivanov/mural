@@ -382,7 +382,7 @@ float Movement::beginLinearTravel(double x, double y, int speed)
     rightMotor->setSpeed(rightSpeed);
 
     //display->displayText(String(X) + ", " + String(Y));
-    delay(sleepDurationAfterMove_ms);
+    // delay(sleepDurationAfterMove_ms);
 
     moving = true;
     return moveTime;
