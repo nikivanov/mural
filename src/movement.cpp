@@ -252,6 +252,7 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     // Mural rotates as it moves towards the sides. As this happens, Mural's coordinate
     // system rotates as well, which would mean straight lines become curved. Therefore, 
     // a compensation in this rotated system is computed and applied.
+    // !!!! Please see KinematicModel.md for a more detailed explanation !!!!
     //
     // This function works as follows:
     // 1 Compute the belt length in the wall plane first:
