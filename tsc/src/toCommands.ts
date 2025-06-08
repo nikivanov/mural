@@ -48,6 +48,8 @@ export async function renderSvgJsonToCommands(
 
     const trimmedCommands = trimCommands(commands);
 
+    updateStatusFn("Simplifying commands");
+
     const dedupedCommands = dedupeCommands(trimmedCommands);
 
     updateStatusFn("Measuring total distance");
