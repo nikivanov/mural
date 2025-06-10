@@ -53,7 +53,7 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
 
         if (!path.fillColor || path.fillColor.toCSS(true) !== '#ffffff') {
             for (const line of lines) {
-                const intersections = [...path.getIntersections(line), ...boundsPath.getIntersections(line)];
+                const intersections = [...path.getIntersections(line), ...boundsPath.getIntersections(line)].filter(i => i.point.isInside(boundsPath.bounds));
 
                 intersections.sort((a, b) => a.point.x - b.point.x);
 

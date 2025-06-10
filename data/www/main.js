@@ -163,7 +163,9 @@ function init() {
 
     
     let currentPreviewId = 0;
-    async function renderPreview() {
+    let rendererFn = null;
+
+    async function render_VectorRasterVector() {
         if (currentWorker) {
             console.log("Terminating previous worker");
             currentWorker.terminate();
@@ -172,7 +174,6 @@ function init() {
         const thisPreviewId = currentPreviewId;
 
         const svgString = await getUploadedSvgString();
-
         if (!svgString) {
             throw new Error('No SVG string');
         }
@@ -185,16 +186,25 @@ function init() {
             raster,
             turdSize: getTurdSize(),
         };
-        
+
         if (currentPreviewId == thisPreviewId) {
-            currentWorker = new Worker('./worker/worker.js');
+            currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
 
             currentWorker.onmessage = (e) => {
                 if (e.data.type === 'status') {
                     $("#progressBar").text(e.data.payload);
                 } else if (e.data.type === 'vectorizer') {
                     const vectorizedSvg = e.data.payload.svg;
-                    renderSvgInWorker(currentWorker, vectorizedSvg);
+                    const scale = svgControl.getRenderScale();
+                    renderSvgInWorker(
+                        currentWorker,
+                        vectorizedSvg,
+                        svgControl.getTargetWidth() * scale,
+                        svgControl.getTargetHeight() * scale,
+                    );
+                }
+                else if (e.data.type === 'log') {
+                    console.log(`Worker: ${e.data.payload}`);
                 }
             }
 
@@ -202,18 +212,50 @@ function init() {
         }
     }
 
-    function renderSvgInWorker(worker, svg) {
+    async function render_PathTracing() {
+        if (currentWorker) {
+            console.log("Terminating previous worker");
+            currentWorker.terminate();
+        }
+        currentPreviewId++;
+        const thisPreviewId = currentPreviewId;
+
+        const svgString = await getUploadedSvgString();
+        if (!svgString) {
+            throw new Error('No SVG string');
+        }
+
+        if (currentPreviewId == thisPreviewId) {
+            currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
+            currentWorker.onmessage = (e) => {
+                if (e.data.type === 'status') {
+                    $("#progressBar").text(e.data.payload);
+                }
+                else if (e.data.type === 'log') {
+                    console.log(`Worker: ${e.data.payload}`);
+                }
+            }
+
+            const renderSvg = svgControl.getRenderSvg();
+            const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
+            renderSvgInWorker(currentWorker, renderSvgString, svgControl.getTargetWidth(), svgControl.getTargetHeight());
+        }
+    }
+
+    function renderSvgInWorker(worker, svg, svgWidth, svgHeight) {
         const svgJson = svgControl.getSvgJson(svg);
        
         const renderRequest = {
             type: "renderSvg",
             svgJson,
-            affine: svgControl.getRenderTransform(),
             width: svgControl.getTargetWidth(),
             height: svgControl.getTargetHeight(),
+            svgWidth,
+            svgHeight,
             homeX: currentState.homeX,
             homeY: currentState.homeY,
             infillDensity: getInfillDensity(),
+            flattenPaths: getFlattenPaths(),
         }
 
         worker.onmessage = (e) => {
@@ -257,25 +299,39 @@ function init() {
     }
 
 
-    $("#infillDensity").on('input', async function() {
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox").on('input change', async function() {
         activateProgressBar();
         $("#acceptSvg").attr("disabled", "disabled");
-        await renderPreview();
-    });
-
-    $("#turdSize").on('input', async function() {
-        activateProgressBar();
-        $("#acceptSvg").attr("disabled", "disabled");
-        await renderPreview();
+        await rendererFn();
     });
 
     $("#preview").click(async function() {
         $("#svgUploadSlide").hide();
-        $("#drawingPreviewSlide").show();
-        await renderPreview();
+        $("#chooseRendererSlide").show();
     });
 
-    $("#backToSvgSelect").click(function() {
+    $("#pathTracing").click(async function() {
+        $("label[for='turdSize'],#turdSize").hide();
+        $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").show();
+
+        $("#chooseRendererSlide").hide();
+        $("#drawingPreviewSlide").show();
+        rendererFn = render_PathTracing;
+        await rendererFn();
+    });
+
+    $("#vectorRasterVector").click(async function() {
+        $("#flattenPathsCheckbox").prop("checked", false);
+        $("label[for='turdSize'],#turdSize").show();
+        $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").hide();
+
+        $("#chooseRendererSlide").hide();
+        $("#drawingPreviewSlide").show();
+        rendererFn = render_VectorRasterVector;
+        await rendererFn();
+    });
+
+    $(".backToSvgSelect").click(function() {
         uploadConvertedCommands = null;
 
         $(".loading").show();
@@ -286,6 +342,7 @@ function init() {
 
         $("#svgUploadSlide").show();
         $("#drawingPreviewSlide").hide();
+        $("#chooseRendererSlide").hide();
     });
     
     $("#acceptSvg").click(function() {
@@ -299,7 +356,7 @@ function init() {
         });
 
         $(".muralSlide").hide();
-        $("#loadingSlide").show();
+        $("#uploadProgress").show();
 
         const formData = new FormData();
         formData.append("commands", commandsBlob);
@@ -311,13 +368,31 @@ function init() {
             contentType: false,
             type: 'POST',
             success: function(data) {
-                adaptToState(data);
+                verifyUpload(data);
             },
             error: function(err) {
                 alert('Upload to Mural failed! ' + err);
-            }
+                window.location.reload();
+            },
+            xhr: function () {
+                var xhr = new window.XMLHttpRequest();
+
+                xhr.upload.addEventListener("progress", function (evt) {
+                    if (evt.lengthComputable) {
+                        var percentComplete = evt.loaded / evt.total;
+                        percentComplete = parseInt(percentComplete * 100);
+                        $("#uploadProgress").attr("aria-valuemax", evt.total.toString());
+                        $("#uploadProgress").attr("aria-valuenow", evt.loaded.toString());
+                        $("#uploadProgress > .progress-bar").attr("style", `width: ${percentComplete}%`);
+                    }
+                }, false);
+
+                return xhr;
+            },
         });
     });
+
+
 
     $("#beginDrawing").click(function() {
         $(".muralSlide").hide();
@@ -386,6 +461,53 @@ function init() {
     });
 }
 
+function verifyUpload(state) {
+    $.ajax({
+            url: "/downloadCommands",
+            processData: false,
+            contentType: false,
+            type: 'GET',
+            success: function(data) {
+                const receivedData = data.split('\n');
+                const sentData = uploadConvertedCommands.split('\n');
+                if (receivedData.length !== sentData.length) {
+                    alert("Data verification failed");
+                    window.location.reload();
+                    return;
+                }
+                for (let i = 0; i < receivedData.length; i++) {
+                    if (receivedData[i] !== sentData[i]) {
+                        alert("Data verification failed");
+                        window.location.reload();
+                        return;
+                    }
+                }
+                setTimeout(function() {
+                    adaptToState(state);
+                }, 1000);
+            },
+            error: function(err) {
+                alert('Failed to download commands from Mural! ' + err);
+                window.location.reload();
+            },
+            xhr: function () {
+                var xhr = new window.XMLHttpRequest();
+                xhr.addEventListener("progress", function (evt) {
+                    if (evt.lengthComputable) {
+                        var percentComplete = evt.loaded / evt.total;
+                        percentComplete = parseInt(percentComplete * 100);
+                        $("#verificationProgress").attr("aria-valuemax", evt.total.toString());
+                        $("#verificationProgress").attr("aria-valuenow", evt.loaded.toString());
+                        $("#verificationProgress > .progress-bar").attr("style", `width: ${percentComplete}%`);
+                    }
+                }, false);
+
+                return xhr;
+            },
+        });
+    
+}
+
 function adaptToState(state) {
     $(".muralSlide").hide();
     currentState = state;
@@ -430,4 +552,8 @@ function getInfillDensity() {
 
 function getTurdSize() {
     return parseInt($("#turdSize").val());
+}
+
+function getFlattenPaths() {
+    return $("#flattenPathsCheckbox").is(":checked");
 }

@@ -7,26 +7,34 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
+import { flattenPaths } from './flattener';
 
 const paper = loadPaper();
 
 export async function renderSvgJsonToCommands(
     request: RequestTypes.RenderSVGRequest,
-    updateStatusFn: updateStatusFn
+    updateStatusFn: updateStatusFn,
 ) {
     paper.setup({width: request.width, height: request.height});
 
     updateStatusFn("Importing");
     const svg = paper.project.importJSON(request.svgJson);
 
-    const affine = request.affine;
-    svg.matrix = new paper.Matrix(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]);
-    
+    // scale the document so its coordinates match the world 1:1, in mm
+    const projectToViewRatio = request.width / request.svgWidth;
+
+    console.log(`Scaling by ${projectToViewRatio}`);
+    svg.scale(projectToViewRatio, {x: 0, y: 0});
+    svg.applyMatrix = true;
 
     updateStatusFn("Generating paths");
     const paths = generatePaths(svg);
 
     paths.forEach(p => p.flatten(0.5));
+
+    if (request.flattenPaths) {
+        flattenPaths(paths, updateStatusFn);
+    }
 
     updateStatusFn("Generating infill");
     const pathsWithInfills = generateInfills(paths, request.infillDensity);
@@ -35,10 +43,12 @@ export async function renderSvgJsonToCommands(
     const optimizedPaths = optimizePaths(pathsWithInfills, request.homeX, request.homeY);
 
     updateStatusFn("Generating commands");
-    const commands = renderPathsToCommands(optimizedPaths);
+    const commands = renderPathsToCommands(optimizedPaths, request.width, request.height);
     commands.push('p0');
 
     const trimmedCommands = trimCommands(commands);
+
+    updateStatusFn("Simplifying commands");
 
     const dedupedCommands = dedupeCommands(trimmedCommands);
 
