@@ -1,12 +1,8 @@
 import { Command } from "./types";
-import { getLastPoint, distanceBetweenPoints } from "./utils";
-
-const MIN_DISTANCE = 1;
-const MIN_DISTANCE_SQUARED = MIN_DISTANCE * MIN_DISTANCE;
+import { getLastPoint } from "./utils";
 
 export function dedupeCommands(commands: Command[]): Command[] {
     const dedupedCommands: Command[] = [];
-    let skippedCount = 0;
     for (const command of commands) {
         if (typeof command === 'string') {
             if (dedupedCommands.length === 0 || dedupedCommands[dedupedCommands.length - 1] !== command) {
@@ -15,12 +11,9 @@ export function dedupeCommands(commands: Command[]): Command[] {
         } else {
             const lastCommand = getLastPoint(dedupedCommands);
             if (lastCommand) {
-                const distanceSquared = distanceBetweenPoints(lastCommand, command);
-                if (distanceSquared >= MIN_DISTANCE_SQUARED) {
+                if (command.x !== lastCommand.x || command.y !== lastCommand.y) {
                     dedupedCommands.push(command);
-                } else {
-                    skippedCount++;
-                }
+                } 
             } else {
                 dedupedCommands.push(command);
             }
@@ -54,6 +47,6 @@ export function dedupeCommands(commands: Command[]): Command[] {
         }
     }
 
-    console.log(`Deduplicated commands, skipped ${skippedCount} commands`);
+
     return filteredCommands;
 }
