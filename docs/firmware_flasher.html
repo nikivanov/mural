@@ -426,7 +426,7 @@
                     {data: await loadData("firmware/partitions.bin"), address: parseInt("0x8000") },
                     {data: await loadData("firmware/boot_app0.bin"), address: parseInt("0xe000") },
                     {data: await loadData("firmware/firmware.bin"), address: parseInt("0x10000") },
-                    {data: await loadData("firmware/spiffs.bin"), address: parseInt("0x290000") },
+                    {data: await loadData("firmware/littlefs.bin"), address: parseInt("0x13C000") },
                 ],
                 flashSize: "4MB",
                 flashMode: "dio",
