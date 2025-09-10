@@ -145,13 +145,28 @@ export function getTargetHeight() {
     return currentHeight;
 }
 
-export function getRenderTransform() {
-    return [1 / renderScale, 0, 0, 1 / renderScale, 0, 0];
+export function getRenderScale() {
+    return renderScale;
+}
+
+export function getRenderSvg() {
+    return makeTransformedSvgWithHeight()[0];
 }
 
 function applyTransform() {
     updateTransformText();
 
+    const [clonedSvg, newHeight] = makeTransformedSvgWithHeight();
+    currentHeight = newHeight;
+    
+    const svgString = new XMLSerializer().serializeToString(clonedSvg);
+    const svgDataURL = `data:image/svg+xml;base64,${btoa(svgString)}`;
+    $("#sourceSvg")[0].src = svgDataURL;
+
+    transformedSvg = clonedSvg;
+}
+
+function makeTransformedSvgWithHeight() {
     const clonedSvg = originalSvg.cloneNode(true);
     const svgElement = clonedSvg.documentElement;
 
@@ -176,16 +191,10 @@ function applyTransform() {
         scaledAffine[5] = scaledAffine[5] * vbHeight;
     }
 
-    currentHeight = newHeight;
-
     const transfromGroup = clonedSvg.getElementById(transformGroupID);
     transfromGroup.setAttribute("transform", `matrix(${scaledAffine.join(", ")})`);
-    
-    const svgString = new XMLSerializer().serializeToString(clonedSvg);
-    const svgDataURL = `data:image/svg+xml;base64,${btoa(svgString)}`;
-    $("#sourceSvg")[0].src = svgDataURL;
 
-    transformedSvg = clonedSvg;
+    return [clonedSvg, newHeight];
 }
 
 function updateTransformText() {

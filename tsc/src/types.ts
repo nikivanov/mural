@@ -26,12 +26,14 @@ export namespace RequestTypes {
     export type RenderSVGRequest = {
         type: 'renderSvg',
         svgJson: string,
-        affine: number[],
         width: number,
         height: number,
+        svgWidth: number,
+        svgHeight: number,
         homeX: number,
         homeY: number,
         infillDensity: InfillDensity,
+        flattenPaths: boolean,
     };
 
     export type VectorizeRequest = {

@@ -4,3 +4,5 @@ tsc/node_modules
 tsc/package-lock.json
 tsc/dist
 tsc/dist_packed
+tsc/svgs/*
+.DS_Store
