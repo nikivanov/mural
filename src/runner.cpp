@@ -4,7 +4,7 @@
 #include "tasks/pentask.h"
 #include "pen.h"
 #include "display.h"
-#include "SPIFFS.h"
+#include "LittleFS.h"
 using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
@@ -15,7 +15,7 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
 }
 
 void Runner::initTaskProvider() {
-    openedFile = SPIFFS.open("/commands");
+    openedFile = LittleFS.open("/commands");
     if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
         throw std::invalid_argument("No File");

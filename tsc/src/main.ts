@@ -74,15 +74,19 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
         return false;
     }
 
-    if (!('affine' in obj) || typeof obj.affine !== 'object') {
-        return false;
-    }
-
     if (!('width' in obj) || typeof obj.width !== 'number') {
         return false;
     }
 
     if (!('height' in obj) || typeof obj.height !== 'number') {
+        return false;
+    }
+
+    if (!('svgWidth' in obj) || typeof obj.svgWidth !== 'number') {
+        return false;
+    }
+
+    if (!('svgHeight' in obj) || typeof obj.svgHeight !== 'number') {
         return false;
     }
 
@@ -95,6 +99,10 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
     }
 
     if (!('infillDensity' in obj) || typeof obj.infillDensity !== 'number' || !InfillDensities.includes(obj.infillDensity)) {
+        return false;
+    }
+
+    if (!('flattenPaths' in obj) || typeof obj.flattenPaths !== 'boolean') {
         return false;
     }
 

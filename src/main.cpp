@@ -3,7 +3,7 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
-#include "SPIFFS.h"
+#include <LittleFS.h>
 #include <Wire.h>
 #include <ESPmDNS.h>
 #include "movement.h"
@@ -40,9 +40,8 @@ void setup()
     delay(10);
     Serial.begin(9600);
 
-    if (!SPIFFS.begin())
-    {
-        Serial.println("An Error has occurred while mounting SPIFFS");
+    if (!LittleFS.begin(true)) {
+        Serial.println("An Error has occurred while mounting LittleFS");
         return;
     }
 
@@ -83,7 +82,7 @@ void setup()
     runner = new Runner(movement, pen, display);
     Serial.println("Initialized runner");
 
-    server.serveStatic("/", SPIFFS, "/www/").setDefaultFile("index.html");
+    server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html").setCacheControl("no-cache");
 
     server.on("/command", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->handleCommand(request); });
@@ -121,6 +120,13 @@ void setup()
             handleGetState(request);
         }, 
         handleUpload
+    );
+
+    server.on(
+        "/downloadCommands", HTTP_GET,
+        [](AsyncWebServerRequest *request) {
+            request->send(LittleFS, "/commands", "text/plain");
+        }
     );
 
     server.onNotFound(notFound);
