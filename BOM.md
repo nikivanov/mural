@@ -4,7 +4,7 @@ All parts can be found on Amazon, AliExpress, Ebay etc. Make sure the items you'
 | Part| Reference Photo | Price | Notes
 |---|---|---|---|
 |NodeMCU ESP32 ESP-WROOM-32|![esp32](/images/bom/esp32.jpg)| $4 | 30 pin version
-| 2x Pancake Nema 17 motors 17HS4023 |![nema17](/images/bom/nema17.jpg) ![nema17-dims](/images/bom/nema17-dims.jpg) | $18 | Price for 3 motors, you only need two. I used the TwoTrees brand
+| 2x STEPPERONLINE Pancake Nema 17 motors |![nema17](/images/bom/nema17.jpg) ![nema17-dims](/images/bom/nema17-dims.jpg) | $18 | 
 | 2x Stepper Motor Driver control extension boards |![driverboard](/images/bom/driverboard.jpg) | $2 |
 | 2x BigTreeTech TMC2209 Stepper motor drivers |![drivers](/images/bom/tmc2209.jpg) | $14 |
 | 2x GT2 Pulley 20 teeth 5mm bore 6mm shaft | ![pulley](/images/bom/pulley.jpg) ![pulley-dims](/images/bom/pulley_dims.jpg) | $2 | Make sure to get the pulley with those exact dimensions
