@@ -2,7 +2,7 @@ import os
 Import("env")
 
 print("Transpiling TS worker code")
-env.Execute("rm data/www/worker/* || true")
+env.Execute("rm -rf data/www || true")
 currentPath = os.getcwd()
 
 os.chdir('./tsc')

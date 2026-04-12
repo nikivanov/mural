@@ -64,7 +64,7 @@ export default function App() {
 
   function handleUploadDone(s: BackendState) {
     setBackendState(s)
-    setUiPhase('BeginDrawing')
+    setUiPhase(s.phase)
   }
 
   async function handleUploadError(message: string) {
