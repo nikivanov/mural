@@ -1,7 +1,7 @@
 import os
 Import("env")
 
-print("Transpiling TS code")
+print("Transpiling TS worker code")
 env.Execute("rm data/www/worker/* || true")
 currentPath = os.getcwd()
 
@@ -10,4 +10,9 @@ env.Execute("npm run build")
 if not os.path.exists("../data/www/worker/"):
     os.makedirs("../data/www/worker/")
 env.Execute("cp dist_packed/main.js ../data/www/worker/worker.js")
+os.chdir(currentPath)
+
+print("Building React UI")
+os.chdir('./ui')
+env.Execute("npm run build")
 os.chdir(currentPath)

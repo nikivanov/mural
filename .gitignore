@@ -1,6 +1,6 @@
 .pio
-data/www/worker/*
-tsc/node_modules
+data/www/*
+node_modules
 tsc/package-lock.json
 tsc/dist
 tsc/dist_packed
