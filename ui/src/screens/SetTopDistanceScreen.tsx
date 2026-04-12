@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { setTopDistance } from '../api'
 import type { BackendState } from '../types'
-import { showAlert } from '../components/AlertModal'
+import { showAlert, showErrorAlert } from '../components/AlertModal'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { ToolsModal } from '../components/ToolsModal'
@@ -22,8 +22,13 @@ export function SetTopDistanceScreen({ onDone }: Props) {
       return
     }
     setBusy(true)
-    const state = await setTopDistance(val)
-    onDone(state)
+    try {
+      const state = await setTopDistance(val)
+      onDone(state)
+    } catch (err) {
+      setBusy(false)
+      await showErrorAlert(`Failed to set distance: ${err}`)
+    }
   }
 
   return (

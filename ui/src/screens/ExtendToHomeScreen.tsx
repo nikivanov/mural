@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { extendToHome, getState } from '../api'
-import { showAlert } from '../components/AlertModal'
+import { showErrorAlert } from '../components/AlertModal'
 import type { BackendState } from '../types'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
@@ -33,8 +33,7 @@ export function ExtendToHomeScreen({ state, onDone }: Props) {
           return
         }
       } catch {
-        await showAlert('Failed to get current phase')
-        location.reload()
+        await showErrorAlert('Failed to get current phase')
         return
       }
       await delay(waitPeriod)

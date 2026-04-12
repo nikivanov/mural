@@ -13,10 +13,10 @@ export function Slider({ id, label, min, max, step = 1, value, onChange, classNa
   return (
     <div className={`space-y-1 ${className}`}>
       <div className="flex justify-between items-center">
-        <label htmlFor={id} className="text-xs text-slate-400 uppercase tracking-wide">
+        <label htmlFor={id} className="text-xs sm:text-sm text-slate-400 uppercase tracking-wide">
           {label}
         </label>
-        <span className="text-xs text-slate-300 font-mono">{value}</span>
+        <span className="text-xs sm:text-sm text-slate-300 font-mono">{value}</span>
       </div>
       <input
         id={id}
@@ -26,7 +26,7 @@ export function Slider({ id, label, min, max, step = 1, value, onChange, classNa
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-2 rounded-full cursor-pointer accent-indigo-500"
+        className="w-full h-2 sm:h-3 rounded-full cursor-pointer accent-indigo-500"
       />
     </div>
   )

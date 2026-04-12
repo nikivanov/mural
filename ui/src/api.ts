@@ -6,8 +6,8 @@ async function post<T = BackendState>(url: string, body: Record<string, unknown>
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(body as Record<string, string>).toString(),
   })
-  if (!res.ok) throw new Error(`${url} failed: ${res.status}`)
   const text = await res.text()
+  if (!res.ok) throw new Error(text || `${url} failed: ${res.status}`)
   try {
     return JSON.parse(text) as T
   } catch {
@@ -17,8 +17,8 @@ async function post<T = BackendState>(url: string, body: Record<string, unknown>
 
 async function get<T = BackendState>(url: string): Promise<T> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`${url} failed: ${res.status}`)
   const text = await res.text()
+  if (!res.ok) throw new Error(text || `${url} failed: ${res.status}`)
   try {
     return JSON.parse(text) as T
   } catch {

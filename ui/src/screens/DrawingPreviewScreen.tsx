@@ -69,7 +69,7 @@ export function DrawingPreviewScreen({ state, svgState, renderer, onAccept, onBa
         <img
           src={previewUrl}
           alt="Render preview"
-          className="w-full rounded-lg border border-slate-700 object-contain max-h-56"
+          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96"
         />
       ) : (
         <div className="w-full aspect-video rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center">

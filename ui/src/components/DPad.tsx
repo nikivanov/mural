@@ -32,7 +32,7 @@ export function DPad({ onNudge, onZoom, transformText }: DPadProps) {
     <div className="space-y-2">
       <div className="flex gap-3 items-start justify-center">
         {/* D-pad grid */}
-        <div className="grid grid-cols-3 grid-rows-3 gap-1 w-28 h-28">
+        <div className="grid grid-cols-3 grid-rows-3 gap-1 w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44">
           {/* Row 1 */}
           <div />
           <DPadButton onClick={() => onNudge('up')} className="w-full h-full">
@@ -56,7 +56,7 @@ export function DPad({ onNudge, onZoom, transformText }: DPadProps) {
         </div>
 
         {/* Zoom controls */}
-        <div className="flex flex-col gap-1 w-10">
+        <div className="flex flex-col gap-1 w-10 sm:w-12 lg:w-14">
           <DPadButton onClick={() => onZoom('in')} className="w-full aspect-square text-lg">
             +
           </DPadButton>
@@ -70,7 +70,7 @@ export function DPad({ onNudge, onZoom, transformText }: DPadProps) {
       </div>
 
       {transformText && (
-        <p className="text-center text-xs text-slate-500 font-mono">{transformText}</p>
+        <p className="text-center text-xs sm:text-sm text-slate-500 font-mono">{transformText}</p>
       )}
     </div>
   )
