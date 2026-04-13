@@ -25,7 +25,6 @@
 	],
 	"mounts": [
 		"source=/dev/,target=/dev/,type=bind,consistency=consistent",
-		"source=claude-code-data,target=/home/vscode/.claude,type=volume"
 	],
 	"runArgs": [
 		"--privileged"
