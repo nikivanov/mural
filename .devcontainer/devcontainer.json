@@ -15,7 +15,8 @@
 			},
 			"extensions": [
 				"ms-vscode.cpptools",
-				"platformio.platformio-ide"
+				"platformio.platformio-ide",
+				"Anthropic.claude-code"
 			]
 		}
 	},
@@ -23,7 +24,8 @@
 		8008
 	],
 	"mounts": [
-		"source=/dev/,target=/dev/,type=bind,consistency=consistent"
+		"source=/dev/,target=/dev/,type=bind,consistency=consistent",
+		"source=claude-code-data,target=/home/vscode/.claude,type=volume"
 	],
 	"runArgs": [
 		"--privileged"

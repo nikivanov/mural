@@ -5,7 +5,7 @@ print("Transpiling TS worker code")
 env.Execute("rm -rf data/www || true")
 currentPath = os.getcwd()
 
-os.chdir('./tsc')
+os.chdir('./worker')
 env.Execute("npm run build")
 if not os.path.exists("../data/www/worker/"):
     os.makedirs("../data/www/worker/")

@@ -1,9 +1,9 @@
 .pio
 data/www/*
 node_modules
-tsc/package-lock.json
-tsc/dist
-tsc/dist_packed
-tsc/svgs/*
+worker/package-lock.json
+worker/dist
+worker/dist_packed
+worker/svgs/*
 .DS_Store
 .vscode/c_cpp_properties.json
