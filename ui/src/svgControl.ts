@@ -134,6 +134,12 @@ function makeTransformedDoc(state: SvgState): { doc: Document; renderedHeight: n
 /** Returns a data URL for SVG preview and the current rendered height */
 export function getPreviewDataUrl(state: SvgState): { dataUrl: string; renderedHeight: number } {
   const { doc, renderedHeight } = makeTransformedDoc(state)
+  const svgEl = doc.documentElement
+  const bg = doc.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  bg.setAttribute('width', '100%')
+  bg.setAttribute('height', '100%')
+  bg.setAttribute('fill', 'white')
+  svgEl.insertBefore(bg, svgEl.firstChild)
   const svgStr = new XMLSerializer().serializeToString(doc)
   const dataUrl = `data:image/svg+xml;base64,${btoa(svgStr)}`
   return { dataUrl, renderedHeight }

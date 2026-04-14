@@ -62,7 +62,7 @@ export function SvgUploadScreen({ state, onPreview }: Props) {
         <img
           src={previewUrl}
           alt="SVG preview"
-          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 bg-white"
+          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96"
         />
       )}
 
