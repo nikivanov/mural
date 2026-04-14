@@ -41,11 +41,11 @@ export function DPad({ onNudge, onZoom, transformText }: DPadProps) {
           <div />
           {/* Row 2 */}
           <DPadButton onClick={() => onNudge('left')} className="w-full h-full">
-            ◀
+            ◀︎
           </DPadButton>
           <div className="rounded-lg bg-slate-800" />
           <DPadButton onClick={() => onNudge('right')} className="w-full h-full">
-            ▶
+            ▶︎
           </DPadButton>
           {/* Row 3 */}
           <div />

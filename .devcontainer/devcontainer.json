@@ -25,6 +25,7 @@
 	],
 	"mounts": [
 		"source=/dev/,target=/dev/,type=bind,consistency=consistent",
+		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
 	],
 	"runArgs": [
 		"--privileged"
