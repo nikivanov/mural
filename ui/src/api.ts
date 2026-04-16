@@ -84,9 +84,10 @@ export function uploadCommands(
 
 export function downloadCommands(
   onProgress: (pct: number) => void,
-): Promise<string> {
+): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
+    xhr.responseType = 'blob'
 
     xhr.addEventListener('progress', (evt) => {
       if (evt.lengthComputable) {
@@ -96,7 +97,7 @@ export function downloadCommands(
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr.responseText)
+        resolve(xhr.response as Blob)
       } else {
         reject(new Error(`Download failed: ${xhr.status}`))
       }
