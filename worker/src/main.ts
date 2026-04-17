@@ -93,7 +93,11 @@ function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRaster
         && typeof obj.contrast === 'number'
         && typeof obj.angle === 'number'
         && typeof obj.continuousPath === 'boolean'
-        && typeof obj.trimWhite === 'boolean';
+        && typeof obj.trimWhite === 'boolean'
+        && typeof obj.imageLeft === 'number'
+        && typeof obj.imageTop === 'number'
+        && typeof obj.imageRight === 'number'
+        && typeof obj.imageBottom === 'number';
 }
 
 function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {

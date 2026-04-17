@@ -23,9 +23,13 @@ export function Slider({ id, label, min, max, step = 1, value, onChange, classNa
         type="range"
         min={min}
         max={max}
-        step={step}
+        step="any"
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => {
+          const raw = Number(e.target.value)
+          const snapped = Math.round(raw / step) * step
+          onChange(Math.max(min, Math.min(max, snapped)))
+        }}
         className="w-full h-2 sm:h-3 2xl:h-4 rounded-full cursor-pointer accent-indigo-500"
       />
     </div>

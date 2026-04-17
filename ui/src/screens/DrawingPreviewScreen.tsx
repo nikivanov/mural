@@ -112,7 +112,9 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   }
 
   function handleParamChange(id: string, value: RendererParamValue) {
-    const newParams = { ...params, [id]: value }
+    let newParams = { ...params, [id]: value }
+    if (id === 'trimWhite' && value === true) newParams = { ...newParams, continuousPath: false }
+    if (id === 'continuousPath' && value === true) newParams = { ...newParams, trimWhite: false }
     setParams(newParams)
     triggerRender(newParams)
   }

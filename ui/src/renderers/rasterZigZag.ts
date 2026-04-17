@@ -6,6 +6,17 @@ async function execute({ imageState, params, backendState, onStatus, worker }: E
   onStatus('Loading image')
   const imageData = await rasterizeImage(imageState)
   const resultPromise = listenForRendererResult(worker, onStatus)
+
+  // Compute where the image content actually lives within the canvas (mm),
+  // accounting for any pan/zoom/crop the user applied.
+  const t = imageState.transform
+  const W = imageState.width
+  const H = imageState.height
+  const imageLeft   = Math.max(0, t[4] * W)
+  const imageTop    = Math.max(0, t[5] * H)
+  const imageRight  = Math.min(W, (t[4] + t[0]) * W)
+  const imageBottom = Math.min(H, (t[5] + t[3]) * H)
+
   worker.postMessage(
     {
       type: 'renderRasterZigZag',
@@ -21,6 +32,10 @@ async function execute({ imageState, params, backendState, onStatus, worker }: E
       angle: Number(params['angle'] ?? 0),
       continuousPath: Boolean(params['continuousPath'] ?? false),
       trimWhite: Boolean(params['trimWhite'] ?? false),
+      imageLeft,
+      imageTop,
+      imageRight,
+      imageBottom,
     },
     [imageData.data.buffer],
   )
@@ -31,6 +46,7 @@ export const rasterZigZagRenderer: RendererDefinition = {
   id: 'rasterZigZag',
   label: 'Raster Zig-Zag',
   description: 'Converts a photo to zig-zag scan lines — darker areas = taller zig-zags',
+  inputType: 'raster',
   params: [
     { type: 'row', items: [
       { type: 'slider', id: 'lineSpacing', label: 'Spacing (mm)', min: 1, max: 20, step: 1, default: 8 },

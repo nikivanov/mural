@@ -55,6 +55,7 @@ export const vectorRasterVectorRenderer: RendererDefinition = {
   id: 'vectorRasterVector',
   label: 'Vector → Raster → Vector',
   description: 'Preserves stroke width',
+  inputType: 'svg',
   params: [
     { type: 'slider', id: 'infillDensity', label: 'Infill Density', min: 0, max: 4, step: 1, default: 0 },
     {

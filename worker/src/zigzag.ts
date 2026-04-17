@@ -54,7 +54,7 @@ export function renderRasterZigZag(
     request: RequestTypes.RenderRasterZigZagRequest,
     updateStatus: updateStatusFn,
 ): { commands: string[]; svgJson: string; distance: number; drawDistance: number } {
-    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, angle, continuousPath, trimWhite } = request;
+    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, angle, continuousPath, trimWhite, imageLeft, imageTop, imageRight, imageBottom } = request;
     const { data, width: imgW, height: imgH } = imageData;
 
     const angleRad = (angle * Math.PI) / 180;
@@ -74,6 +74,13 @@ export function renderRasterZigZag(
     const numLines = Math.ceil((dMax - dMin) / lineSpacing) + 1;
     const rawCommands: Command[] = [];
     let penDown = false;
+    // Axis-aligned bounding box of all drawn scan line endpoints (unperturbed centers,
+    // not amplitude-displaced points). Accumulated across every drawn line so it
+    // works correctly at any angle — for angle=0 it gives first/last scan-line Y;
+    // for angle=45 it collapses to the image rectangle.
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let drawnLineCount = 0; // counts only lines that survive all skips
 
     rawCommands.push('p0');
     rawCommands.push({ x: homeX, y: homeY });
@@ -119,21 +126,43 @@ export function renderRasterZigZag(
             });
         }
 
-        // Trim leading/trailing flat (white) samples before reversing so
-        // trimming is always relative to physical position along the line
-        let activePoints = points;
+        // Always trim points outside the image bounds (pan/zoom/crop region).
+        // Points outside have no image data regardless of trimWhite setting.
+        let bFirst = 0;
+        let bLast = points.length - 1;
+        while (bFirst <= bLast && (points[bFirst].x < imageLeft || points[bFirst].x > imageRight || points[bFirst].y < imageTop || points[bFirst].y > imageBottom)) bFirst++;
+        while (bLast >= bFirst && (points[bLast].x < imageLeft || points[bLast].x > imageRight || points[bLast].y < imageTop || points[bLast].y > imageBottom)) bLast--;
+        if (bFirst > bLast) continue; // entire line outside image — skip
+
+        let activePoints = points.slice(bFirst, bLast + 1);
+
+        // Optionally also trim leading/trailing flat (white) samples within the image
         if (trimWhite) {
             const FLAT = 0.05;
+            const activeDarknesses = darknesses.slice(bFirst, bLast + 1);
             let first = 0;
-            let last = points.length - 1;
-            while (first < points.length && darknesses[first] < FLAT) first++;
-            while (last > first && darknesses[last] < FLAT) last--;
-            if (first >= points.length) continue; // entire line is white — skip
-            activePoints = points.slice(first, last + 1);
+            let last = activePoints.length - 1;
+            while (first <= last && activeDarknesses[first] < FLAT) first++;
+            while (last >= first && activeDarknesses[last] < FLAT) last--;
+            if (first > last) continue;
+            activePoints = activePoints.slice(first, last + 1);
         }
 
-        // Boustrophedon: reverse every other line to minimise pen travel
-        if (lineIdx % 2 !== 0) activePoints.reverse();
+        // Accumulate axis-aligned bounding box of scan line endpoints (unperturbed centers)
+        const t_bFirst = Math.min(tMin + bFirst, tMax);
+        const t_bLast  = Math.min(tMin + bLast,  tMax);
+        const ex1 = ox + t_bFirst * lineDx, ey1 = oy + t_bFirst * lineDy;
+        const ex2 = ox + t_bLast  * lineDx, ey2 = oy + t_bLast  * lineDy;
+        minX = Math.min(minX, ex1, ex2);
+        maxX = Math.max(maxX, ex1, ex2);
+        minY = Math.min(minY, ey1, ey2);
+        maxY = Math.max(maxY, ey1, ey2);
+
+        // Boustrophedon: reverse every other *drawn* line to minimise pen travel.
+        // Must use drawnLineCount, not lineIdx — skipped lines still increment lineIdx
+        // and would corrupt the even/odd pattern (especially visible at non-zero angles).
+        if (drawnLineCount % 2 !== 0) activePoints.reverse();
+        drawnLineCount++;
 
         if (continuousPath) {
             if (!penDown) {
@@ -154,14 +183,15 @@ export function renderRasterZigZag(
 
     rawCommands.push('p0');
 
-    // Perimeter rectangle — always appended when continuousPath is on
-    if (continuousPath) {
-        rawCommands.push({ x: 0, y: 0 });
+    // Perimeter — traced along the actual endpoints of the first and last drawn scan
+    // lines, so the border coincides exactly with the zig-zag line endpoints.
+    if (continuousPath && minX < Infinity) {
+        rawCommands.push({ x: minX, y: minY });
         rawCommands.push('p1');
-        rawCommands.push({ x: widthMm, y: 0 });
-        rawCommands.push({ x: widthMm, y: heightMm });
-        rawCommands.push({ x: 0, y: heightMm });
-        rawCommands.push({ x: 0, y: 0 });
+        rawCommands.push({ x: maxX, y: minY });
+        rawCommands.push({ x: maxX, y: maxY });
+        rawCommands.push({ x: minX, y: maxY });
+        rawCommands.push({ x: minX, y: minY });
         rawCommands.push('p0');
     }
 

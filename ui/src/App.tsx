@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react'
-import { getState } from './api'
+import { getState, enableMockMode } from './api'
 import { showErrorAlert } from './components/AlertModal'
 import type { BackendState, UiPhase } from './types'
 import type { SvgState } from './svgControl'
 import type { RasterImageState } from './rasterControl'
 import type { RendererDefinition } from './renderers/index'
+import { getRenderersByInputType } from './renderers/index'
 
 import { LoadingScreen } from './screens/LoadingScreen'
 import { RetractBeltsScreen } from './screens/RetractBeltsScreen'
 import { SetTopDistanceScreen } from './screens/SetTopDistanceScreen'
 import { ExtendToHomeScreen } from './screens/ExtendToHomeScreen'
 import { PenCalibrationScreen } from './screens/PenCalibrationScreen'
+import { InputSelectScreen } from './screens/InputSelectScreen'
 import { SvgUploadScreen } from './screens/SvgUploadScreen'
 import { RasterUploadScreen } from './screens/RasterUploadScreen'
 import { ChooseRendererScreen } from './screens/ChooseRendererScreen'
@@ -26,23 +28,57 @@ export default function App() {
   // SVG pipeline state
   const [svgState, setSvgState] = useState<SvgState | null>(null)
   const [rasterState, setRasterState] = useState<RasterImageState | null>(null)
+  const [inputType, setInputType] = useState<'svg' | 'raster' | null>(null)
   const [selectedRenderer, setSelectedRenderer] = useState<RendererDefinition | null>(null)
   const [renderedCommands, setRenderedCommands] = useState<string | null>(null)
+
+  // The backend uses 'SvgSelect' as its "ready to draw" phase, but we intercept
+  // it to show our own InputSelect screen instead.
+  function backendPhaseToUiPhase(phase: string): UiPhase {
+    if (phase === 'SvgSelect') return 'InputSelect'
+    return phase as UiPhase
+  }
 
   useEffect(() => {
     getState()
       .then((s) => {
+        if (!s?.phase) throw new Error('No backend')
         setBackendState(s)
-        setUiPhase(s.phase)
+        setUiPhase(backendPhaseToUiPhase(s.phase))
       })
       .catch(() => {
-        showErrorAlert('Failed to retrieve state')
+        if (import.meta.env.DEV) {
+          const mock = { phase: 'SvgSelect' as const, safeWidth: 1000, homeX: 500, homeY: 0 }
+          enableMockMode(mock)
+          setBackendState(mock)
+          setUiPhase('InputSelect')
+        } else {
+          showErrorAlert('Failed to retrieve state')
+        }
       })
   }, [])
 
   function handleStateUpdate(s: BackendState) {
     setBackendState(s)
-    setUiPhase(s.phase)
+    setUiPhase(backendPhaseToUiPhase(s.phase))
+  }
+
+  function handleSelectSvg() {
+    setInputType('svg')
+    setUiPhase('SvgSelect')
+  }
+
+  function handleSelectRaster() {
+    setInputType('raster')
+    setUiPhase('RasterSelect')
+  }
+
+  function handleBackToInputSelect() {
+    setSvgState(null)
+    setRasterState(null)
+    setSelectedRenderer(null)
+    setInputType(null)
+    setUiPhase('InputSelect')
   }
 
   function handleSvgPreview(state: SvgState) {
@@ -50,17 +86,15 @@ export default function App() {
     setUiPhase('ChooseRenderer')
   }
 
-  function handleSwitchToRaster() {
-    setUiPhase('RasterSelect')
-  }
-
   function handleRasterPreview(state: RasterImageState) {
     setRasterState(state)
-    setUiPhase('ChooseRenderer')
-  }
-
-  function handleBackFromRaster() {
-    setUiPhase('SvgSelect')
+    const rasterRenderers = getRenderersByInputType('raster')
+    if (rasterRenderers.length === 1) {
+      setSelectedRenderer(rasterRenderers[0])
+      setUiPhase('DrawingPreview')
+    } else {
+      setUiPhase('ChooseRenderer')
+    }
   }
 
   function handleRendererChosen(renderer: RendererDefinition) {
@@ -68,10 +102,16 @@ export default function App() {
     setUiPhase('DrawingPreview')
   }
 
-  function handleBackToSvgSelect() {
-    setRenderedCommands(null)
-    setRasterState(null)
-    setUiPhase('SvgSelect')
+  function handleBackFromChooseRenderer() {
+    setUiPhase(inputType === 'raster' ? 'RasterSelect' : 'SvgSelect')
+  }
+
+  function handleBackFromDrawingPreview() {
+    if (inputType === 'raster' && getRenderersByInputType('raster').length === 1) {
+      setUiPhase('RasterSelect')
+    } else {
+      setUiPhase('ChooseRenderer')
+    }
   }
 
   function handleCommandsAccepted(commands: string) {
@@ -105,12 +145,18 @@ export default function App() {
     case 'PenCalibration':
       currentScreen = <PenCalibrationScreen onDone={handleStateUpdate} />
       break
+    case 'InputSelect':
+      currentScreen = (
+        <InputSelectScreen onSelectSvg={handleSelectSvg} onSelectRaster={handleSelectRaster} />
+      )
+      break
     case 'SvgSelect':
       currentScreen = (
         <SvgUploadScreen
           state={backendState!}
+          initialState={svgState ?? undefined}
           onPreview={handleSvgPreview}
-          onSwitchToRaster={handleSwitchToRaster}
+          onBack={handleBackToInputSelect}
         />
       )
       break
@@ -118,14 +164,19 @@ export default function App() {
       currentScreen = (
         <RasterUploadScreen
           state={backendState!}
+          initialState={rasterState ?? undefined}
           onPreview={handleRasterPreview}
-          onBack={handleBackFromRaster}
+          onBack={handleBackToInputSelect}
         />
       )
       break
     case 'ChooseRenderer':
       currentScreen = (
-        <ChooseRendererScreen onChoose={handleRendererChosen} onBack={handleBackToSvgSelect} />
+        <ChooseRendererScreen
+          renderers={getRenderersByInputType(inputType!)}
+          onChoose={handleRendererChosen}
+          onBack={handleBackFromChooseRenderer}
+        />
       )
       break
     case 'DrawingPreview':
@@ -136,7 +187,7 @@ export default function App() {
           imageState={rasterState ?? undefined}
           renderer={selectedRenderer!}
           onAccept={handleCommandsAccepted}
-          onBack={handleBackToSvgSelect}
+          onBack={handleBackFromDrawingPreview}
         />
       )
       break

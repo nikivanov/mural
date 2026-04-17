@@ -40,6 +40,7 @@ export interface RendererDefinition {
   id: string
   label: string
   description?: string
+  inputType: 'svg' | 'raster'
   params: RendererParam[]
   execute(opts: ExecuteOpts): Promise<RenderResult>
 }
@@ -82,3 +83,7 @@ export const RENDERERS: RendererDefinition[] = [
   vectorRasterVectorRenderer,
   rasterZigZagRenderer,
 ]
+
+export function getRenderersByInputType(type: 'svg' | 'raster'): RendererDefinition[] {
+  return RENDERERS.filter((r) => r.inputType === type)
+}

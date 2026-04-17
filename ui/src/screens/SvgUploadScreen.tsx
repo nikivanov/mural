@@ -8,14 +8,17 @@ import { DPad } from '../components/DPad'
 
 interface Props {
   state: BackendState
+  initialState?: SvgState
   onPreview: (svgState: SvgState) => void
-  onSwitchToRaster?: () => void
+  onBack: () => void
 }
 
-export function SvgUploadScreen({ state, onPreview, onSwitchToRaster }: Props) {
-  const [svgState, setSvgState] = useState<SvgState | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [txText, setTxText] = useState('')
+export function SvgUploadScreen({ state, initialState, onPreview, onBack }: Props) {
+  const [svgState, setSvgState] = useState<SvgState | null>(initialState ?? null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    initialState ? getPreviewDataUrl(initialState).dataUrl : null,
+  )
+  const [txText, setTxText] = useState(initialState ? transformText(initialState.transform) : '')
   const fileRef = useRef<HTMLInputElement>(null)
 
   function applyTransform(doc: SvgState['originalDoc'], width: number, baseHeight: number, t: AffineTransform) {
@@ -87,11 +90,9 @@ export function SvgUploadScreen({ state, onPreview, onSwitchToRaster }: Props) {
       >
         Preview drawing
       </Button>
-      {onSwitchToRaster && (
-        <Button variant="secondary" onClick={onSwitchToRaster}>
-          Use raster image instead
-        </Button>
-      )}
+      <Button variant="secondary" onClick={onBack}>
+        Back
+      </Button>
     </Card>
   )
 }
