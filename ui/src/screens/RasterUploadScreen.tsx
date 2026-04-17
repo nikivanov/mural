@@ -42,7 +42,7 @@ export function RasterUploadScreen({ state, onPreview, onBack }: Props) {
         <img
           src={imageState.previewUrl}
           alt="Image preview"
-          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96"
+          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh]"
         />
       )}
 

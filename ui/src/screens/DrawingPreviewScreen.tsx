@@ -130,7 +130,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
             src={previewUrl}
             alt="Render preview"
             onClick={() => { if (!isRendering) setEnlarged(true) }}
-            className={`w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
+            className={`w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
           />
         ) : (
           <div className="w-full aspect-video rounded-lg bg-slate-800 border border-slate-700" />
@@ -144,19 +144,19 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
 
       {enlarged && previewUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 cursor-zoom-out"
           onClick={() => setEnlarged(false)}
         >
           <img
             src={previewUrl}
             alt="Render preview enlarged"
-            className="max-w-full max-h-full rounded-lg object-contain"
+            className="w-full h-full rounded-lg object-contain"
           />
         </div>
       )}
 
       {/* Status row — always present to prevent layout shift */}
-      <p className="text-center text-xs text-slate-400 min-h-[1rem]">
+      <p className="text-center text-xs 2xl:text-sm text-slate-400 min-h-[1rem]">
         {isRendering
           ? (status || 'Rendering…')
           : result

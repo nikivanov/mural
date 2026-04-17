@@ -10,7 +10,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const base =
-    'rounded-xl px-5 py-3 sm:py-4 font-medium text-sm sm:text-base transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-40 disabled:cursor-not-allowed'
+    'rounded-xl px-5 py-3 sm:py-4 2xl:py-5 font-medium text-sm sm:text-base 2xl:text-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-40 disabled:cursor-not-allowed'
 
   const variants = {
     primary:
