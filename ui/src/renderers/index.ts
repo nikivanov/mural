@@ -1,9 +1,10 @@
 import type { BackendState, InfillDensity, RenderResult } from '../types'
 import type { SvgState } from '../svgControl'
+import type { RasterImageState } from '../rasterControl'
 
 export type RendererParamValue = number | boolean | string
 
-export type RendererParam =
+export type RendererParamLeaf =
   | {
       type: 'slider'
       id: string
@@ -22,8 +23,13 @@ export type RendererParam =
       default: string
     }
 
+export type RendererParam =
+  | RendererParamLeaf
+  | { type: 'row'; items: RendererParamLeaf[] }
+
 export interface ExecuteOpts {
-  svgState: SvgState
+  svgState?: SvgState
+  imageState?: RasterImageState
   params: Record<string, RendererParamValue>
   backendState: BackendState
   onStatus: (status: string) => void
@@ -69,9 +75,10 @@ export function listenForRendererResult(
 
 import { pathTracingRenderer } from './pathTracing'
 import { vectorRasterVectorRenderer } from './vectorRasterVector'
+import { rasterZigZagRenderer } from './rasterZigZag'
 
 export const RENDERERS: RendererDefinition[] = [
   pathTracingRenderer,
   vectorRasterVectorRenderer,
-  // Add new renderer definitions here — no other files need to change
+  rasterZigZagRenderer,
 ]

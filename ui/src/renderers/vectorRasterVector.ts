@@ -8,6 +8,7 @@ import {
 import type { RenderResult } from '../types'
 
 async function execute({ svgState, params, backendState, onStatus, worker }: ExecuteOpts): Promise<RenderResult> {
+  if (!svgState) throw new Error('vectorRasterVector requires svgState')
   // Step 1: Rasterize SVG → ImageData
   onStatus('Rasterizing')
   const raster = await rasterizeSvg(svgState)

@@ -20,6 +20,7 @@ export interface BackendState {
 export type UiPhase =
   | 'loading'
   | Phase
+  | 'RasterSelect'
   | 'ChooseRenderer'
   | 'DrawingPreview'
   | 'UploadProgress'

@@ -7,6 +7,7 @@ import {
 } from './index'
 
 async function execute({ svgState, params, backendState, onStatus, worker }: ExecuteOpts) {
+  if (!svgState) throw new Error('pathTracing requires svgState')
   const svgString = getTransformedSvgString(svgState)
   onStatus('Preparing SVG')
   const svgJson = svgStringToJson(svgString)

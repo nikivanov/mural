@@ -9,9 +9,10 @@ import { DPad } from '../components/DPad'
 interface Props {
   state: BackendState
   onPreview: (svgState: SvgState) => void
+  onSwitchToRaster?: () => void
 }
 
-export function SvgUploadScreen({ state, onPreview }: Props) {
+export function SvgUploadScreen({ state, onPreview, onSwitchToRaster }: Props) {
   const [svgState, setSvgState] = useState<SvgState | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [txText, setTxText] = useState('')
@@ -86,6 +87,11 @@ export function SvgUploadScreen({ state, onPreview }: Props) {
       >
         Preview drawing
       </Button>
+      {onSwitchToRaster && (
+        <Button variant="secondary" onClick={onSwitchToRaster}>
+          Use raster image instead
+        </Button>
+      )}
     </Card>
   )
 }

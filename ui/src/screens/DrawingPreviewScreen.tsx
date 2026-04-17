@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
 import type { BackendState } from '../types'
 import type { SvgState } from '../svgControl'
+import type { RasterImageState } from '../rasterControl'
 import { jsonToPreviewDataUrl } from '../svgControl'
-import { type RendererDefinition, type RendererParamValue } from '../renderers/index'
+import { type RendererDefinition, type RendererParamLeaf, type RendererParamValue } from '../renderers/index'
 import { useWorkerRenderer } from '../hooks/useWorkerRenderer'
 import { Card } from '../components/Card'
 import { Slider } from '../components/Slider'
 import { Button } from '../components/Button'
-import { ProgressBar } from '../components/ProgressBar'
+
 
 interface Props {
   state: BackendState
-  svgState: SvgState
+  svgState?: SvgState
+  imageState?: RasterImageState
   renderer: RendererDefinition
   onAccept: (commands: string) => void
   onBack: () => void
@@ -20,18 +22,76 @@ interface Props {
 function defaultParams(renderer: RendererDefinition): Record<string, RendererParamValue> {
   const p: Record<string, RendererParamValue> = {}
   for (const param of renderer.params) {
-    p[param.id] = param.default
+    if (param.type === 'row') {
+      for (const item of param.items) p[item.id] = item.default
+    } else {
+      p[param.id] = param.default
+    }
   }
   return p
 }
 
-export function DrawingPreviewScreen({ state, svgState, renderer, onAccept, onBack }: Props) {
+function renderLeaf(
+  param: RendererParamLeaf,
+  params: Record<string, RendererParamValue>,
+  onChange: (id: string, value: RendererParamValue) => void,
+) {
+  if (param.type === 'slider') {
+    return (
+      <Slider
+        id={param.id}
+        label={param.label}
+        min={param.min}
+        max={param.max}
+        step={param.step}
+        value={Number(params[param.id] ?? param.default)}
+        onChange={(v) => onChange(param.id, v)}
+      />
+    )
+  }
+  if (param.type === 'checkbox') {
+    return (
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={Boolean(params[param.id] ?? param.default)}
+          onChange={(e) => onChange(param.id, e.target.checked)}
+          className="w-4 h-4 rounded accent-indigo-500 shrink-0"
+        />
+        <span className="text-sm text-slate-300 leading-tight">{param.label}</span>
+      </label>
+    )
+  }
+  if (param.type === 'select') {
+    return (
+      <div className="space-y-1">
+        <label className="text-xs text-slate-400 uppercase tracking-wide">{param.label}</label>
+        <select
+          value={String(params[param.id] ?? param.default)}
+          onChange={(e) => onChange(param.id, e.target.value)}
+          className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {param.options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+  return null
+}
+
+export function DrawingPreviewScreen({ state, svgState, imageState, renderer, onAccept, onBack }: Props) {
   const [params, setParams] = useState<Record<string, RendererParamValue>>(() =>
     defaultParams(renderer),
   )
   const { render, isRendering, status, result } = useWorkerRenderer()
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [enlarged, setEnlarged] = useState(false)
+
+  const previewWidth = svgState?.width ?? imageState!.width
+  const previewHeight = svgState?.baseHeight ?? imageState!.height
 
   // Trigger initial render
   useEffect(() => {
@@ -42,14 +102,13 @@ export function DrawingPreviewScreen({ state, svgState, renderer, onAccept, onBa
   // Generate preview data URL when result arrives
   useEffect(() => {
     if (result) {
-      const url = jsonToPreviewDataUrl(result.svgJson, svgState.width, svgState.baseHeight)
+      const url = jsonToPreviewDataUrl(result.svgJson, previewWidth, previewHeight)
       setPreviewUrl(url)
     }
-  }, [result, svgState.width, svgState.baseHeight])
+  }, [result, previewWidth, previewHeight])
 
   function triggerRender(p: Record<string, RendererParamValue>) {
-    setPreviewUrl(null)
-    render(renderer, svgState, p, state)
+    render(renderer, { svgState, imageState }, p, state)
   }
 
   function handleParamChange(id: string, value: RendererParamValue) {
@@ -65,88 +124,70 @@ export function DrawingPreviewScreen({ state, svgState, renderer, onAccept, onBa
 
   return (
     <Card title="Drawing Preview">
-      {previewUrl ? (
-        <img
-          src={previewUrl}
-          alt="Render preview"
-          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96"
-        />
-      ) : (
-        <div className="w-full aspect-video rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+      <div className="relative w-full">
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Render preview"
+            onClick={() => { if (!isRendering) setEnlarged(true) }}
+            className={`w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
+          />
+        ) : (
+          <div className="w-full aspect-video rounded-lg bg-slate-800 border border-slate-700" />
+        )}
+        {isRendering && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-8 h-8 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+          </div>
+        )}
+      </div>
+
+      {enlarged && previewUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setEnlarged(false)}
+        >
+          <img
+            src={previewUrl}
+            alt="Render preview enlarged"
+            className="max-w-full max-h-full rounded-lg object-contain"
+          />
         </div>
       )}
 
-      {/* Render progress */}
-      {isRendering && (
-        <ProgressBar value={100} animated label={status || 'Rendering…'} />
-      )}
-
-      {/* Distance stats */}
-      {result && !isRendering && (
-        <p className="text-center text-xs text-slate-400">
-          Total:{' '}
-          <span className="text-slate-200 font-medium">
-            {(result.distance / 1000).toFixed(1)}m
-          </span>{' '}
-          / Draw:{' '}
-          <span className="text-slate-200 font-medium">
-            {(result.drawDistance / 1000).toFixed(1)}m
-          </span>
-        </p>
-      )}
+      {/* Status row — always present to prevent layout shift */}
+      <p className="text-center text-xs text-slate-400 min-h-[1rem]">
+        {isRendering
+          ? (status || 'Rendering…')
+          : result
+          ? <>
+              Total:{' '}
+              <span className="text-slate-200 font-medium">{(result.distance / 1000).toFixed(1)}m</span>
+              {' '}/ Draw:{' '}
+              <span className="text-slate-200 font-medium">{(result.drawDistance / 1000).toFixed(1)}m</span>
+            </>
+          : null}
+      </p>
 
       {/* Dynamic renderer params */}
       <div className="space-y-4">
-        {renderer.params.map((param) => {
-          if (param.type === 'slider') {
+        {renderer.params.map((param, idx) => {
+          if (param.type === 'row') {
             return (
-              <Slider
-                key={param.id}
-                id={param.id}
-                label={param.label}
-                min={param.min}
-                max={param.max}
-                step={param.step}
-                value={Number(params[param.id] ?? param.default)}
-                onChange={(v) => handleParamChange(param.id, v)}
-              />
-            )
-          }
-          if (param.type === 'checkbox') {
-            return (
-              <label key={param.id} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(params[param.id] ?? param.default)}
-                  onChange={(e) => handleParamChange(param.id, e.target.checked)}
-                  className="w-4 h-4 rounded accent-indigo-500"
-                />
-                <span className="text-sm text-slate-300">{param.label}</span>
-              </label>
-            )
-          }
-          if (param.type === 'select') {
-            return (
-              <div key={param.id} className="space-y-1">
-                <label className="text-xs text-slate-400 uppercase tracking-wide">
-                  {param.label}
-                </label>
-                <select
-                  value={String(params[param.id] ?? param.default)}
-                  onChange={(e) => handleParamChange(param.id, e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {param.options.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+              <div key={idx} className="grid gap-4" style={{ gridTemplateColumns: `repeat(${param.items.length}, 1fr)` }}>
+                {param.items.map((item) => (
+                  <div key={item.id} className={item.type === 'checkbox' ? 'flex items-end pb-1' : ''}>
+                    {renderLeaf(item, params, handleParamChange)}
+                  </div>
+                ))}
               </div>
             )
           }
-          return null
+          return (
+            <div key={'id' in param ? param.id : idx}>
+              {renderLeaf(param, params, handleParamChange)}
+            </div>
+          )
         })}
       </div>
 

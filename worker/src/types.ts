@@ -41,4 +41,20 @@ export namespace RequestTypes {
         raster: ImageData,
         turdSize: number,
     }
+
+    export type RenderRasterZigZagRequest = {
+        type: 'renderRasterZigZag',
+        imageData: ImageData,
+        widthMm: number,
+        heightMm: number,
+        homeX: number,
+        homeY: number,
+        lineSpacing: number,
+        amplitude: number,
+        brightness: number,
+        contrast: number,
+        angle: number,
+        continuousPath: boolean,
+        trimWhite: boolean,
+    }
 }
