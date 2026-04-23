@@ -3,6 +3,7 @@ import type { BackendState } from '../types'
 import type { SvgState } from '../svgControl'
 import type { RasterImageState } from '../rasterControl'
 import { jsonToPreviewDataUrl } from '../svgControl'
+import { compressCommands } from '../commandCompression'
 import { type RendererDefinition, type RendererParamLeaf, type RendererParamValue } from '../renderers/index'
 import { useWorkerRenderer } from '../hooks/useWorkerRenderer'
 import { Card } from '../components/Card'
@@ -15,7 +16,7 @@ interface Props {
   svgState?: SvgState
   imageState?: RasterImageState
   renderer: RendererDefinition
-  onAccept: (commands: string) => void
+  onAccept: (blob: Blob) => void
   onBack: () => void
 }
 
@@ -97,6 +98,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   const [penWidthMm, setPenWidthMm] = useState<number>(() =>
     parseFloat(localStorage.getItem('muralPenWidthMm') ?? '1.5'),
   )
+  const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null)
 
   const previewWidth = svgState?.width ?? imageState!.width
   const previewHeight = svgState?.baseHeight ?? imageState!.height
@@ -123,6 +125,16 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
     }
   }, [result, previewWidth, previewHeight, penWidthMm])
 
+  // Compress result once — blob is reused for upload, size drives the thermometer
+  useEffect(() => {
+    if (!result) { setCompressedBlob(null); return }
+    let stale = false
+    compressCommands(result.commands.join('\n')).then((blob) => {
+      if (!stale) setCompressedBlob(blob)
+    })
+    return () => { stale = true }
+  }, [result])
+
   function triggerRender(p: Record<string, RendererParamValue>) {
     render(renderer, { svgState, imageState }, p, state)
   }
@@ -136,8 +148,8 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   }
 
   function handleAccept() {
-    if (!result) return
-    onAccept(result.commands.join('\n'))
+    if (!compressedBlob) return
+    onAccept(compressedBlob)
   }
 
   return (
@@ -220,7 +232,30 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         />
       </div>
 
-      <Button onClick={handleAccept} disabled={!result || isRendering}>
+      {compressedBlob !== null && (() => {
+        const MAX_KB = 2600
+        const WARN_KB = 2400
+        const sizeKb = Math.round(compressedBlob.size / 1024)
+        const pct = Math.min(100, (sizeKb / MAX_KB) * 100)
+        const barColor = sizeKb >= MAX_KB ? 'bg-red-500' : sizeKb >= WARN_KB ? 'bg-yellow-400' : 'bg-emerald-500'
+        const labelColor = sizeKb >= MAX_KB ? 'text-red-400' : sizeKb >= WARN_KB ? 'text-yellow-400' : 'text-slate-400'
+        return (
+          <div className="space-y-1">
+            <div className="flex justify-between items-baseline">
+              <p className={`text-xs ${labelColor}`}>Upload size</p>
+              <p className={`text-xs font-medium ${labelColor}`}>{sizeKb} / 2600 kb</p>
+            </div>
+            <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />
+            </div>
+            {sizeKb >= MAX_KB && (
+              <p className="text-xs text-red-400">Warning: upload exceeds device storage. Drawing may fail.</p>
+            )}
+          </div>
+        )
+      })()}
+
+      <Button onClick={handleAccept} disabled={!compressedBlob || isRendering}>
         Accept
       </Button>
       <Button variant="secondary" onClick={onBack}>

@@ -5,26 +5,12 @@ import { Card } from '../components/Card'
 import { ProgressBar } from '../components/ProgressBar'
 
 interface Props {
-  commands: string
+  blob: Blob
   onDone: (state: BackendState) => void
   onError: (message: string) => void
 }
 
-async function compressCommands(input: string): Promise<Blob> {
-  const cs = new CompressionStream('deflate-raw')
-  const writer = cs.writable.getWriter()
-  writer.write(new TextEncoder().encode(input)).then(() => writer.close())
-  return new Response(cs.readable).blob()
-}
-
-async function decompressBlob(blob: Blob): Promise<string> {
-  const ds = new DecompressionStream('deflate-raw')
-  const writer = ds.writable.getWriter()
-  writer.write(await blob.arrayBuffer()).then(() => writer.close())
-  return new Response(ds.readable).text()
-}
-
-export function UploadProgressScreen({ commands, onDone, onError }: Props) {
+export function UploadProgressScreen({ blob, onDone, onError }: Props) {
   const [uploadPct, setUploadPct] = useState(0)
   const [verifyPct, setVerifyPct] = useState(0)
   const [phase, setPhase] = useState<'uploading' | 'verifying' | 'done'>('uploading')
@@ -35,10 +21,9 @@ export function UploadProgressScreen({ commands, onDone, onError }: Props) {
   }, [])
 
   async function run() {
-    // Upload
+    // Upload pre-compressed blob directly
     let state: BackendState
     try {
-      const blob = await compressCommands(commands)
       state = await uploadCommands(blob, setUploadPct)
       setUploadPct(100)
     } catch (err) {
@@ -46,22 +31,19 @@ export function UploadProgressScreen({ commands, onDone, onError }: Props) {
       return
     }
 
-    // Verify
+    // Verify by comparing received bytes against sent bytes
     setPhase('verifying')
     try {
       const receivedBlob = await downloadCommands(setVerifyPct)
       setVerifyPct(100)
-      const received = await decompressBlob(receivedBlob)
-
-      const receivedLines = received.split('\n')
-      const sentLines = commands.split('\n')
-
-      if (receivedLines.length !== sentLines.length) {
+      const sentBytes = new Uint8Array(await blob.arrayBuffer())
+      const receivedBytes = new Uint8Array(await receivedBlob.arrayBuffer())
+      if (sentBytes.length !== receivedBytes.length) {
         onError('Data verification failed: length mismatch')
         return
       }
-      for (let i = 0; i < receivedLines.length; i++) {
-        if (receivedLines[i] !== sentLines[i]) {
+      for (let i = 0; i < sentBytes.length; i++) {
+        if (sentBytes[i] !== receivedBytes[i]) {
           onError('Data verification failed: content mismatch')
           return
         }

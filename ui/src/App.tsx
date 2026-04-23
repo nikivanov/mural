@@ -30,7 +30,7 @@ export default function App() {
   const [rasterState, setRasterState] = useState<RasterImageState | null>(null)
   const [inputType, setInputType] = useState<'svg' | 'raster' | null>(null)
   const [selectedRenderer, setSelectedRenderer] = useState<RendererDefinition | null>(null)
-  const [renderedCommands, setRenderedCommands] = useState<string | null>(null)
+  const [renderedBlob, setRenderedBlob] = useState<Blob | null>(null)
 
   // The backend uses 'SvgSelect' as its "ready to draw" phase, but we intercept
   // it to show our own InputSelect screen instead.
@@ -114,8 +114,8 @@ export default function App() {
     }
   }
 
-  function handleCommandsAccepted(commands: string) {
-    setRenderedCommands(commands)
+  function handleCommandsAccepted(blob: Blob) {
+    setRenderedBlob(blob)
     setUiPhase('UploadProgress')
   }
 
@@ -194,7 +194,7 @@ export default function App() {
     case 'UploadProgress':
       currentScreen = (
         <UploadProgressScreen
-          commands={renderedCommands!}
+          blob={renderedBlob!}
           onDone={handleUploadDone}
           onError={handleUploadError}
         />
