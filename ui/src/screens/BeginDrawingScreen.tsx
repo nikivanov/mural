@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { run, doneWithPhase } from '../api'
 import type { BackendState } from '../types'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
+import { Slider } from '../components/Slider'
 
 interface Props {
   onBegin: () => void
@@ -11,10 +12,17 @@ interface Props {
 
 export function BeginDrawingScreen({ onBegin, onReset }: Props) {
   const [busy, setBusy] = useState(false)
+  const [speed, setSpeed] = useState<number>(() =>
+    parseInt(localStorage.getItem('muralSpeed') ?? '800', 10)
+  )
+
+  useEffect(() => {
+    localStorage.setItem('muralSpeed', String(speed))
+  }, [speed])
 
   async function handleBegin() {
     setBusy(true)
-    await run()
+    await run(speed)
     onBegin()
   }
 
@@ -29,6 +37,7 @@ export function BeginDrawingScreen({ onBegin, onReset }: Props) {
       title="Mural is Ready"
       subtitle="The drawing commands have been uploaded and verified."
     >
+      <Slider label="Speed (steps/s)" min={300} max={3000} step={100} value={speed} onChange={setSpeed} />
       <Button onClick={handleBegin} disabled={busy}>
         {busy ? 'Starting…' : 'Begin Drawing'}
       </Button>

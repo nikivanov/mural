@@ -63,7 +63,7 @@ export const estepsCalibration = (): Promise<void> =>
 export const postMotorCommand = (command: string): Promise<void> =>
   post<void>('/command', { command })
 
-export const run = (): Promise<void> => post<void>('/run')
+export const run = (speed: number): Promise<void> => post<void>('/run', { speed: String(speed) })
 
 export function uploadCommands(
   blob: Blob,
