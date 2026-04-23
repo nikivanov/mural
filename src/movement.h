@@ -6,7 +6,7 @@
 #include "display.h"
 
 // Motor driver parameters.
-constexpr int printSpeedSteps = 500;
+constexpr int printSpeedSteps = 750;
 constexpr int  moveSpeedSteps = 1500;
 constexpr long INFINITE_STEPS = 999999999;
 constexpr long acceleration = 999999999;  // Essentially infinite, causing instant stop / start

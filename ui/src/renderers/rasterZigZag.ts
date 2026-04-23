@@ -29,6 +29,8 @@ async function execute({ imageState, params, backendState, onStatus, worker }: E
       amplitude: Number(params['amplitude'] ?? 3),
       brightness: Number(params['brightness'] ?? 0),
       contrast: Number(params['contrast'] ?? 0),
+      blackPoint: Number(params['blackPoint'] ?? 0) / 100,
+      whitePoint: Number(params['whitePoint'] ?? 100) / 100,
       angle: Number(params['angle'] ?? 0),
       continuousPath: Boolean(params['continuousPath'] ?? false),
       trimWhite: Boolean(params['trimWhite'] ?? false),
@@ -55,6 +57,10 @@ export const rasterZigZagRenderer: RendererDefinition = {
     { type: 'row', items: [
       { type: 'slider', id: 'brightness', label: 'Brightness', min: -100, max: 100, step: 5, default: 0 },
       { type: 'slider', id: 'contrast', label: 'Contrast', min: -100, max: 100, step: 5, default: 0 },
+    ]},
+    { type: 'row', items: [
+      { type: 'slider', id: 'blackPoint', label: 'Black Point', min: 0, max: 90, step: 5, default: 0 },
+      { type: 'slider', id: 'whitePoint', label: 'White Point', min: 10, max: 100, step: 5, default: 100 },
     ]},
     { type: 'row', items: [
       { type: 'slider', id: 'angle', label: 'Angle (°)', min: -90, max: 90, step: 15, default: 0 },

@@ -54,7 +54,7 @@ export function renderRasterZigZag(
     request: RequestTypes.RenderRasterZigZagRequest,
     updateStatus: updateStatusFn,
 ): { commands: string[]; svgJson: string; distance: number; drawDistance: number } {
-    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, angle, continuousPath, trimWhite, imageLeft, imageTop, imageRight, imageBottom } = request;
+    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, angle, continuousPath, trimWhite, imageLeft, imageTop, imageRight, imageBottom } = request;
     const { data, width: imgW, height: imgH } = imageData;
 
     const angleRad = (angle * Math.PI) / 180;
@@ -74,12 +74,6 @@ export function renderRasterZigZag(
     const numLines = Math.ceil((dMax - dMin) / lineSpacing) + 1;
     const rawCommands: Command[] = [];
     let penDown = false;
-    // Axis-aligned bounding box of all drawn scan line endpoints (unperturbed centers,
-    // not amplitude-displaced points). Accumulated across every drawn line so it
-    // works correctly at any angle — for angle=0 it gives first/last scan-line Y;
-    // for angle=45 it collapses to the image rectangle.
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
     let drawnLineCount = 0; // counts only lines that survive all skips
 
     rawCommands.push('p0');
@@ -113,7 +107,10 @@ export function renderRasterZigZag(
             const py = Math.min(Math.max(Math.round((y_mm / heightMm) * (imgH - 1)), 0), imgH - 1);
 
             const luma = getPixelLuma(data, imgW, px, py);
-            const t_norm = adjustBrightnessContrast(luma, brightness, contrast);
+            let t_norm = adjustBrightnessContrast(luma, brightness, contrast);
+            t_norm = whitePoint > blackPoint
+                ? (Math.max(blackPoint, Math.min(whitePoint, t_norm)) - blackPoint) / (whitePoint - blackPoint)
+                : 0.5;
             const darkness = 1 - t_norm;
             darknesses.push(darkness);
 
@@ -148,16 +145,6 @@ export function renderRasterZigZag(
             activePoints = activePoints.slice(first, last + 1);
         }
 
-        // Accumulate axis-aligned bounding box of scan line endpoints (unperturbed centers)
-        const t_bFirst = Math.min(tMin + bFirst, tMax);
-        const t_bLast  = Math.min(tMin + bLast,  tMax);
-        const ex1 = ox + t_bFirst * lineDx, ey1 = oy + t_bFirst * lineDy;
-        const ex2 = ox + t_bLast  * lineDx, ey2 = oy + t_bLast  * lineDy;
-        minX = Math.min(minX, ex1, ex2);
-        maxX = Math.max(maxX, ex1, ex2);
-        minY = Math.min(minY, ey1, ey2);
-        maxY = Math.max(maxY, ey1, ey2);
-
         // Boustrophedon: reverse every other *drawn* line to minimise pen travel.
         // Must use drawnLineCount, not lineIdx — skipped lines still increment lineIdx
         // and would corrupt the even/odd pattern (especially visible at non-zero angles).
@@ -183,17 +170,6 @@ export function renderRasterZigZag(
 
     rawCommands.push('p0');
 
-    // Perimeter — traced along the actual endpoints of the first and last drawn scan
-    // lines, so the border coincides exactly with the zig-zag line endpoints.
-    if (continuousPath && minX < Infinity) {
-        rawCommands.push({ x: minX, y: minY });
-        rawCommands.push('p1');
-        rawCommands.push({ x: maxX, y: minY });
-        rawCommands.push({ x: maxX, y: maxY });
-        rawCommands.push({ x: minX, y: maxY });
-        rawCommands.push({ x: minX, y: minY });
-        rawCommands.push('p0');
-    }
 
     const trimmed = trimCommands(rawCommands);
     const deduped = dedupeCommands(trimmed);

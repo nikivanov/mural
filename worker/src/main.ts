@@ -91,6 +91,8 @@ function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRaster
         && typeof obj.amplitude === 'number'
         && typeof obj.brightness === 'number'
         && typeof obj.contrast === 'number'
+        && typeof obj.blackPoint === 'number'
+        && typeof obj.whitePoint === 'number'
         && typeof obj.angle === 'number'
         && typeof obj.continuousPath === 'boolean'
         && typeof obj.trimWhite === 'boolean'

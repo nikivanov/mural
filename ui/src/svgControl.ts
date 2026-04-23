@@ -187,17 +187,27 @@ export function svgStringToJson(svgString: string): string {
   return json
 }
 
-/** Converts Paper.js JSON back to a canvas data URL for preview */
-export function jsonToPreviewDataUrl(json: string, width: number, height: number): string {
+/** Converts Paper.js JSON back to a canvas data URL for preview.
+ *  penWidthMm: physical pen stroke width — used to set correct stroke thickness and
+ *  upscale the canvas so thin strokes remain visible. Defaults to 1mm. */
+export function jsonToPreviewDataUrl(json: string, width: number, height: number, penWidthMm = 1): string {
+  // Scale canvas up so that penWidthMm renders as at least 1.5px
+  const scale = Math.min(3, Math.max(1, 1.5 / penWidthMm))
   const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
+  canvas.width  = Math.round(width  * scale)
+  canvas.height = Math.round(height * scale)
   canvas.style.display = 'none'
   document.body.appendChild(canvas)
 
   const scope = new paper.PaperScope()
   scope.setup(canvas)
+  // Scale the view so the drawing fills the upscaled canvas
+  scope.view.zoom = scale
+  scope.view.center = new paper.Point(width / 2, height / 2)
   scope.project.importJSON(json)
+  // Override stroke width to match actual pen so ink coverage per area is correct
+  scope.project.getItems({ match: (item: any) => item.strokeColor != null })
+    .forEach((item: any) => { item.strokeWidth = penWidthMm })
   ;(scope.view as unknown as { draw(): void }).draw()
   const dataUrl = canvas.toDataURL()
 

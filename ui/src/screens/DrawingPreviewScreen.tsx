@@ -82,13 +82,21 @@ function renderLeaf(
 }
 
 export function DrawingPreviewScreen({ state, svgState, imageState, renderer, onAccept, onBack }: Props) {
-  const [params, setParams] = useState<Record<string, RendererParamValue>>(() =>
-    defaultParams(renderer),
-  )
+  const [params, setParams] = useState<Record<string, RendererParamValue>>(() => {
+    const defaults = defaultParams(renderer)
+    try {
+      const saved = localStorage.getItem(`muralParams_${renderer.id}`)
+      if (saved) return { ...defaults, ...JSON.parse(saved) }
+    } catch {}
+    return defaults
+  })
   const { render, isRendering, status, result } = useWorkerRenderer()
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [enlarged, setEnlarged] = useState(false)
+  const [penWidthMm, setPenWidthMm] = useState<number>(() =>
+    parseFloat(localStorage.getItem('muralPenWidthMm') ?? '1.5'),
+  )
 
   const previewWidth = svgState?.width ?? imageState!.width
   const previewHeight = svgState?.baseHeight ?? imageState!.height
@@ -99,13 +107,21 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Generate preview data URL when result arrives
+  useEffect(() => {
+    localStorage.setItem(`muralParams_${renderer.id}`, JSON.stringify(params))
+  }, [params, renderer.id])
+
+  useEffect(() => {
+    localStorage.setItem('muralPenWidthMm', String(penWidthMm))
+  }, [penWidthMm])
+
+  // Generate preview data URL when result or pen width changes
   useEffect(() => {
     if (result) {
-      const url = jsonToPreviewDataUrl(result.svgJson, previewWidth, previewHeight)
+      const url = jsonToPreviewDataUrl(result.svgJson, previewWidth, previewHeight, penWidthMm)
       setPreviewUrl(url)
     }
-  }, [result, previewWidth, previewHeight])
+  }, [result, previewWidth, previewHeight, penWidthMm])
 
   function triggerRender(p: Record<string, RendererParamValue>) {
     render(renderer, { svgState, imageState }, p, state)
@@ -191,6 +207,17 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
             </div>
           )
         })}
+      </div>
+
+      <div className="border-t border-slate-700 pt-3">
+        <Slider
+          label="Pen width (mm) — preview only"
+          min={0.5}
+          max={3}
+          step={0.1}
+          value={penWidthMm}
+          onChange={setPenWidthMm}
+        />
       </div>
 
       <Button onClick={handleAccept} disabled={!result || isRendering}>

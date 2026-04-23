@@ -53,6 +53,8 @@ export namespace RequestTypes {
         amplitude: number,
         brightness: number,
         contrast: number,
+        blackPoint: number,
+        whitePoint: number,
         angle: number,
         continuousPath: boolean,
         trimWhite: boolean,
