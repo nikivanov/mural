@@ -93,7 +93,7 @@ export function RasterUploadScreen({ state, initialState, onPreview, onBack }: P
         <img
           src={previewDataUrl}
           alt="Image preview"
-          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh]"
+          className="w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh]"
         />
       )}
 
@@ -102,9 +102,9 @@ export function RasterUploadScreen({ state, initialState, onPreview, onBack }: P
           <div className="flex justify-center py-1">
             <DPad onNudge={handleNudge} onZoom={handleZoom} transformText={txText} />
           </div>
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-xs text-gray-400">
             {imageState.naturalWidth} × {imageState.naturalHeight}px →{' '}
-            <span className="text-slate-200">
+            <span className="text-gray-200">
               {imageState.width.toFixed(0)} × {imageState.height.toFixed(0)} mm
             </span>
           </p>
@@ -116,7 +116,7 @@ export function RasterUploadScreen({ state, initialState, onPreview, onBack }: P
         type="file"
         accept=".png,.jpg,.jpeg"
         onChange={handleFileChange}
-        className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 cursor-pointer"
+        className="w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600 cursor-pointer"
       />
 
       <Button onClick={() => imageState && onPreview(imageState)} disabled={!imageState}>

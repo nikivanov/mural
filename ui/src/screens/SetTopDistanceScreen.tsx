@@ -36,7 +36,7 @@ export function SetTopDistanceScreen({ onDone }: Props) {
       {/* Gear icon trigger */}
       <button
         onClick={() => setToolsOpen(true)}
-        className="fixed top-4 right-4 text-slate-400 hover:text-slate-200 transition-colors text-2xl leading-none z-10"
+        className="fixed top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors text-2xl leading-none z-10"
         aria-label="Open tools"
       >
         ⚙
@@ -51,7 +51,7 @@ export function SetTopDistanceScreen({ onDone }: Props) {
           value={distance}
           onChange={(e) => setDistance(e.target.value)}
           placeholder="e.g. 1500"
-          className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-600"
+          className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder:text-gray-600"
         />
         <Button onClick={handleSet} disabled={busy || !distance}>
           {busy ? 'Setting…' : 'Set distance'}

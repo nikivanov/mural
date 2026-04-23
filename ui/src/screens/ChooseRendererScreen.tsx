@@ -16,11 +16,11 @@ export function ChooseRendererScreen({ renderers, onChoose, onBack }: Props) {
           <button
             key={r.id}
             onClick={() => onChoose(r)}
-            className="w-full rounded-xl px-5 py-6 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500 transition-all text-center"
+            className="w-full rounded-xl px-5 py-6 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-cyan-500 transition-all text-center"
           >
             <p className="text-base font-semibold text-white">{r.label}</p>
             {r.description && (
-              <p className="text-sm text-slate-400 mt-1">{r.description}</p>
+              <p className="text-sm text-gray-400 mt-1">{r.description}</p>
             )}
           </button>
         ))}

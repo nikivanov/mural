@@ -218,11 +218,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-sm sm:max-w-md lg:max-w-xl 2xl:max-w-4xl">{currentScreen}</div>
       <a
         href="https://github.com/nikivanov/mural"
-        className="mt-6 text-xs sm:text-sm text-slate-600 hover:text-slate-400 transition-colors"
+        className="mt-6 text-xs sm:text-sm text-gray-600 hover:text-gray-400 transition-colors"
       >
         Mural
       </a>

@@ -57,20 +57,20 @@ function renderLeaf(
           type="checkbox"
           checked={Boolean(params[param.id] ?? param.default)}
           onChange={(e) => onChange(param.id, e.target.checked)}
-          className="w-4 h-4 rounded accent-indigo-500 shrink-0"
+          className="w-4 h-4 rounded accent-cyan-500 shrink-0"
         />
-        <span className="text-sm text-slate-300 leading-tight">{param.label}</span>
+        <span className="text-sm text-gray-300 leading-tight">{param.label}</span>
       </label>
     )
   }
   if (param.type === 'select') {
     return (
       <div className="space-y-1">
-        <label className="text-xs text-slate-400 uppercase tracking-wide">{param.label}</label>
+        <label className="text-xs text-gray-400 uppercase tracking-wide">{param.label}</label>
         <select
           value={String(params[param.id] ?? param.default)}
           onChange={(e) => onChange(param.id, e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
         >
           {param.options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -160,14 +160,14 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
             src={previewUrl}
             alt="Render preview"
             onClick={() => { if (!isRendering) setEnlarged(true) }}
-            className={`w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
+            className={`w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
           />
         ) : (
-          <div className="w-full aspect-video rounded-lg bg-slate-800 border border-slate-700" />
+          <div className="w-full aspect-video rounded-lg bg-gray-800 border border-gray-700" />
         )}
         {isRendering && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-8 h-8 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
           </div>
         )}
       </div>
@@ -186,15 +186,15 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
       )}
 
       {/* Status row — always present to prevent layout shift */}
-      <p className="text-center text-xs 2xl:text-sm text-slate-400 min-h-[1rem]">
+      <p className="text-center text-xs 2xl:text-sm text-gray-400 min-h-[1rem]">
         {isRendering
           ? (status || 'Rendering…')
           : result
           ? <>
               Total:{' '}
-              <span className="text-slate-200 font-medium">{(result.distance / 1000).toFixed(1)}m</span>
+              <span className="text-gray-200 font-medium">{(result.distance / 1000).toFixed(1)}m</span>
               {' '}/ Draw:{' '}
-              <span className="text-slate-200 font-medium">{(result.drawDistance / 1000).toFixed(1)}m</span>
+              <span className="text-gray-200 font-medium">{(result.drawDistance / 1000).toFixed(1)}m</span>
             </>
           : null}
       </p>
@@ -221,7 +221,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         })}
       </div>
 
-      <div className="border-t border-slate-700 pt-3">
+      <div className="border-t border-gray-700 pt-3">
         <Slider
           label="Pen width (mm) — preview only"
           min={0.5}
@@ -238,14 +238,14 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         const sizeKb = Math.round(compressedBlob.size / 1024)
         const pct = Math.min(100, (sizeKb / MAX_KB) * 100)
         const barColor = sizeKb >= MAX_KB ? 'bg-red-500' : sizeKb >= WARN_KB ? 'bg-yellow-400' : 'bg-emerald-500'
-        const labelColor = sizeKb >= MAX_KB ? 'text-red-400' : sizeKb >= WARN_KB ? 'text-yellow-400' : 'text-slate-400'
+        const labelColor = sizeKb >= MAX_KB ? 'text-red-400' : sizeKb >= WARN_KB ? 'text-yellow-400' : 'text-gray-400'
         return (
           <div className="space-y-1">
             <div className="flex justify-between items-baseline">
               <p className={`text-xs ${labelColor}`}>Upload size</p>
               <p className={`text-xs font-medium ${labelColor}`}>{sizeKb} / 2600 kb</p>
             </div>
-            <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />
             </div>
             {sizeKb >= MAX_KB && (

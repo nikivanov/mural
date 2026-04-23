@@ -21,8 +21,8 @@ function AlertModal({ message, onDismiss }: AlertModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 sm:p-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md lg:max-w-lg p-6 sm:p-8 space-y-5 sm:space-y-6">
-        <p className="text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">{message}</p>
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md lg:max-w-lg p-6 sm:p-8 space-y-5 sm:space-y-6">
+        <p className="text-gray-200 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">{message}</p>
         <Button ref={btnRef} onClick={onDismiss}>
           OK
         </Button>
