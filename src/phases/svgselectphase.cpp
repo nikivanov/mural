@@ -36,6 +36,7 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
     {
         request->_tempFile.close();
         Serial.println("Upload finished");
+        manager->updateFreeKb();
         manager->setPhase(PhaseManager::RetractBelts);
     }
 }

@@ -10,6 +10,16 @@ import { Card } from '../components/Card'
 import { Slider } from '../components/Slider'
 import { Button } from '../components/Button'
 
+const SAFE_FRAC = 0.2 // safeXFraction = safeYFraction in firmware movement.h
+
+const hatchStyle: React.CSSProperties = {
+  backgroundColor: '#111',
+  backgroundImage: [
+    'repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 1px, transparent 0, transparent 50%)',
+    'repeating-linear-gradient(-45deg, rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 1px, transparent 0, transparent 50%)',
+  ].join(', '),
+  backgroundSize: '8px 8px',
+}
 
 interface Props {
   state: BackendState
@@ -95,6 +105,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [enlarged, setEnlarged] = useState(false)
+  const [showContext, setShowContext] = useState(false)
   const [penWidthMm, setPenWidthMm] = useState<number>(() =>
     parseFloat(localStorage.getItem('muralPenWidthMm') ?? '1.5'),
   )
@@ -102,6 +113,18 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
 
   const previewWidth = svgState?.width ?? imageState!.width
   const previewHeight = svgState?.baseHeight ?? imageState!.height
+
+  // Context-view geometry (only valid when topDistance is known)
+  const topDist = (state.topDistance && state.topDistance > 0) ? state.topDistance : null
+  const ctxOffsetX = topDist ? topDist * SAFE_FRAC : 0
+  const ctxOffsetY = topDist ? topDist * SAFE_FRAC : 0
+  const ctxTotalH = ctxOffsetY + previewHeight
+  const ctxDrawingLeftPct  = topDist ? (ctxOffsetX / topDist) * 100 : 0
+  const ctxDrawingTopPct   = topDist ? (ctxOffsetY / ctxTotalH) * 100 : 0
+  const ctxDrawingWidthPct = topDist ? (previewWidth / topDist) * 100 : 100
+  const ctxDrawingHeightPct = topDist ? (previewHeight / ctxTotalH) * 100 : 100
+
+  const contextActive = showContext && !!topDist && !!previewUrl
 
   // Trigger initial render
   useEffect(() => {
@@ -152,26 +175,67 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
     onAccept(compressedBlob)
   }
 
+  const contextDrawingStyle: React.CSSProperties = {
+    position: 'absolute',
+    left:   `${ctxDrawingLeftPct}%`,
+    top:    `${ctxDrawingTopPct}%`,
+    width:  `${ctxDrawingWidthPct}%`,
+    height: `${ctxDrawingHeightPct}%`,
+  }
+
   return (
     <Card title="Drawing Preview">
+      {/* Preview area */}
       <div className="relative w-full">
-        {previewUrl ? (
-          <img
-            src={previewUrl}
-            alt="Render preview"
+        {contextActive ? (
+          <div
+            className={`relative w-full rounded-lg overflow-hidden border border-gray-700 ${isRendering ? 'cursor-wait' : 'cursor-zoom-in'}`}
+            style={{ aspectRatio: `${topDist} / ${ctxTotalH}`, ...hatchStyle }}
             onClick={() => { if (!isRendering) setEnlarged(true) }}
-            className={`w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
-          />
-        ) : (
-          <div className="w-full aspect-video rounded-lg bg-gray-800 border border-gray-700" />
-        )}
-        {isRendering && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-8 h-8 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
+          >
+            {/* Safe-area dashed outline */}
+            <div
+              className="absolute border border-dashed border-gray-600 pointer-events-none z-10"
+              style={contextDrawingStyle}
+            />
+            {/* Motor pulley dots */}
+            <div className="absolute w-2.5 h-2.5 rounded-full bg-gray-500 -translate-x-1/2 -translate-y-1/2" style={{ left: '0%', top: '0%' }} />
+            <div className="absolute w-2.5 h-2.5 rounded-full bg-gray-500 translate-x-1/2 -translate-y-1/2" style={{ right: '0%', top: '0%' }} />
+            {/* Drawing image */}
+            <img
+              src={previewUrl!}
+              alt="Render preview"
+              className={`transition-opacity duration-150 ${isRendering ? 'opacity-40' : 'opacity-100'}`}
+              style={contextDrawingStyle}
+            />
+            {isRendering && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                <div className="w-8 h-8 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
+              </div>
+            )}
           </div>
+        ) : (
+          <>
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Render preview"
+                onClick={() => { if (!isRendering) setEnlarged(true) }}
+                className={`w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
+              />
+            ) : (
+              <div className="w-full aspect-video rounded-lg bg-gray-800 border border-gray-700" />
+            )}
+            {isRendering && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-8 h-8 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
+              </div>
+            )}
+          </>
         )}
       </div>
 
+      {/* Enlarged modal */}
       {enlarged && previewUrl && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 cursor-zoom-out"
@@ -198,6 +262,19 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
             </>
           : null}
       </p>
+
+      {/* Canvas context toggle — only shown when topDistance is known */}
+      {topDist && (
+        <label className="flex items-center gap-2 cursor-pointer self-start">
+          <input
+            type="checkbox"
+            checked={showContext}
+            onChange={(e) => setShowContext(e.target.checked)}
+            className="w-4 h-4 rounded accent-cyan-500 shrink-0"
+          />
+          <span className="text-sm text-gray-300">Show in canvas area</span>
+        </label>
+      )}
 
       {/* Dynamic renderer params */}
       <div className="space-y-4">
@@ -233,8 +310,8 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
       </div>
 
       {compressedBlob !== null && (() => {
-        const MAX_KB = 2600
-        const WARN_KB = 2400
+        const MAX_KB = state.freeKb ?? 2600
+        const WARN_KB = Math.round(MAX_KB * 0.8)
         const sizeKb = Math.round(compressedBlob.size / 1024)
         const pct = Math.min(100, (sizeKb / MAX_KB) * 100)
         const barColor = sizeKb >= MAX_KB ? 'bg-red-500' : sizeKb >= WARN_KB ? 'bg-yellow-400' : 'bg-emerald-500'
@@ -243,7 +320,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
           <div className="space-y-1">
             <div className="flex justify-between items-baseline">
               <p className={`text-xs ${labelColor}`}>Upload size</p>
-              <p className={`text-xs font-medium ${labelColor}`}>{sizeKb} / 2600 kb</p>
+              <p className={`text-xs font-medium ${labelColor}`}>{sizeKb} / {MAX_KB} kb</p>
             </div>
             <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />

@@ -15,12 +15,14 @@ class PhaseManager {
     Phase* svgSelectPhase;
     Phase* beginDrawingPhase;
     Movement* movement;
+    int cachedFreeKb;
     public:
     enum PhaseNames {RetractBelts, SetTopDistance, ExtendToHome, PenCalibration, SvgSelect, BeginDrawing};
     PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server);
     Phase* getCurrentPhase();
     void setPhase(PhaseNames name);
     void respondWithState(AsyncWebServerRequest *request);
+    void updateFreeKb();
     void reset();
 };
 #endif

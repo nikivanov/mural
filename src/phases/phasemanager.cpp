@@ -1,4 +1,5 @@
 #include "phasemanager.h"
+#include "LittleFS.h"
 #include "retractbeltsphase.h"
 #include "settopdistancephase.h"
 #include "extendtohomephase.h"
@@ -19,6 +20,18 @@ PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWe
 
     this->movement = movement;
     reset();
+    updateFreeKb();
+}
+
+void PhaseManager::updateFreeKb() {
+    size_t free = LittleFS.totalBytes() - LittleFS.usedBytes();
+    if (LittleFS.exists("/commands")) {
+        File f = LittleFS.open("/commands");
+        if (f) { free += f.size(); f.close(); }
+    }
+    Serial.printf("Free bytes: %d\n", free);
+    cachedFreeKb = (int)(free / 1024);
+    Serial.printf("Updated free KB: %d KB\n", cachedFreeKb);
 }
 
 Phase* PhaseManager::getCurrentPhase() {
@@ -76,6 +89,7 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["safeWidth"] = safeWidth;
     root["homeX"] = homePosition.x;
     root["homeY"] = homePosition.y;
+    root["freeKb"] = cachedFreeKb;
 
     root.printTo(*response);
     request->send(response);
