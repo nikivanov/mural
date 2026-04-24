@@ -177,7 +177,7 @@ export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
 /** Converts an SVG string to Paper.js JSON using an isolated scope */
 export function svgStringToJson(svgString: string): string {
   const scope = new paper.PaperScope()
-  scope.setup({ width: 10000, height: 10000 } as paper.Size)
+  scope.setup({ width: 1000, height: 1000 } as paper.Size)
   const svg = scope.project.importSVG(svgString, {
     expandShapes: true,
     applyMatrix: true,
