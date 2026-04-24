@@ -20,3 +20,25 @@ Here's how the image is prepared and drawn:
 ## Mural's Kinematic Model
 
 Please find the kinematic model [here](KinematicModel.md).
+
+## TMC2209 Subdivision Configuration Table
+
+| MS1 | MS2 | MS3 | Subdivision Mode | Steps per Revolution |
+|:---:|:---:|:---:|------------------:|--------------------:|
+| 0 | 0 | 0 | Full Steps | 200 |
+| 1 | 0 | 0 | 1/2 | 400 |
+| 0 | 1 | 0 | 1/4 | 800 |
+| 1 | 1 | 0 | 1/8 | 1600 |
+| 0 | 0 | 1 | 1/16 | 3200 |
+| 1 | 0 | 1 | 1/32 | 6400 |
+| 0 | 1 | 1 | 1/64 | 12800 |
+| 1 | 1 | 1 | 1/128 | 25600 |
+
+## Recommended Configuration Example
+
+- Set **MS1 = ON (1)**  
+- Set **MS2 = ON (1)**  
+- Set **MS3 = OFF (0)**
+
+With this configuration the TMC2209 operates in **1/8 subdivision mode**, generating **1600 pulses per revolution**, matching the setting in movement.h:13:  
+stepsPerRotation = 200 * 8 = 1600.
