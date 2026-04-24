@@ -23,22 +23,15 @@ Please find the kinematic model [here](KinematicModel.md).
 
 ## TMC2209 Subdivision Configuration Table
 
-| MS1 | MS2 | MS3 | Subdivision Mode | Steps per Revolution |
-|:---:|:---:|:---:|------------------:|--------------------:|
-| 0 | 0 | 0 | Full Steps | 200 |
-| 1 | 0 | 0 | 1/2 | 400 |
-| 0 | 1 | 0 | 1/4 | 800 |
-| 1 | 1 | 0 | 1/8 | 1600 |
-| 0 | 0 | 1 | 1/16 | 3200 |
-| 1 | 0 | 1 | 1/32 | 6400 |
-| 0 | 1 | 1 | 1/64 | 12800 |
-| 1 | 1 | 1 | 1/128 | 25600 |
+| MS2 Pin | MS1 Pin | Microstep Setting |
+|---------|---------|-------------------|
+| GND | GND | **8 microsteps** |
+| GND | VCC_IO | **32 microsteps** |
+| VCC_IO | GND | **64 microsteps** |
+| VCC_IO | VCC_IO | **16 microsteps** |
 
-## Recommended Configuration Example
+---
 
-- Set **MS1 = ON (1)**  
-- Set **MS2 = ON (1)**  
-- Set **MS3 = OFF (0)**
+The **TMC2209** supports 8, 16, 32, and 64 microstep resolutions controlled by the MS1 and MS2 pins. The configuration differs from the TMC2208 in the 32 and 64 microstep modes, as noted in the datasheet.
 
-With this configuration the TMC2209 operates in **1/8 subdivision mode**, generating **1600 pulses per revolution**, matching the setting in movement.h:13:  
-stepsPerRotation = 200 * 8 = 1600.
+According https://github.com/nikivanov/mural/blob/c817cd03863fe5c1ac683311f0aa24aa7fac01d6/src/movement.h#L13 ,we should set the ms1 to 0 ande the ms2 to 0.
