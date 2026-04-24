@@ -8,9 +8,10 @@ import { ToolsModal } from '../components/ToolsModal'
 
 interface Props {
   onDone: (state: BackendState) => void
+  backendState?: BackendState
 }
 
-export function SetTopDistanceScreen({ onDone }: Props) {
+export function SetTopDistanceScreen({ onDone, backendState }: Props) {
   const [distance, setDistance] = useState('')
   const [busy, setBusy] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
@@ -58,7 +59,7 @@ export function SetTopDistanceScreen({ onDone }: Props) {
         </Button>
       </Card>
 
-      <ToolsModal isOpen={toolsOpen} onClose={() => setToolsOpen(false)} />
+      <ToolsModal isOpen={toolsOpen} onClose={() => setToolsOpen(false)} backendState={backendState} />
     </>
   )
 }

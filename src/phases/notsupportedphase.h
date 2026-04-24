@@ -11,6 +11,7 @@ class NotSupportedPhase : public Phase {
     void extendToHome(AsyncWebServerRequest *request);
     void setServo(AsyncWebServerRequest *request);
     void setPenDistance(AsyncWebServerRequest *request);
+    void setPenUpAngle(AsyncWebServerRequest *request);
     void resumeTopDistance(AsyncWebServerRequest *request);
     void run(AsyncWebServerRequest *request);
     void doneWithPhase(AsyncWebServerRequest *request);

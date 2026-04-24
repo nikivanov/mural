@@ -18,6 +18,7 @@ PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWe
     beginDrawingPhase = new BeginDrawingPhase(this, runner, server);
 
     this->movement = movement;
+    this->pen = pen;
     reset();
 }
 
@@ -76,6 +77,8 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["safeWidth"] = safeWidth;
     root["homeX"] = homePosition.x;
     root["homeY"] = homePosition.y;
+    root["penUpAngle"] = pen->getPenUpAngle();
+    root["penDownAngle"] = pen->getPenDistance();
 
     root.printTo(*response);
     request->send(response);

@@ -23,6 +23,10 @@ void NotSupportedPhase::setPenDistance(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 
+void NotSupportedPhase::setPenUpAngle(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
 void NotSupportedPhase::resumeTopDistance(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }

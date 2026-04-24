@@ -7,27 +7,40 @@ import {
   rightExtendDown,
   rightStop,
   setServo,
+  savePenAngles,
   estepsCalibration,
+  getState,
 } from '../api'
+import type { BackendState } from '../types'
 import { Button } from './Button'
 
 interface ToolsModalProps {
   isOpen: boolean
   onClose: () => void
+  backendState?: BackendState
 }
 
-export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
+export function ToolsModal({ isOpen, onClose, backendState }: ToolsModalProps) {
   const [leftMotor, setLeftMotor] = useState(0)
   const [rightMotor, setRightMotor] = useState(0)
+  const [upAngle, setUpAngle] = useState(90)
+  const [downAngle, setDownAngle] = useState(45)
+  const [saving, setSaving] = useState(false)
 
-  // Stop motors when modal closes
   useEffect(() => {
     if (!isOpen) {
       leftStop()
       rightStop()
       setLeftMotor(0)
       setRightMotor(0)
+      return
     }
+    const applyState = (s: BackendState) => {
+      if (s.penUpAngle != null) setUpAngle(s.penUpAngle)
+      if (s.penDownAngle != null && s.penDownAngle !== -1) setDownAngle(s.penDownAngle)
+    }
+    if (backendState) applyState(backendState)
+    getState().then(applyState)
   }, [isOpen])
 
   function handleLeftMotor(v: number) {
@@ -42,6 +55,16 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
     if (v <= -1) rightRetractDown()
     else if (v >= 1) rightExtendDown()
     else rightStop()
+  }
+
+  function previewAngle(angle: number) {
+    setServo(angle)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await savePenAngles(upAngle, downAngle)
+    setSaving(false)
   }
 
   if (!isOpen) return null
@@ -68,11 +91,7 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
             <span className="text-xs sm:text-sm text-slate-300 font-mono">{leftMotor}</span>
           </div>
           <input
-            type="range"
-            min={-1}
-            max={1}
-            step={1}
-            value={leftMotor}
+            type="range" min={-1} max={1} step={1} value={leftMotor}
             onChange={(e) => handleLeftMotor(Number(e.target.value))}
             onMouseUp={() => handleLeftMotor(0)}
             onTouchEnd={() => handleLeftMotor(0)}
@@ -86,11 +105,7 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
             <span className="text-xs sm:text-sm text-slate-300 font-mono">{rightMotor}</span>
           </div>
           <input
-            type="range"
-            min={-1}
-            max={1}
-            step={1}
-            value={rightMotor}
+            type="range" min={-1} max={1} step={1} value={rightMotor}
             onChange={(e) => handleRightMotor(Number(e.target.value))}
             onMouseUp={() => handleRightMotor(0)}
             onTouchEnd={() => handleRightMotor(0)}
@@ -105,6 +120,59 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
         <Button onClick={() => estepsCalibration()} variant="secondary">
           Extend 1000mm (E-steps calibration)
         </Button>
+
+        {/* Pen angle calibration */}
+        <div className="border-t border-slate-700 pt-4 space-y-4">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Pen Angles</p>
+
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <label className="text-xs sm:text-sm text-slate-400">Up angle (retracted)</label>
+              <span className="text-xs sm:text-sm text-slate-300 font-mono">{upAngle}°</span>
+            </div>
+            <input
+              type="range" min={0} max={180} step={1} value={upAngle}
+              onChange={(e) => { const v = Number(e.target.value); setUpAngle(v); previewAngle(v) }}
+              className="w-full accent-indigo-500"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { const v = Math.max(0, upAngle - 1); setUpAngle(v); previewAngle(v) }}
+                className="flex-1 py-1 rounded-lg bg-slate-800 text-slate-300 text-sm hover:bg-slate-700"
+              >−1</button>
+              <button
+                onClick={() => { const v = Math.min(180, upAngle + 1); setUpAngle(v); previewAngle(v) }}
+                className="flex-1 py-1 rounded-lg bg-slate-800 text-slate-300 text-sm hover:bg-slate-700"
+              >+1</button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <label className="text-xs sm:text-sm text-slate-400">Down angle (drawing)</label>
+              <span className="text-xs sm:text-sm text-slate-300 font-mono">{downAngle}°</span>
+            </div>
+            <input
+              type="range" min={0} max={180} step={1} value={downAngle}
+              onChange={(e) => { const v = Number(e.target.value); setDownAngle(v); previewAngle(v) }}
+              className="w-full accent-indigo-500"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { const v = Math.max(0, downAngle - 1); setDownAngle(v); previewAngle(v) }}
+                className="flex-1 py-1 rounded-lg bg-slate-800 text-slate-300 text-sm hover:bg-slate-700"
+              >−1</button>
+              <button
+                onClick={() => { const v = Math.min(180, downAngle + 1); setDownAngle(v); previewAngle(v) }}
+                className="flex-1 py-1 rounded-lg bg-slate-800 text-slate-300 text-sm hover:bg-slate-700"
+              >+1</button>
+            </div>
+          </div>
+
+          <Button onClick={handleSave} disabled={saving} variant="secondary">
+            {saving ? 'Saving…' : 'Save pen angles'}
+          </Button>
+        </div>
 
         <Button onClick={onClose} variant="primary">
           Close

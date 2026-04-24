@@ -21,6 +21,13 @@ void PenCalibrationPhase::setPenDistance(AsyncWebServerRequest *request) {
     manager->respondWithState(request);
 }
 
+void PenCalibrationPhase::setPenUpAngle(AsyncWebServerRequest *request) {
+    const AsyncWebParameter* p = request->getParam(0);
+    int angle = p->value().toInt();
+    pen->setPenUpAngle(angle);
+    request->send(200, "text/plain", "OK");
+}
+
 const char* PenCalibrationPhase::getName() {
     return "PenCalibration";
 }

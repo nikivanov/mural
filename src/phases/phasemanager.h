@@ -15,6 +15,7 @@ class PhaseManager {
     Phase* svgSelectPhase;
     Phase* beginDrawingPhase;
     Movement* movement;
+    Pen* pen;
     public:
     enum PhaseNames {RetractBelts, SetTopDistance, ExtendToHome, PenCalibration, SvgSelect, BeginDrawing};
     PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server);

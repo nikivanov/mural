@@ -41,6 +41,12 @@ export const setServo = (angle: number): Promise<void> =>
 export const setPenDistance = (angle: number): Promise<BackendState> =>
   post('/setPenDistance', { angle: String(angle) })
 
+export const setPenUpAngle = (angle: number): Promise<void> =>
+  post<void>('/setPenUpAngle', { angle: String(angle) })
+
+export const savePenAngles = (upAngle: number, downAngle: number): Promise<void> =>
+  post<void>('/savePenAngles', { upAngle: String(upAngle), downAngle: String(downAngle) })
+
 export const estepsCalibration = (): Promise<void> =>
   post<void>('/estepsCalibration')
 

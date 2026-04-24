@@ -80,7 +80,7 @@ export default function App() {
       currentScreen = <RetractBeltsScreen onDone={handleStateUpdate} />
       break
     case 'SetTopDistance':
-      currentScreen = <SetTopDistanceScreen onDone={handleStateUpdate} />
+      currentScreen = <SetTopDistanceScreen onDone={handleStateUpdate} backendState={backendState ?? undefined} />
       break
     case 'ExtendToHome':
       currentScreen = <ExtendToHomeScreen state={backendState!} onDone={handleStateUpdate} />

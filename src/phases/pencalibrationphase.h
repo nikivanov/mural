@@ -12,6 +12,7 @@ class PenCalibrationPhase : public NotSupportedPhase {
     PenCalibrationPhase(PhaseManager* manager, Pen* pen);
     void setServo(AsyncWebServerRequest *request);
     void setPenDistance(AsyncWebServerRequest *request);
+    void setPenUpAngle(AsyncWebServerRequest *request);
     const char* getName();
     
 };

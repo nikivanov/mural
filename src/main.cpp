@@ -99,6 +99,17 @@ void setup()
     server.on("/setPenDistance", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->setPenDistance(request); });
 
+    server.on("/setPenUpAngle", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->setPenUpAngle(request); });
+
+    server.on("/savePenAngles", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("upAngle"))
+            pen->setPenUpAngle(request->getParam("upAngle")->value().toInt());
+        if (request->hasParam("downAngle"))
+            pen->setPenDistance(request->getParam("downAngle")->value().toInt());
+        request->send(200, "text/plain", "OK");
+    });
+
     server.on("/estepsCalibration", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->estepsCalibration(request); });
 

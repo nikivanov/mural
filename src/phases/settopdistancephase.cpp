@@ -19,7 +19,14 @@ void SetTopDistancePhase::setServo(AsyncWebServerRequest *request) {
     const AsyncWebParameter* p = request->getParam(0);
     int angle = p->value().toInt();
     pen->setRawValue(angle);
-    request->send(200, "text/plain", "OK"); 
+    request->send(200, "text/plain", "OK");
+}
+
+void SetTopDistancePhase::setPenUpAngle(AsyncWebServerRequest *request) {
+    const AsyncWebParameter* p = request->getParam(0);
+    int angle = p->value().toInt();
+    pen->setPenUpAngle(angle);
+    request->send(200, "text/plain", "OK");
 }
 
 void SetTopDistancePhase::estepsCalibration(AsyncWebServerRequest* request) {

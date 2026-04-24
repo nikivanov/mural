@@ -14,6 +14,8 @@ export interface BackendState {
   homeY?: number
   moving?: boolean
   startedHoming?: boolean
+  penUpAngle?: number
+  penDownAngle?: number
 }
 
 /** Internal UI phase — extends backend phases with SVG pipeline sub-states */
