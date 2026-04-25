@@ -14,7 +14,7 @@ PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWe
     retractBeltsPhase = new RetractBeltsPhase(this, movement);
     setTopDistancePhase = new SetTopDistancePhase(this, movement, pen);
     extendToHomePhase = new ExtendToHomePhase(this, movement);
-    penCalibrationPhase = new PenCalibrationPhase(this, pen);
+    penCalibrationPhase = new PenCalibrationPhase(this, pen, movement);
     svgSelectPhase = new SvgSelectPhase(this);
     beginDrawingPhase = new BeginDrawingPhase(this, runner, server);
 

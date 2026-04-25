@@ -185,29 +185,35 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
 
   return (
     <Card title="Drawing Preview">
-      {/* Preview area */}
-      <div className="relative w-full">
+      {/* Preview area — height is pinned to the drawing's own aspect ratio so toggling context view doesn't cause a scroll jump */}
+      <div
+        className="relative w-full max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] overflow-hidden rounded-lg border border-gray-700 bg-gray-900"
+        style={{ aspectRatio: `${previewWidth} / ${previewHeight}` }}
+      >
         {contextActive ? (
           <div
-            className={`relative w-full rounded-lg overflow-hidden border border-gray-700 ${isRendering ? 'cursor-wait' : 'cursor-zoom-in'}`}
-            style={{ aspectRatio: `${topDist} / ${ctxTotalH}`, ...hatchStyle }}
+            className={`absolute inset-0 flex items-center justify-center ${isRendering ? 'cursor-wait' : 'cursor-zoom-in'}`}
+            style={hatchStyle}
             onClick={() => { if (!isRendering) setEnlarged(true) }}
           >
-            {/* Safe-area dashed outline */}
+            {/* Canvas context — scaled to fit the stable container */}
             <div
-              className="absolute border border-dashed border-gray-600 pointer-events-none z-10"
-              style={contextDrawingStyle}
-            />
-            {/* Motor pulley dots */}
-            <div className="absolute w-2.5 h-2.5 rounded-full bg-gray-500 -translate-x-1/2 -translate-y-1/2" style={{ left: '0%', top: '0%' }} />
-            <div className="absolute w-2.5 h-2.5 rounded-full bg-gray-500 translate-x-1/2 -translate-y-1/2" style={{ right: '0%', top: '0%' }} />
-            {/* Drawing image */}
-            <img
-              src={previewUrl!}
-              alt="Render preview"
-              className={`transition-opacity duration-150 ${isRendering ? 'opacity-40' : 'opacity-100'}`}
-              style={contextDrawingStyle}
-            />
+              className="relative w-full overflow-hidden"
+              style={{ aspectRatio: `${topDist} / ${ctxTotalH}`, maxHeight: '100%' }}
+            >
+              {/* Safe-area dashed outline */}
+              <div className="absolute border border-dashed border-gray-600 pointer-events-none z-10" style={contextDrawingStyle} />
+              {/* Motor pulley dots */}
+              <div className="absolute w-2.5 h-2.5 rounded-full bg-gray-500 -translate-x-1/2 -translate-y-1/2" style={{ left: '0%', top: '0%' }} />
+              <div className="absolute w-2.5 h-2.5 rounded-full bg-gray-500 translate-x-1/2 -translate-y-1/2" style={{ right: '0%', top: '0%' }} />
+              {/* Drawing image */}
+              <img
+                src={previewUrl!}
+                alt="Render preview"
+                className={`transition-opacity duration-150 ${isRendering ? 'opacity-40' : 'opacity-100'}`}
+                style={contextDrawingStyle}
+              />
+            </div>
             {isRendering && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
                 <div className="w-8 h-8 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
@@ -216,15 +222,13 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
           </div>
         ) : (
           <>
-            {previewUrl ? (
+            {previewUrl && (
               <img
                 src={previewUrl}
                 alt="Render preview"
                 onClick={() => { if (!isRendering) setEnlarged(true) }}
-                className={`w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
+                className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-150 ${isRendering ? 'opacity-40 cursor-wait' : 'opacity-100 cursor-zoom-in'}`}
               />
-            ) : (
-              <div className="w-full aspect-video rounded-lg bg-gray-800 border border-gray-700" />
             )}
             {isRendering && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
