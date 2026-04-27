@@ -1,9 +1,10 @@
 #include "pencalibrationphase.h"
 
-PenCalibrationPhase::PenCalibrationPhase(PhaseManager* manager, Pen* pen, Movement* movement) {
+PenCalibrationPhase::PenCalibrationPhase(PhaseManager* manager, Pen* pen, Movement* movement, Display* display) {
     this->manager = manager;
     this->pen = pen;
     this->movement = movement;
+    this->display = display;
     this->jogInitialized = false;
     this->jogX = 0.0;
     this->jogY = 0.0;
@@ -52,6 +53,7 @@ void PenCalibrationPhase::handleCommand(AsyncWebServerRequest *request) {
     try {
         Serial.printf("Jogging to %.1f, %.1f at speed %d\n", jogX, jogY, speed);
         movement->beginLinearTravel(jogX, jogY, speed);
+        display->showCalibration(jogX, jogY);
     } catch (...) {
         request->send(500, "text/plain", "Movement error");
         return;

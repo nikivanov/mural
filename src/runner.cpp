@@ -117,8 +117,9 @@ void Runner::run()
             if (progress != newProgress) {
                 Serial.println("Progress: " + String(newProgress));
                 progress = newProgress;
-                display->displayText(String(progress) + "%");
             }
+            auto coords = movement->getCoordinates();
+            display->showDrawing(coords.x, coords.y, progress);
 
         }
         delete currentTask;

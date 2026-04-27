@@ -10,15 +10,16 @@
 #include "ArduinoJson.h"
 #include <stdexcept>
 
-PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server) {
+PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server, Display* display) {
     retractBeltsPhase = new RetractBeltsPhase(this, movement);
     setTopDistancePhase = new SetTopDistancePhase(this, movement, pen);
     extendToHomePhase = new ExtendToHomePhase(this, movement);
-    penCalibrationPhase = new PenCalibrationPhase(this, pen, movement);
+    penCalibrationPhase = new PenCalibrationPhase(this, pen, movement, display);
     svgSelectPhase = new SvgSelectPhase(this);
     beginDrawingPhase = new BeginDrawingPhase(this, runner, server);
 
     this->movement = movement;
+    this->display = display;
     reset();
     updateFreeKb();
 }
