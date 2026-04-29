@@ -11,7 +11,7 @@ Display::Display() {
         Serial.println(F("SSD1306 allocation failed"));
         throw std::invalid_argument("not ready");
     }
-    display->setRotation(2);
+    display->setRotation(0);
     display->clearDisplay();
     display->setTextColor(WHITE);
     display->setTextSize(1);
@@ -38,22 +38,22 @@ void Display::showStarting() {
 }
 
 void Display::showHotspot() {
-    String lines[] = {"Connect to WiFi Hotspot", "SSID: Mural"};
+    String lines[] = {"Connect to hotspot", "SSID: Mural"};
     drawLines(lines, 2);
 }
 
 void Display::showConnected(String ipAddress) {
     ip = ipAddress;
-    String lines[] = {ip, "Connected"};
+    String lines[] = {ip, "http://mural.local"};
     drawLines(lines, 2);
 }
 
 void Display::showCalibration(double x, double y) {
-    String lines[] = {ip, "X:" + String(x, 1) + " Y:" + String(y, 1)};
-    drawLines(lines, 2);
+    String lines[] = {"X:" + String(x, 1) + " Y:" + String(y, 1)};
+    drawLines(lines, 1);
 }
 
 void Display::showDrawing(double x, double y, int progress) {
-    String lines[] = {ip, "X:" + String((int)x) + " Y:" + String((int)y), String(progress) + "%"};
-    drawLines(lines, 3);
+    String lines[] = {"X:" + String((int)x) + " Y:" + String((int)y), String(progress) + "%"};
+    drawLines(lines, 2);
 }
