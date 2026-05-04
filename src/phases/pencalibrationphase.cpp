@@ -48,7 +48,7 @@ void PenCalibrationPhase::handleCommand(AsyncWebServerRequest *request) {
     jogY = newY;
 
     double magnitude = sqrt(vx * vx + vy * vy);
-    int speed = (int)(min(1.0, magnitude) * moveSpeedSteps);
+    int speed = (int)(min(1.0, magnitude) * printSpeedSteps);
 
     try {
         Serial.printf("Jogging to %.1f, %.1f at speed %d\n", jogX, jogY, speed);

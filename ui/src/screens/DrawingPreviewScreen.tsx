@@ -175,6 +175,12 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
     onAccept(compressedBlob)
   }
 
+  function handleReset() {
+    const defaults = defaultParams(renderer)
+    setParams(defaults)
+    triggerRender(defaults)
+  }
+
   const contextDrawingStyle: React.CSSProperties = {
     position: 'absolute',
     left:   `${ctxDrawingLeftPct}%`,
@@ -267,18 +273,26 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
           : null}
       </p>
 
-      {/* Canvas context toggle — only shown when topDistance is known */}
-      {topDist && (
-        <label className="flex items-center gap-2 cursor-pointer self-start">
-          <input
-            type="checkbox"
-            checked={showContext}
-            onChange={(e) => setShowContext(e.target.checked)}
-            className="w-4 h-4 rounded accent-cyan-500 shrink-0"
-          />
-          <span className="text-sm text-gray-300">Show in canvas area</span>
-        </label>
-      )}
+      {/* Canvas context toggle + reset */}
+      <div className="flex items-center justify-between">
+        {topDist && (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showContext}
+              onChange={(e) => setShowContext(e.target.checked)}
+              className="w-4 h-4 rounded accent-cyan-500 shrink-0"
+            />
+            <span className="text-sm text-gray-300">Show in canvas area</span>
+          </label>
+        )}
+        <button
+          onClick={handleReset}
+          className="text-sm text-gray-400 hover:text-gray-200 transition-colors ml-auto"
+        >
+          Reset
+        </button>
+      </div>
 
       {/* Dynamic renderer params */}
       <div className="space-y-4">
