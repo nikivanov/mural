@@ -118,8 +118,8 @@ export function renderRasterZigZag(
             const sign = j % 2 === 0 ? 1 : -1;
 
             points.push({
-                x: Math.max(0, Math.min(widthMm, x_mm + sign * localAmplitude * perpDx)),
-                y: Math.max(0, Math.min(heightMm, y_mm + sign * localAmplitude * perpDy)),
+                x: Math.max(imageLeft, Math.min(imageRight, x_mm + sign * localAmplitude * perpDx)),
+                y: Math.max(imageTop, Math.min(imageBottom, y_mm + sign * localAmplitude * perpDy)),
             });
         }
 
