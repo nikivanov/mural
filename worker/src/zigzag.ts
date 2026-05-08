@@ -96,6 +96,7 @@ export function renderRasterZigZag(
 
         // Build points LTR (from tMin to tMax), using position index for zig-zag phase
         const points: { x: number; y: number }[] = [];
+        const rawPoints: { x: number; y: number }[] = []; // unclamped, used for boundary trimming
         const darknesses: number[] = [];
         for (let j = 0; j < numSamples; j++) {
             const t = Math.min(tMin + j, tMax);
@@ -116,19 +117,24 @@ export function renderRasterZigZag(
 
             const localAmplitude = darkness * amplitude;
             const sign = j % 2 === 0 ? 1 : -1;
+            const rawX = x_mm + sign * localAmplitude * perpDx;
+            const rawY = y_mm + sign * localAmplitude * perpDy;
 
+            rawPoints.push({ x: rawX, y: rawY });
             points.push({
-                x: Math.max(imageLeft, Math.min(imageRight, x_mm + sign * localAmplitude * perpDx)),
-                y: Math.max(imageTop, Math.min(imageBottom, y_mm + sign * localAmplitude * perpDy)),
+                x: Math.max(imageLeft, Math.min(imageRight, rawX)),
+                y: Math.max(imageTop, Math.min(imageBottom, rawY)),
             });
         }
 
-        // Always trim points outside the image bounds (pan/zoom/crop region).
-        // Points outside have no image data regardless of trimWhite setting.
+        // Trim leading/trailing points where the unclamped displacement exits the image
+        // bounds. Using rawPoints (not points) is essential: clamped points always satisfy
+        // the bounds check, so trimming against them is a no-op — which causes clamped
+        // endpoint clusters to form a visible perimeter line at non-0/90° angles.
         let bFirst = 0;
         let bLast = points.length - 1;
-        while (bFirst <= bLast && (points[bFirst].x < imageLeft || points[bFirst].x > imageRight || points[bFirst].y < imageTop || points[bFirst].y > imageBottom)) bFirst++;
-        while (bLast >= bFirst && (points[bLast].x < imageLeft || points[bLast].x > imageRight || points[bLast].y < imageTop || points[bLast].y > imageBottom)) bLast--;
+        while (bFirst <= bLast && (rawPoints[bFirst].x < imageLeft || rawPoints[bFirst].x > imageRight || rawPoints[bFirst].y < imageTop || rawPoints[bFirst].y > imageBottom)) bFirst++;
+        while (bLast >= bFirst && (rawPoints[bLast].x < imageLeft || rawPoints[bLast].x > imageRight || rawPoints[bLast].y < imageTop || rawPoints[bLast].y > imageBottom)) bLast--;
         if (bFirst > bLast) continue; // entire line outside image — skip
 
         let activePoints = points.slice(bFirst, bLast + 1);
