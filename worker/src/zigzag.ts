@@ -54,7 +54,7 @@ export function renderRasterZigZag(
     request: RequestTypes.RenderRasterZigZagRequest,
     updateStatus: updateStatusFn,
 ): { commands: string[]; svgJson: string; distance: number; drawDistance: number } {
-    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, angle, continuousPath, trimWhite, imageLeft, imageTop, imageRight, imageBottom } = request;
+    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, angle, continuousPath, trimWhite, imageLeft, imageTop, imageRight, imageBottom, minHalfPeriod, maxHalfPeriod, useAmFm } = request;
     const { data, width: imgW, height: imgH } = imageData;
 
     const angleRad = (angle * Math.PI) / 180;
@@ -92,39 +92,62 @@ export function renderRasterZigZag(
         if (!clip) continue;
 
         const { tMin, tMax } = clip;
-        const numSamples = Math.ceil(tMax - tMin) + 1;
 
-        // Build points LTR (from tMin to tMax), using position index for zig-zag phase
         const points: { x: number; y: number }[] = [];
         const rawPoints: { x: number; y: number }[] = []; // unclamped, used for boundary trimming
         const darknesses: number[] = [];
-        for (let j = 0; j < numSamples; j++) {
-            const t = Math.min(tMin + j, tMax);
 
-            const x_mm = ox + t * lineDx;
-            const y_mm = oy + t * lineDy;
-
+        const sampleDarkness = (x_mm: number, y_mm: number) => {
             const px = Math.min(Math.max(Math.round((x_mm / widthMm) * (imgW - 1)), 0), imgW - 1);
             const py = Math.min(Math.max(Math.round((y_mm / heightMm) * (imgH - 1)), 0), imgH - 1);
-
             const luma = getPixelLuma(data, imgW, px, py);
             let t_norm = adjustBrightnessContrast(luma, brightness, contrast);
             t_norm = whitePoint > blackPoint
                 ? (Math.max(blackPoint, Math.min(whitePoint, t_norm)) - blackPoint) / (whitePoint - blackPoint)
                 : 0.5;
-            const darkness = 1 - t_norm;
-            darknesses.push(darkness);
+            return 1 - t_norm;
+        };
 
-            const localAmplitude = darkness * amplitude;
-            const sign = j % 2 === 0 ? 1 : -1;
-            const rawX = x_mm + sign * localAmplitude * perpDx;
-            const rawY = y_mm + sign * localAmplitude * perpDy;
-
-            rawPoints.push({ x: rawX, y: rawY });
-            points.push({
-                x: Math.max(imageLeft, Math.min(imageRight, rawX)),
-                y: Math.max(imageTop, Math.min(imageBottom, rawY)),
-            });
+        if (useAmFm) {
+            // AM+FM sinusoidal squiggle: quarter-period steps (4 points/cycle),
+            // frequency and amplitude both scale with local darkness.
+            let t = tMin;
+            let phase = 0;
+            while (t <= tMax) {
+                const x_mm = ox + t * lineDx;
+                const y_mm = oy + t * lineDy;
+                const darkness = sampleDarkness(x_mm, y_mm);
+                darknesses.push(darkness);
+                const halfPeriod = Math.max(maxHalfPeriod - darkness * (maxHalfPeriod - minHalfPeriod), 0.01);
+                const disp = Math.sin(2 * Math.PI * phase) * darkness * amplitude;
+                const rawX = x_mm + disp * perpDx;
+                const rawY = y_mm + disp * perpDy;
+                rawPoints.push({ x: rawX, y: rawY });
+                points.push({
+                    x: Math.max(imageLeft, Math.min(imageRight, rawX)),
+                    y: Math.max(imageTop, Math.min(imageBottom, rawY)),
+                });
+                phase += 0.25;
+                t += halfPeriod / 2;
+            }
+        } else {
+            // Original AM-only: fixed 1 mm steps, triangle wave.
+            const numSamples = Math.ceil(tMax - tMin) + 1;
+            for (let j = 0; j < numSamples; j++) {
+                const t = Math.min(tMin + j, tMax);
+                const x_mm = ox + t * lineDx;
+                const y_mm = oy + t * lineDy;
+                const darkness = sampleDarkness(x_mm, y_mm);
+                darknesses.push(darkness);
+                const sign = j % 2 === 0 ? 1 : -1;
+                const rawX = x_mm + sign * darkness * amplitude * perpDx;
+                const rawY = y_mm + sign * darkness * amplitude * perpDy;
+                rawPoints.push({ x: rawX, y: rawY });
+                points.push({
+                    x: Math.max(imageLeft, Math.min(imageRight, rawX)),
+                    y: Math.max(imageTop, Math.min(imageBottom, rawY)),
+                });
+            }
         }
 
         // Trim leading/trailing points where the unclamped displacement exits the image

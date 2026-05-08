@@ -48,6 +48,7 @@ function renderLeaf(
   onChange: (id: string, value: RendererParamValue) => void,
 ) {
   if (param.type === 'slider') {
+    const disabled = param.disabledWhen ? params[param.disabledWhen.id] === param.disabledWhen.value : false
     return (
       <Slider
         id={param.id}
@@ -57,16 +58,19 @@ function renderLeaf(
         step={param.step}
         value={Number(params[param.id] ?? param.default)}
         onChange={(v) => onChange(param.id, v)}
+        disabled={disabled}
       />
     )
   }
   if (param.type === 'checkbox') {
+    const disabled = param.disabledWhen ? params[param.disabledWhen.id] === param.disabledWhen.value : false
     return (
-      <label className="flex items-center gap-2 cursor-pointer">
+      <label className={`flex items-center gap-2 cursor-pointer ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
         <input
           type="checkbox"
           checked={Boolean(params[param.id] ?? param.default)}
           onChange={(e) => onChange(param.id, e.target.checked)}
+          disabled={disabled}
           className="w-4 h-4 rounded accent-cyan-500 shrink-0"
         />
         <span className="text-sm text-gray-300 leading-tight">{param.label}</span>

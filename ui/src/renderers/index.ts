@@ -13,8 +13,9 @@ export type RendererParamLeaf =
       max: number
       step: number
       default: number
+      disabledWhen?: { id: string; value: RendererParamValue }
     }
-  | { type: 'checkbox'; id: string; label: string; default: boolean }
+  | { type: 'checkbox'; id: string; label: string; default: boolean; disabledWhen?: { id: string; value: RendererParamValue } }
   | {
       type: 'select'
       id: string

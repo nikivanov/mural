@@ -7,11 +7,12 @@ interface SliderProps {
   value: number
   onChange: (value: number) => void
   className?: string
+  disabled?: boolean
 }
 
-export function Slider({ id, label, min, max, step = 1, value, onChange, className = '' }: SliderProps) {
+export function Slider({ id, label, min, max, step = 1, value, onChange, className = '', disabled = false }: SliderProps) {
   return (
-    <div className={`space-y-1 ${className}`}>
+    <div className={`space-y-1 ${className} ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
       <div className="flex justify-between items-center">
         <label htmlFor={id} className="text-xs sm:text-sm 2xl:text-base text-gray-400 uppercase tracking-wide">
           {label}
@@ -25,6 +26,7 @@ export function Slider({ id, label, min, max, step = 1, value, onChange, classNa
         max={max}
         step="any"
         value={value}
+        disabled={disabled}
         onChange={(e) => {
           const raw = Number(e.target.value)
           const snapped = Math.round(raw / step) * step
