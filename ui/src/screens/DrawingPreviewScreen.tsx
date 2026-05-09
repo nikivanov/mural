@@ -152,9 +152,12 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
     }
   }, [result, previewWidth, previewHeight, penWidthMm])
 
-  // Compress result once — blob is reused for upload, size drives the thermometer
+  // Compress result once — blob is reused for upload, size drives the thermometer.
+  // Don't clear the stale blob while re-rendering; the Accept button is already
+  // disabled via isRendering, so showing the old size avoids a layout shift that
+  // scrolls the page on every slider drag.
   useEffect(() => {
-    if (!result) { setCompressedBlob(null); return }
+    if (!result) return
     let stale = false
     compressCommands(result.commands.join('\n')).then((blob) => {
       if (!stale) setCompressedBlob(blob)
