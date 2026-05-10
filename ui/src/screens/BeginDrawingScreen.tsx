@@ -38,6 +38,9 @@ export function BeginDrawingScreen({ onBegin, onReset }: Props) {
       subtitle="The drawing commands have been uploaded and verified."
     >
       <Slider label="Speed (steps/s)" min={300} max={3000} step={100} value={speed} onChange={setSpeed} />
+      <p style={{ color: 'yellow', margin: '4px 0 8px', fontSize: '0.85em' }}>
+        ⚠ Speed control is experimental. Use 500 for best results.
+      </p>
       <Button onClick={handleBegin} disabled={busy}>
         {busy ? 'Starting…' : 'Begin Drawing'}
       </Button>
