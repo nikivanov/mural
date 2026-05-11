@@ -54,8 +54,8 @@ export const rasterZigZagRenderer: RendererDefinition = {
   inputType: 'raster',
   params: [
     { type: 'row', items: [
-      { type: 'slider', id: 'lineSpacing', label: 'Spacing (mm)', min: 1, max: 20, step: 1, default: 8 },
-      { type: 'slider', id: 'amplitude', label: 'Amplitude (mm)', min: 0.5, max: 10, step: 0.5, default: 3 },
+      { type: 'slider', id: 'lineSpacing', label: 'Spacing (mm)', min: 1, max: 20, step: 1, default: 5 },
+      { type: 'slider', id: 'amplitude', label: 'Amplitude (mm)', min: 0.5, max: 10, step: 0.5, default: 3.5 },
     ]},
     { type: 'row', items: [
       { type: 'slider', id: 'brightness', label: 'Brightness', min: -100, max: 100, step: 5, default: 0 },
@@ -66,12 +66,12 @@ export const rasterZigZagRenderer: RendererDefinition = {
       { type: 'slider', id: 'whitePoint', label: 'White Point', min: 10, max: 100, step: 5, default: 100 },
     ]},
     { type: 'row', items: [
-      { type: 'slider', id: 'angle', label: 'Angle (°)', min: -90, max: 90, step: 15, default: 0 },
+      { type: 'slider', id: 'angle', label: 'Angle (°)', min: -90, max: 90, step: 15, default: 45 },
       { type: 'checkbox', id: 'trimWhite', label: 'Trim White Lines', default: false },
-      { type: 'checkbox', id: 'continuousPath', label: 'No Pen Lift', default: false },
+      { type: 'checkbox', id: 'continuousPath', label: 'No Pen Lift', default: true },
     ]},
     { type: 'row', items: [
-      { type: 'checkbox', id: 'useAmFm', label: 'AM + FM', default: true },
+      { type: 'checkbox', id: 'useAmFm', label: 'AM + FM', default: false },
       { type: 'slider', id: 'minHalfPeriod', label: 'Min peak spacing (mm)', min: 0.1, max: 2.0, step: 0.1, default: 0.5, disabledWhen: { id: 'useAmFm', value: false } },
       { type: 'slider', id: 'maxHalfPeriod', label: 'Max peak spacing (mm)', min: 0.5, max: 8.0, step: 0.5, default: 2.0, disabledWhen: { id: 'useAmFm', value: false } },
     ]},

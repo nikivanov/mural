@@ -13,7 +13,7 @@ interface Props {
 export function BeginDrawingScreen({ onBegin, onReset }: Props) {
   const [busy, setBusy] = useState(false)
   const [speed, setSpeed] = useState<number>(() =>
-    parseInt(localStorage.getItem('muralSpeed') ?? '800', 10)
+    parseInt(localStorage.getItem('muralSpeed') ?? '500', 10)
   )
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export function BeginDrawingScreen({ onBegin, onReset }: Props) {
       title="Mural is Ready"
       subtitle="The drawing commands have been uploaded and verified."
     >
-      <Slider label="Speed (steps/s)" min={300} max={3000} step={100} value={speed} onChange={setSpeed} />
+      <Slider label="Speed (steps/s)" min={250} max={1000} step={50} value={speed} onChange={setSpeed} />
       <p style={{ color: 'yellow', margin: '4px 0 8px', fontSize: '0.85em' }}>
         ⚠ Speed control is experimental. Use 500 for best results.
       </p>
