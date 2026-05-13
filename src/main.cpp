@@ -125,7 +125,7 @@ void setup()
     server.on(
         "/downloadCommands", HTTP_GET,
         [](AsyncWebServerRequest *request) {
-            request->send(LittleFS, "/commands", "text/plain");
+            request->send(LittleFS, "/commands", "application/octet-stream");
         }
     );
 

@@ -5,6 +5,7 @@
 #include "pen.h"
 #include "display.h"
 #include "LittleFS.h"
+#include "gzip_file_reader.h"
 class Runner {
     private:
     Movement *movement;
@@ -14,7 +15,7 @@ class Runner {
     Task* getNextTask();
     Task* currentTask;
     bool stopped;
-    File openedFile;
+    GzipFileReader openedFile;
     double totalDistance;
     double distanceSoFar;
     Movement::Point startPosition;

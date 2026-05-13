@@ -10,6 +10,20 @@ interface Props {
   onError: (message: string) => void
 }
 
+async function compressCommands(input: string): Promise<Blob> {
+  const cs = new CompressionStream('deflate-raw')
+  const writer = cs.writable.getWriter()
+  writer.write(new TextEncoder().encode(input)).then(() => writer.close())
+  return new Response(cs.readable).blob()
+}
+
+async function decompressBlob(blob: Blob): Promise<string> {
+  const ds = new DecompressionStream('deflate-raw')
+  const writer = ds.writable.getWriter()
+  writer.write(await blob.arrayBuffer()).then(() => writer.close())
+  return new Response(ds.readable).text()
+}
+
 export function UploadProgressScreen({ commands, onDone, onError }: Props) {
   const [uploadPct, setUploadPct] = useState(0)
   const [verifyPct, setVerifyPct] = useState(0)
@@ -24,7 +38,7 @@ export function UploadProgressScreen({ commands, onDone, onError }: Props) {
     // Upload
     let state: BackendState
     try {
-      const blob = new Blob([commands], { type: 'text/plain' })
+      const blob = await compressCommands(commands)
       state = await uploadCommands(blob, setUploadPct)
       setUploadPct(100)
     } catch (err) {
@@ -35,8 +49,9 @@ export function UploadProgressScreen({ commands, onDone, onError }: Props) {
     // Verify
     setPhase('verifying')
     try {
-      const received = await downloadCommands(setVerifyPct)
+      const receivedBlob = await downloadCommands(setVerifyPct)
       setVerifyPct(100)
+      const received = await decompressBlob(receivedBlob)
 
       const receivedLines = received.split('\n')
       const sentLines = commands.split('\n')
