@@ -56,13 +56,14 @@ export async function getRasterPreviewDataUrl(state: RasterImageState): Promise<
   const t = state.transform
   const W = PREVIEW_SIZE
   const H = Math.round(W * (state.height / state.width))
+  const extraH = t[5] > 0 ? Math.round(t[5] * H) : 0
 
   const bitmap = await createImageBitmap(state.file)
-  const canvas = new OffscreenCanvas(W, H)
+  const canvas = new OffscreenCanvas(W, H + extraH)
   const ctx = canvas.getContext('2d')!
 
   ctx.fillStyle = 'white'
-  ctx.fillRect(0, 0, W, H)
+  ctx.fillRect(0, 0, W, H + extraH)
   ctx.drawImage(bitmap, t[4] * W, t[5] * H, t[0] * W, t[3] * H)
   bitmap.close()
 
@@ -78,15 +79,16 @@ export async function rasterizeImage(state: RasterImageState): Promise<ImageData
   const t = state.transform
   const W = state.naturalWidth
   const H = state.naturalHeight
+  const extraH = t[5] > 0 ? Math.round(t[5] * H) : 0
 
   const bitmap = await createImageBitmap(state.file)
-  const canvas = new OffscreenCanvas(W, H)
+  const canvas = new OffscreenCanvas(W, H + extraH)
   const ctx = canvas.getContext('2d')!
 
   ctx.fillStyle = 'white'
-  ctx.fillRect(0, 0, W, H)
+  ctx.fillRect(0, 0, W, H + extraH)
   ctx.drawImage(bitmap, t[4] * W, t[5] * H, t[0] * W, t[3] * H)
   bitmap.close()
 
-  return ctx.getImageData(0, 0, W, H)
+  return ctx.getImageData(0, 0, W, H + extraH)
 }

@@ -9,20 +9,23 @@ async function execute({ imageState, params, backendState, onStatus, worker }: E
 
   // Compute where the image content actually lives within the canvas (mm),
   // accounting for any pan/zoom/crop the user applied.
+  // heightMm is derived from imageData pixel height to account for canvas expansion
+  // when the image is shifted down (t[5] > 0).
   const t = imageState.transform
   const W = imageState.width
   const H = imageState.height
+  const heightMm = imageData.height * (H / imageState.naturalHeight)
   const imageLeft   = Math.max(0, t[4] * W)
   const imageTop    = Math.max(0, t[5] * H)
   const imageRight  = Math.min(W, (t[4] + t[0]) * W)
-  const imageBottom = Math.min(H, (t[5] + t[3]) * H)
+  const imageBottom = Math.min(heightMm, (t[5] + t[3]) * H)
 
   worker.postMessage(
     {
       type: 'renderRasterZigZag',
       imageData,
       widthMm: imageState.width,
-      heightMm: imageState.height,
+      heightMm,
       homeX: backendState.homeX ?? 0,
       homeY: backendState.homeY ?? 0,
       lineSpacing: Number(params['lineSpacing'] ?? 8),
