@@ -46,6 +46,7 @@ void setup()
     }
 
     display = new Display();
+    display->showStarting();
     Serial.println("Initialized display");
 
     // initialize movement right away or the motors can start creeping due to floating output
@@ -63,6 +64,9 @@ void setup()
     wifiManager.setTitle("Connect to WiFi");
     wifiManager.setMenu(menu);
     wifiManager.setWebServerCallback(serverCallback);
+    wifiManager.setAPCallback([](WiFiManager*) {
+        display->showHotspot();
+    });
     wifiManager.autoConnect("Mural");
 
     if (resetAfterConnect) {
@@ -133,12 +137,12 @@ void setup()
 
     Serial.println("Finished setting up the server");
 
-    phaseManager = new PhaseManager(movement, pen, runner, &server);
+    phaseManager = new PhaseManager(movement, pen, runner, &server, display);
 
     server.begin();
     Serial.println("Server started");
 
-    display->displayHomeScreen("http://" + WiFi.localIP().toString(), "or", "http://mural.local");
+    display->showConnected(WiFi.localIP().toString());
     
 }
 

@@ -8,13 +8,17 @@ import { DPad } from '../components/DPad'
 
 interface Props {
   state: BackendState
+  initialState?: SvgState
   onPreview: (svgState: SvgState) => void
+  onBack: () => void
 }
 
-export function SvgUploadScreen({ state, onPreview }: Props) {
-  const [svgState, setSvgState] = useState<SvgState | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [txText, setTxText] = useState('')
+export function SvgUploadScreen({ state, initialState, onPreview, onBack }: Props) {
+  const [svgState, setSvgState] = useState<SvgState | null>(initialState ?? null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    initialState ? getPreviewDataUrl(initialState).dataUrl : null,
+  )
+  const [txText, setTxText] = useState(initialState ? transformText(initialState.transform) : '')
   const fileRef = useRef<HTMLInputElement>(null)
 
   function applyTransform(doc: SvgState['originalDoc'], width: number, baseHeight: number, t: AffineTransform) {
@@ -62,7 +66,7 @@ export function SvgUploadScreen({ state, onPreview }: Props) {
         <img
           src={previewUrl}
           alt="SVG preview"
-          className="w-full rounded-lg border border-slate-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96"
+          className="w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96"
         />
       )}
 
@@ -77,7 +81,7 @@ export function SvgUploadScreen({ state, onPreview }: Props) {
         type="file"
         accept=".svg"
         onChange={handleFileChange}
-        className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 cursor-pointer"
+        className="w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600 cursor-pointer"
       />
 
       <Button
@@ -85,6 +89,9 @@ export function SvgUploadScreen({ state, onPreview }: Props) {
         disabled={!svgState}
       >
         Preview drawing
+      </Button>
+      <Button variant="secondary" onClick={onBack}>
+        Back
       </Button>
     </Card>
   )

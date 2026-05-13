@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
-import { setServo, setPenDistance } from '../api'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { setServo, setPenDistance, sendJog } from '../api'
 import type { BackendState } from '../types'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Slider } from '../components/Slider'
+import { Thumbstick } from '../components/Thumbstick'
 
 interface Props {
   onDone: (state: BackendState) => void
@@ -45,6 +46,10 @@ export function PenCalibrationScreen({ onDone }: Props) {
     }
   }
 
+  const handleJog = useCallback((vx: number, vy: number) => {
+    sendJog(vx, vy).catch(() => {})
+  }, [])
+
   async function handleConfirm() {
     setBusy(true)
     const state = await setPenDistance(toServoAngle(sliderVal))
@@ -79,6 +84,11 @@ export function PenCalibrationScreen({ onDone }: Props) {
         >
           +
         </Button>
+      </div>
+
+      <div className="flex flex-col items-center gap-2">
+        <Thumbstick onJog={handleJog} />
+        <p className="text-xs text-gray-500">Drag to move the robot</p>
       </div>
 
       <Button onClick={handleConfirm} disabled={busy}>

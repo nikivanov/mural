@@ -8,6 +8,7 @@ import {
 import type { RenderResult } from '../types'
 
 async function execute({ svgState, params, backendState, onStatus, worker }: ExecuteOpts): Promise<RenderResult> {
+  if (!svgState) throw new Error('vectorRasterVector requires svgState')
   // Step 1: Rasterize SVG → ImageData
   onStatus('Rasterizing')
   const raster = await rasterizeSvg(svgState)
@@ -54,6 +55,7 @@ export const vectorRasterVectorRenderer: RendererDefinition = {
   id: 'vectorRasterVector',
   label: 'Vector → Raster → Vector',
   description: 'Preserves stroke width',
+  inputType: 'svg',
   params: [
     { type: 'slider', id: 'infillDensity', label: 'Infill Density', min: 0, max: 4, step: 1, default: 0 },
     {

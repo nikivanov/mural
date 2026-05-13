@@ -14,12 +14,15 @@ export interface BackendState {
   homeY?: number
   moving?: boolean
   startedHoming?: boolean
+  freeKb?: number
 }
 
 /** Internal UI phase — extends backend phases with SVG pipeline sub-states */
 export type UiPhase =
   | 'loading'
   | Phase
+  | 'InputSelect'
+  | 'RasterSelect'
   | 'ChooseRenderer'
   | 'DrawingPreview'
   | 'UploadProgress'

@@ -1,25 +1,26 @@
-import { RENDERERS, type RendererDefinition } from '../renderers/index'
+import type { RendererDefinition } from '../renderers/index'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 
 interface Props {
+  renderers: RendererDefinition[]
   onChoose: (renderer: RendererDefinition) => void
   onBack: () => void
 }
 
-export function ChooseRendererScreen({ onChoose, onBack }: Props) {
+export function ChooseRendererScreen({ renderers, onChoose, onBack }: Props) {
   return (
     <Card title="Choose Render Type">
       <div className="space-y-3">
-        {RENDERERS.map((r) => (
+        {renderers.map((r) => (
           <button
             key={r.id}
             onClick={() => onChoose(r)}
-            className="w-full rounded-xl px-5 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500 transition-all text-left"
+            className="w-full rounded-xl px-5 py-6 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-cyan-500 transition-all text-center"
           >
-            <p className="font-medium text-white">{r.label}</p>
+            <p className="text-base font-semibold text-white">{r.label}</p>
             {r.description && (
-              <p className="text-xs text-slate-400 mt-0.5">{r.description}</p>
+              <p className="text-sm text-gray-400 mt-1">{r.description}</p>
             )}
           </button>
         ))}

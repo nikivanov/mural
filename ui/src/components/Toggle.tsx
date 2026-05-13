@@ -8,14 +8,14 @@ interface ToggleProps {
 export function Toggle({ id, label, checked, onChange }: ToggleProps) {
   return (
     <label className="flex items-center justify-between cursor-pointer select-none">
-      <span className="text-slate-200">{label}</span>
+      <span className="text-gray-200">{label}</span>
       <div
         id={id}
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${
-          checked ? 'bg-indigo-600' : 'bg-slate-600'
+          checked ? 'bg-cyan-600' : 'bg-gray-600'
         }`}
       >
         <span

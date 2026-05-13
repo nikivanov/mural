@@ -18,7 +18,8 @@
 		}
 	},
 	"forwardPorts": [
-		8008
+		8008,
+		5173
 	],
 	"mounts": [
 		"source=/dev/,target=/dev/,type=bind,consistency=consistent",

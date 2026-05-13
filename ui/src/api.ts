@@ -1,5 +1,21 @@
 import type { BackendState } from './types'
 
+// ---------------------------------------------------------------------------
+// Mock mode — activated automatically in dev when no backend is reachable
+// ---------------------------------------------------------------------------
+let _mockMode = false
+let _mockState: BackendState = { phase: 'SvgSelect', safeWidth: 1000, homeX: 500, homeY: 0 }
+let _mockUploadedBlob: Blob | null = null
+
+export function enableMockMode(state: BackendState) {
+  _mockMode = true
+  _mockState = state
+}
+
+export function isMockMode() { return _mockMode }
+
+// ---------------------------------------------------------------------------
+
 async function post<T = BackendState>(url: string, body: Record<string, unknown> = {}): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
@@ -47,12 +63,23 @@ export const estepsCalibration = (): Promise<void> =>
 export const postMotorCommand = (command: string): Promise<void> =>
   post<void>('/command', { command })
 
-export const run = (): Promise<void> => post<void>('/run')
+export const run = (speed: number): Promise<void> => post<void>('/run', { speed: String(speed) })
 
 export function uploadCommands(
   blob: Blob,
   onUploadProgress: (pct: number) => void,
 ): Promise<BackendState> {
+  if (_mockMode) {
+    _mockUploadedBlob = blob
+    return new Promise((resolve) => {
+      let pct = 0
+      const iv = setInterval(() => {
+        pct = Math.min(100, pct + 20)
+        onUploadProgress(pct)
+        if (pct === 100) { clearInterval(iv); resolve(_mockState) }
+      }, 80)
+    })
+  }
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const formData = new FormData()
@@ -85,6 +112,16 @@ export function uploadCommands(
 export function downloadCommands(
   onProgress: (pct: number) => void,
 ): Promise<Blob> {
+  if (_mockMode) {
+    return new Promise((resolve) => {
+      let pct = 0
+      const iv = setInterval(() => {
+        pct = Math.min(100, pct + 20)
+        onProgress(pct)
+        if (pct === 100) { clearInterval(iv); resolve(_mockUploadedBlob ?? new Blob()) }
+      }, 80)
+    })
+  }
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.responseType = 'blob'
@@ -110,6 +147,9 @@ export function downloadCommands(
 }
 
 // Motor helpers
+export const sendJog = (vx: number, vy: number): Promise<void> =>
+  post<void>('/command', { command: 'jog', vx: String(vx), vy: String(vy) })
+
 export const leftRetractDown = () => postMotorCommand('l-ret')
 export const leftExtendDown = () => postMotorCommand('l-ext')
 export const leftStop = () => postMotorCommand('l-0')

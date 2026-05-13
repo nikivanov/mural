@@ -34,7 +34,7 @@ const int HOME_Y_OFFSET_MM = 350;   // Y coordinate of mural home position in im
 
 
 // Margins used for transformations of the coordinate systems:
-constexpr double safeYFraction = 0.2;           // Top Margin: Image top to topDistance line.
+constexpr double safeYFraction = 0.25;           // Top Margin: Image top to topDistance line.
 constexpr double safeXFraction = 0.2;           // Left and right margin: from draw area boundaries to line from each pin straight down.
 
 // Variables used for debugging:

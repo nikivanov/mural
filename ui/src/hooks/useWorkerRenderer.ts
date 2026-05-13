@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type { BackendState, RenderResult } from '../types'
 import type { SvgState } from '../svgControl'
+import type { RasterImageState } from '../rasterControl'
 import type { RendererDefinition, RendererParamValue } from '../renderers/index'
 
 export interface WorkerRendererState {
@@ -20,7 +21,7 @@ export function useWorkerRenderer() {
   const render = useCallback(
     async (
       renderer: RendererDefinition,
-      svgState: SvgState,
+      inputState: { svgState?: SvgState; imageState?: RasterImageState },
       params: Record<string, RendererParamValue>,
       backendState: BackendState,
     ) => {
@@ -35,7 +36,8 @@ export function useWorkerRenderer() {
 
       try {
         const result = await renderer.execute({
-          svgState,
+          svgState: inputState.svgState,
+          imageState: inputState.imageState,
           params,
           backendState,
           onStatus: (status) => setState((s) => ({ ...s, status })),

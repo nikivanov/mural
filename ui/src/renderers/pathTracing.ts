@@ -7,6 +7,7 @@ import {
 } from './index'
 
 async function execute({ svgState, params, backendState, onStatus, worker }: ExecuteOpts) {
+  if (!svgState) throw new Error('pathTracing requires svgState')
   const svgString = getTransformedSvgString(svgState)
   onStatus('Preparing SVG')
   const svgJson = svgStringToJson(svgString)
@@ -33,6 +34,7 @@ export const pathTracingRenderer: RendererDefinition = {
   id: 'pathTracing',
   label: 'Path Tracing',
   description: 'Works well for most drawings',
+  inputType: 'svg',
   params: [
     { type: 'slider', id: 'infillDensity', label: 'Infill Density', min: 0, max: 4, step: 1, default: 0 },
     { type: 'checkbox', id: 'flattenPaths', label: 'Flatten paths', default: false },

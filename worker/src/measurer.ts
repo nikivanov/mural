@@ -1,37 +1,25 @@
-import { Command } from "./types";
-import { distanceBetweenPoints, getLastPoint } from "./utils";
+import { Command, CoordinateCommand } from "./types";
+import { distanceBetweenPoints } from "./utils";
 
 export function measureDistance(dedupedCommands: Command[]) {
     let totalDistance = 0;
     let drawDistance = 0;
     let penUp = true;
+    let lastPoint: CoordinateCommand | undefined;
 
-    for (let i = 1; i < dedupedCommands.length; i++) {
-        const command = dedupedCommands[i];
-
+    for (const command of dedupedCommands) {
         if (typeof command !== 'string') {
-            const lastCommand = getLastPoint(dedupedCommands.slice(0, i));
-            if (lastCommand) {
-                if (command.x !== lastCommand.x || command.y !== lastCommand.y) {
-                    const distance = distanceBetweenPoints(lastCommand, command);
-                    totalDistance += distance;
-
-                    if (!penUp) {
-                        drawDistance += distance;
-                    }
-                }
+            if (lastPoint && (command.x !== lastPoint.x || command.y !== lastPoint.y)) {
+                const distance = distanceBetweenPoints(lastPoint, command);
+                totalDistance += distance;
+                if (!penUp) drawDistance += distance;
             }
+            lastPoint = command;
         } else {
-            if (command === 'p0') {
-                penUp = true;
-            } else if (command === 'p1') {
-                penUp = false;
-            }
+            if (command === 'p0') penUp = true;
+            else if (command === 'p1') penUp = false;
         }
     }
 
-    return {
-        totalDistance,
-        drawDistance,
-    };
+    return { totalDistance, drawDistance };
 }
