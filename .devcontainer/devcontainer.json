@@ -34,5 +34,6 @@
     	},
 		"ghcr.io/devcontainers/features/git-lfs:1": "latest"
 	},
-	"postAttachCommand": "sudo service udev restart"
+	"postAttachCommand": "sudo service udev restart",
+	"postCreateCommand": "npm i --prefix worker && npm i --prefix ui"
 }
