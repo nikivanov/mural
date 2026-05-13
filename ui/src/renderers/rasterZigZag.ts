@@ -36,7 +36,7 @@ async function execute({ imageState, params, backendState, onStatus, worker }: E
       whitePoint: Number(params['whitePoint'] ?? 100) / 100,
       angle: Number(params['angle'] ?? 0),
       continuousPath: Boolean(params['continuousPath'] ?? false),
-      trimWhite: Boolean(params['trimWhite'] ?? false),
+      liftOnTransparent: Boolean(params['liftOnTransparent'] ?? false),
       minHalfPeriod: Number(params['minHalfPeriod'] ?? 0.5),
       maxHalfPeriod: Number(params['maxHalfPeriod'] ?? 2.0),
       useAmFm: Boolean(params['useAmFm'] ?? true),
@@ -70,8 +70,8 @@ export const rasterZigZagRenderer: RendererDefinition = {
     ]},
     { type: 'row', items: [
       { type: 'slider', id: 'angle', label: 'Angle (°)', min: -90, max: 90, step: 15, default: 45 },
-      { type: 'checkbox', id: 'trimWhite', label: 'Trim White Lines', default: false },
-      { type: 'checkbox', id: 'continuousPath', label: 'No Pen Lift', default: true },
+      { type: 'checkbox', id: 'liftOnTransparent', label: 'Lift On Transparent', default: false },
+      { type: 'checkbox', id: 'continuousPath', label: 'Link Scan Lines', default: true },
     ]},
     { type: 'row', items: [
       { type: 'checkbox', id: 'useAmFm', label: 'AM + FM', default: false },

@@ -6,7 +6,10 @@ import { renderCommandsToSvgJson } from './toSvgJson';
 
 function getPixelLuma(data: Uint8ClampedArray, imgW: number, px: number, py: number): number {
     const i = (py * imgW + px) * 4;
-    return 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    const alpha = data[i + 3] / 255;
+    // Composite against white so that transparent areas read as white (not black).
+    const luma = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    return luma * alpha + 255 * (1 - alpha);
 }
 
 function adjustBrightnessContrast(luma: number, brightness: number, contrast: number): number {
@@ -54,7 +57,7 @@ export function renderRasterZigZag(
     request: RequestTypes.RenderRasterZigZagRequest,
     updateStatus: updateStatusFn,
 ): { commands: string[]; svgJson: string; distance: number; drawDistance: number } {
-    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, angle, continuousPath, trimWhite, imageLeft, imageTop, imageRight, imageBottom, minHalfPeriod, maxHalfPeriod, useAmFm } = request;
+    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, angle, continuousPath, liftOnTransparent, imageLeft, imageTop, imageRight, imageBottom, minHalfPeriod, maxHalfPeriod, useAmFm } = request;
     const { data, width: imgW, height: imgH } = imageData;
 
     const angleRad = (angle * Math.PI) / 180;
@@ -74,6 +77,7 @@ export function renderRasterZigZag(
     const numLines = Math.ceil((dMax - dMin) / lineSpacing) + 1;
     const rawCommands: Command[] = [];
     let penDown = false;
+    let lastPenPos: { x: number; y: number } | null = null;
     let drawnLineCount = 0; // counts only lines that survive all skips
 
     rawCommands.push('p0');
@@ -95,9 +99,8 @@ export function renderRasterZigZag(
 
         const points: { x: number; y: number }[] = [];
         const rawPoints: { x: number; y: number }[] = []; // unclamped, used for boundary trimming
-        const darknesses: number[] = [];
 
-        const sampleDarkness = (x_mm: number, y_mm: number) => {
+        const samplePixel = (x_mm: number, y_mm: number): { darkness: number; alpha: number } => {
             const px = Math.min(Math.max(Math.round((x_mm / widthMm) * (imgW - 1)), 0), imgW - 1);
             const py = Math.min(Math.max(Math.round((y_mm / heightMm) * (imgH - 1)), 0), imgH - 1);
             const luma = getPixelLuma(data, imgW, px, py);
@@ -105,8 +108,10 @@ export function renderRasterZigZag(
             t_norm = whitePoint > blackPoint
                 ? (Math.max(blackPoint, Math.min(whitePoint, t_norm)) - blackPoint) / (whitePoint - blackPoint)
                 : 0.5;
-            return 1 - t_norm;
+            return { darkness: 1 - t_norm, alpha: data[(py * imgW + px) * 4 + 3] };
         };
+
+        const alphas: number[] = [];
 
         if (useAmFm) {
             // AM+FM sinusoidal squiggle: quarter-period steps (4 points/cycle),
@@ -116,8 +121,8 @@ export function renderRasterZigZag(
             while (t <= tMax) {
                 const x_mm = ox + t * lineDx;
                 const y_mm = oy + t * lineDy;
-                const darkness = sampleDarkness(x_mm, y_mm);
-                darknesses.push(darkness);
+                const { darkness, alpha } = samplePixel(x_mm, y_mm);
+                alphas.push(alpha);
                 const halfPeriod = Math.max(maxHalfPeriod - darkness * (maxHalfPeriod - minHalfPeriod), 0.01);
                 const disp = Math.sin(2 * Math.PI * phase) * darkness * amplitude;
                 const rawX = x_mm + disp * perpDx;
@@ -137,8 +142,8 @@ export function renderRasterZigZag(
                 const t = Math.min(tMin + j, tMax);
                 const x_mm = ox + t * lineDx;
                 const y_mm = oy + t * lineDy;
-                const darkness = sampleDarkness(x_mm, y_mm);
-                darknesses.push(darkness);
+                const { darkness, alpha } = samplePixel(x_mm, y_mm);
+                alphas.push(alpha);
                 const sign = j % 2 === 0 ? 1 : -1;
                 const rawX = x_mm + sign * darkness * amplitude * perpDx;
                 const rawY = y_mm + sign * darkness * amplitude * perpDy;
@@ -161,39 +166,55 @@ export function renderRasterZigZag(
         if (bFirst > bLast) continue; // entire line outside image — skip
 
         let activePoints = points.slice(bFirst, bLast + 1);
-
-        // Optionally also trim leading/trailing flat (white) samples within the image
-        if (trimWhite) {
-            const FLAT = 0.05;
-            const activeDarknesses = darknesses.slice(bFirst, bLast + 1);
-            let first = 0;
-            let last = activePoints.length - 1;
-            while (first <= last && activeDarknesses[first] < FLAT) first++;
-            while (last >= first && activeDarknesses[last] < FLAT) last--;
-            if (first > last) continue;
-            activePoints = activePoints.slice(first, last + 1);
-        }
+        let activeAlphas = alphas.slice(bFirst, bLast + 1);
 
         // Boustrophedon: reverse every other *drawn* line to minimise pen travel.
         // Must use drawnLineCount, not lineIdx — skipped lines still increment lineIdx
         // and would corrupt the even/odd pattern (especially visible at non-zero angles).
-        if (drawnLineCount % 2 !== 0) activePoints.reverse();
+        if (drawnLineCount % 2 !== 0) {
+            activePoints.reverse();
+            activeAlphas.reverse();
+        }
         drawnLineCount++;
 
-        if (continuousPath) {
-            if (!penDown) {
-                rawCommands.push({ x: activePoints[0].x, y: activePoints[0].y });
+        // Split the line into sub-segments wherever a fully transparent pixel is encountered.
+        const segments: { x: number; y: number }[][] = [];
+        if (liftOnTransparent) {
+            let current: { x: number; y: number }[] = [];
+            for (let i = 0; i < activePoints.length; i++) {
+                if (activeAlphas[i] === 0) {
+                    if (current.length > 0) { segments.push(current); current = []; }
+                } else {
+                    current.push(activePoints[i]);
+                }
+            }
+            if (current.length > 0) segments.push(current);
+        } else {
+            segments.push(activePoints);
+        }
+        if (segments.length === 0) continue;
+
+        for (let si = 0; si < segments.length; si++) {
+            const seg = segments[si];
+            const gapTooBig = lastPenPos !== null
+                && Math.hypot(seg[0].x - lastPenPos.x, seg[0].y - lastPenPos.y) > 2 * lineSpacing;
+
+            if (continuousPath && si === 0 && penDown && !gapTooBig) {
+                for (const pt of seg) rawCommands.push({ x: pt.x, y: pt.y });
+            } else if (continuousPath && si === 0 && !penDown) {
+                rawCommands.push({ x: seg[0].x, y: seg[0].y });
                 rawCommands.push('p1');
                 penDown = true;
-                for (let k = 1; k < activePoints.length; k++) rawCommands.push({ x: activePoints[k].x, y: activePoints[k].y });
+                for (let k = 1; k < seg.length; k++) rawCommands.push({ x: seg[k].x, y: seg[k].y });
             } else {
-                for (let k = 0; k < activePoints.length; k++) rawCommands.push({ x: activePoints[k].x, y: activePoints[k].y });
+                // Non-continuous, gap too large, or segment after a transparent break.
+                if (penDown) { rawCommands.push('p0'); penDown = false; }
+                rawCommands.push({ x: seg[0].x, y: seg[0].y });
+                rawCommands.push('p1');
+                penDown = true;
+                for (let k = 1; k < seg.length; k++) rawCommands.push({ x: seg[k].x, y: seg[k].y });
             }
-        } else {
-            rawCommands.push('p0');
-            rawCommands.push({ x: activePoints[0].x, y: activePoints[0].y });
-            rawCommands.push('p1');
-            for (let k = 1; k < activePoints.length; k++) rawCommands.push({ x: activePoints[k].x, y: activePoints[k].y });
+            lastPenPos = seg[seg.length - 1];
         }
     }
 

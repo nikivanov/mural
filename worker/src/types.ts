@@ -57,7 +57,7 @@ export namespace RequestTypes {
         whitePoint: number,
         angle: number,
         continuousPath: boolean,
-        trimWhite: boolean,
+        liftOnTransparent: boolean,
         /** Bounding box of the actual image content within the canvas (mm).
          *  Points outside this rectangle are always skipped, regardless of trimWhite. */
         imageLeft: number,

@@ -85,8 +85,8 @@ export async function rasterizeImage(state: RasterImageState): Promise<ImageData
   const canvas = new OffscreenCanvas(W, H + extraH)
   const ctx = canvas.getContext('2d')!
 
-  ctx.fillStyle = 'white'
-  ctx.fillRect(0, 0, W, H + extraH)
+  // No white fill — preserve source alpha so the worker can distinguish
+  // transparent pixels (pen lift) from opaque white pixels (flat line).
   ctx.drawImage(bitmap, t[4] * W, t[5] * H, t[0] * W, t[3] * H)
   bitmap.close()
 
