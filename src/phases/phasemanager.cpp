@@ -88,6 +88,8 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["moving"] = moving;
     root["topDistance"] = topDistance;
     root["safeWidth"] = safeWidth;
+    root["safeXFraction"] = safeXFraction;
+    root["safeYFraction"] = safeYFraction;
     root["homeX"] = homePosition.x;
     root["homeY"] = homePosition.y;
     root["freeKb"] = cachedFreeKb;

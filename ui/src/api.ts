@@ -4,7 +4,7 @@ import type { BackendState } from './types'
 // Mock mode — activated automatically in dev when no backend is reachable
 // ---------------------------------------------------------------------------
 let _mockMode = false
-let _mockState: BackendState = { phase: 'SvgSelect', safeWidth: 1000, homeX: 500, homeY: 0 }
+let _mockState: BackendState = { phase: 'SvgSelect', safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25 }
 let _mockUploadedBlob: Blob | null = null
 
 export function enableMockMode(state: BackendState) {

@@ -10,6 +10,8 @@ export interface BackendState {
   phase: Phase
   topDistance?: number
   safeWidth?: number
+  safeXFraction: number
+  safeYFraction: number
   homeX?: number
   homeY?: number
   moving?: boolean

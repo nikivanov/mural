@@ -10,7 +10,6 @@ import { Card } from '../components/Card'
 import { Slider } from '../components/Slider'
 import { Button } from '../components/Button'
 
-const SAFE_FRAC = 0.2 // safeXFraction = safeYFraction in firmware movement.h
 
 const hatchStyle: React.CSSProperties = {
   backgroundColor: '#111',
@@ -120,8 +119,8 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
 
   // Context-view geometry (only valid when topDistance is known)
   const topDist = (state.topDistance && state.topDistance > 0) ? state.topDistance : null
-  const ctxOffsetX = topDist ? topDist * SAFE_FRAC : 0
-  const ctxOffsetY = topDist ? topDist * SAFE_FRAC : 0
+  const ctxOffsetX = topDist ? topDist * state.safeXFraction : 0
+  const ctxOffsetY = topDist ? topDist * state.safeYFraction : 0
   const ctxTotalH = ctxOffsetY + previewHeight
   const ctxDrawingLeftPct  = topDist ? (ctxOffsetX / topDist) * 100 : 0
   const ctxDrawingTopPct   = topDist ? (ctxOffsetY / ctxTotalH) * 100 : 0

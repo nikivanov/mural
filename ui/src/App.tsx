@@ -48,7 +48,7 @@ export default function App() {
       })
       .catch(() => {
         if (import.meta.env.DEV) {
-          const mock = { phase: 'SvgSelect' as const, safeWidth: 1000, homeX: 500, homeY: 0 }
+          const mock = { phase: 'SvgSelect' as const, safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25 }
           enableMockMode(mock)
           setBackendState(mock)
           setUiPhase('InputSelect')
