@@ -74,8 +74,6 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
             step={1}
             value={leftMotor}
             onChange={(e) => handleLeftMotor(Number(e.target.value))}
-            onMouseUp={() => handleLeftMotor(0)}
-            onTouchEnd={() => handleLeftMotor(0)}
             className="w-full accent-cyan-500"
           />
         </div>
@@ -92,8 +90,6 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
             step={1}
             value={rightMotor}
             onChange={(e) => handleRightMotor(Number(e.target.value))}
-            onMouseUp={() => handleRightMotor(0)}
-            onTouchEnd={() => handleRightMotor(0)}
             className="w-full accent-cyan-500"
           />
         </div>
