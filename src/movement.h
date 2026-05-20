@@ -23,8 +23,8 @@ constexpr float homedStepOffsetMM = 40.0;   // Length of fully retracted belt hi
 const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 constexpr double mass_bot = 0.55;   // Mass of the mural bot [kg].
 constexpr double g_constant = 9.81; // Earth's gravitational acceleration constant [m/s^2]. Please adjust when running Mural on other planets!
-constexpr double d_t = 76.027;      // [mm] Distance of tangent points, where belts touch the pulleys.
-                                    // Calculated as (axis distance) 85.00 - (diameter) 12.69/sqrt(2).
+constexpr double d_t = 76.927;      // [mm] Distance of tangent points, where belts touch the pulleys.
+                                    // Calculated as (axis distance) 85.90 - (diameter) 12.69/sqrt(2).
 constexpr double d_p = 4.4866;      // [mm] distance from Q to center of pen. Calculated as diameter/(2 * sqrt(2)).
 constexpr double d_m = 10.0 + d_p;  // [mm] Distance from line connecting tangent points to center of mass of bot (projected onto wall plane).
                                     // The point where d_m and d_t meet shall be called Q.
