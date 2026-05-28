@@ -176,9 +176,14 @@ export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
 
 /** Converts an SVG string to Paper.js JSON using an isolated scope */
 export function svgStringToJson(svgString: string): string {
+  // Remove <image> elements since they cannot be rendered or even instantiated
+  const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml')
+  doc.querySelectorAll('image').forEach(el => el.remove())
+  const cleanSvg = new XMLSerializer().serializeToString(doc)
+
   const scope = new paper.PaperScope()
-  scope.setup({ width: 10000, height: 10000 } as paper.Size)
-  const svg = scope.project.importSVG(svgString, {
+  scope.setup({ width: 1000, height: 1000 } as paper.Size)
+  const svg = scope.project.importSVG(cleanSvg, {
     expandShapes: true,
     applyMatrix: true,
   })
