@@ -273,6 +273,8 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
               <span className="text-gray-200 font-medium">{(result.distance / 1000).toFixed(1)}m</span>
               {' '}/ Draw:{' '}
               <span className="text-gray-200 font-medium">{(result.drawDistance / 1000).toFixed(1)}m</span>
+              {' '}/ Lifts:{' '}
+              <span className="text-gray-200 font-medium">{result.penLiftCount}</span>
             </>
           : null}
       </p>

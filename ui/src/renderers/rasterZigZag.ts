@@ -44,6 +44,7 @@ async function execute({ imageState, params, backendState, onStatus, worker }: E
       imageTop,
       imageRight,
       imageBottom,
+      penLiftThresholdMm: Number(params['penLiftThresholdMm'] ?? 1),
     },
     [imageData.data.buffer],
   )
@@ -78,6 +79,7 @@ export const rasterZigZagRenderer: RendererDefinition = {
       { type: 'slider', id: 'minHalfPeriod', label: 'Min peak spacing (mm)', min: 0.1, max: 2.0, step: 0.1, default: 0.5, disabledWhen: { id: 'useAmFm', value: false } },
       { type: 'slider', id: 'maxHalfPeriod', label: 'Max peak spacing (mm)', min: 0.5, max: 8.0, step: 0.5, default: 2.0, disabledWhen: { id: 'useAmFm', value: false } },
     ]},
+    { type: 'slider', id: 'penLiftThresholdMm', label: 'Lift threshold (mm)', min: 0, max: 20, step: 1, default: 1 },
   ],
   execute,
 }

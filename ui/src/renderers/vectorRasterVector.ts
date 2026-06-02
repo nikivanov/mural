@@ -46,6 +46,7 @@ async function execute({ svgState, params, backendState, onStatus, worker }: Exe
     homeY: backendState.homeY ?? 0,
     infillDensity: getInfillDensity(params),
     flattenPaths: false,
+    penLiftThresholdMm: Number(params['penLiftThresholdMm'] ?? 1),
   })
 
   return resultPromise
@@ -67,6 +68,7 @@ export const vectorRasterVectorRenderer: RendererDefinition = {
       step: 11,
       default: 2,
     },
+    { type: 'slider', id: 'penLiftThresholdMm', label: 'Lift threshold (mm)', min: 0, max: 20, step: 1, default: 1 },
   ],
   execute,
 }

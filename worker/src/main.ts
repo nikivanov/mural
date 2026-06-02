@@ -47,6 +47,7 @@ async function render(request: RequestTypes.RenderSVGRequest) {
             svgJson: resultSvgJson,
             distance: renderResult.distance,
             drawDistance: renderResult.drawDistance,
+            penLiftCount: renderResult.penLiftCount,
         }
     });
 }
@@ -77,6 +78,7 @@ function renderZigZag(request: RequestTypes.RenderRasterZigZagRequest) {
             svgJson: result.svgJson,
             distance: result.distance,
             drawDistance: result.drawDistance,
+            penLiftCount: result.penLiftCount,
         }
     });
 }
@@ -98,7 +100,8 @@ function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRaster
         && typeof obj.imageLeft === 'number'
         && typeof obj.imageTop === 'number'
         && typeof obj.imageRight === 'number'
-        && typeof obj.imageBottom === 'number';
+        && typeof obj.imageBottom === 'number'
+        && typeof obj.penLiftThresholdMm === 'number';
 }
 
 function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
@@ -139,6 +142,10 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
     }
 
     if (!('flattenPaths' in obj) || typeof obj.flattenPaths !== 'boolean') {
+        return false;
+    }
+
+    if (!('penLiftThresholdMm' in obj) || typeof obj.penLiftThresholdMm !== 'number') {
         return false;
     }
 

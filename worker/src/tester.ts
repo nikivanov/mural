@@ -49,6 +49,7 @@ async function main_vectorRasterVector() {
                     infillDensity: 4,
                     type: 'renderSvg',
                     flattenPaths: false,
+                    penLiftThresholdMm: 1,
                 };
                 const result = await renderSvgJsonToCommands(request, updater);
                 const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
@@ -146,6 +147,7 @@ async function main_pathTracer() {
                     infillDensity: 0,
                     type: 'renderSvg',
                     flattenPaths: false,
+                    penLiftThresholdMm: 1,
                 };
                 const result = await renderSvgJsonToCommands(request, updater);
                 fs.writeFileSync(path.join(__dirname, '../svgs/out/commands.txt'), result.commands.join('\n'));

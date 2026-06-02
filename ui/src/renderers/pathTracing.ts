@@ -25,6 +25,7 @@ async function execute({ svgState, params, backendState, onStatus, worker }: Exe
     homeY: backendState.homeY ?? 0,
     infillDensity: getInfillDensity(params),
     flattenPaths: Boolean(params['flattenPaths']),
+    penLiftThresholdMm: Number(params['penLiftThresholdMm'] ?? 1),
   })
 
   return resultPromise
@@ -38,6 +39,7 @@ export const pathTracingRenderer: RendererDefinition = {
   params: [
     { type: 'slider', id: 'infillDensity', label: 'Infill Density', min: 0, max: 4, step: 1, default: 0 },
     { type: 'checkbox', id: 'flattenPaths', label: 'Flatten paths', default: false },
+    { type: 'slider', id: 'penLiftThresholdMm', label: 'Lift threshold (mm)', min: 0, max: 20, step: 1, default: 1 },
   ],
   execute,
 }

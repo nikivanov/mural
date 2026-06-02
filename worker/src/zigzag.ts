@@ -56,7 +56,7 @@ function clipLine(
 export function renderRasterZigZag(
     request: RequestTypes.RenderRasterZigZagRequest,
     updateStatus: updateStatusFn,
-): { commands: string[]; svgJson: string; distance: number; drawDistance: number } {
+): { commands: string[]; svgJson: string; distance: number; drawDistance: number; penLiftCount: number } {
     const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, angle, continuousPath, liftOnTransparent, imageLeft, imageTop, imageRight, imageBottom, minHalfPeriod, maxHalfPeriod, useAmFm } = request;
     const { data, width: imgW, height: imgH } = imageData;
 
@@ -222,7 +222,7 @@ export function renderRasterZigZag(
 
 
     const trimmed = trimCommands(rawCommands);
-    const deduped = dedupeCommands(trimmed);
+    const deduped = dedupeCommands(trimmed, request.penLiftThresholdMm);
 
     deduped.unshift(`h${heightMm}`);
     const distances = measureDistance(deduped);
@@ -240,5 +240,6 @@ export function renderRasterZigZag(
         svgJson,
         distance: totalDistance,
         drawDistance: +distances.drawDistance.toFixed(1),
+        penLiftCount: distances.penLiftCount,
     };
 }

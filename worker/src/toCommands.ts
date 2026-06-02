@@ -50,7 +50,7 @@ export async function renderSvgJsonToCommands(
 
     updateStatusFn("Simplifying commands");
 
-    const dedupedCommands = dedupeCommands(trimmedCommands);
+    const dedupedCommands = dedupeCommands(trimmedCommands, request.penLiftThresholdMm);
 
     updateStatusFn("Measuring total distance");
     dedupedCommands.unshift(`h${request.height}`);
@@ -63,6 +63,7 @@ export async function renderSvgJsonToCommands(
         commands: commandStrings,
         distance: totalDistance,
         drawDistance: +distances.drawDistance.toFixed(1),
+        penLiftCount: distances.penLiftCount,
     };
 }
 

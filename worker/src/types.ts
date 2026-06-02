@@ -34,6 +34,7 @@ export namespace RequestTypes {
         homeY: number,
         infillDensity: InfillDensity,
         flattenPaths: boolean,
+        penLiftThresholdMm: number,
     };
 
     export type VectorizeRequest = {
@@ -69,5 +70,6 @@ export namespace RequestTypes {
         /** FM: distance (mm) between consecutive zigzag vertices in the lightest areas. */
         maxHalfPeriod: number,
         useAmFm: boolean,
+        penLiftThresholdMm: number,
     }
 }
