@@ -10,13 +10,13 @@ interface Props {
   onDone: (state: BackendState) => void
 }
 
-// UI slider value (0–90) maps to servo angle as: servo = 90 - sliderValue
-// When slider = 0 → servo = 90 (full up / retracted)
-// When slider = 90 → servo = 0 (pen touching wall)
+// UI slider value (0–70) maps to servo angle as: servo = 70 - sliderValue
+// When slider = 0 → servo = 70 (full up / retracted)
+// When slider = 70 → servo = 0 (pen touching wall)
 const STEP = 5
 
 function toServoAngle(sliderVal: number) {
-  return Math.max(0, Math.min(90, 90 - sliderVal))
+  return Math.max(0, Math.min(70, 70 - sliderVal))
 }
 
 export function PenCalibrationScreen({ onDone }: Props) {
@@ -27,7 +27,7 @@ export function PenCalibrationScreen({ onDone }: Props) {
 
   // Park servo at max angle on mount
   useEffect(() => {
-    setServo(90)
+    setServo(70)
   }, [])
 
   function handleSliderChange(val: number) {
@@ -64,7 +64,7 @@ export function PenCalibrationScreen({ onDone }: Props) {
       <Slider
         label="Pen position"
         min={0}
-        max={90}
+        max={70}
         value={sliderVal}
         onChange={handleSliderChange}
       />
@@ -79,7 +79,7 @@ export function PenCalibrationScreen({ onDone }: Props) {
         </Button>
         <Button
           variant="secondary"
-          onClick={() => handleSliderChange(Math.min(90, sliderVal + STEP))}
+          onClick={() => handleSliderChange(Math.min(70, sliderVal + STEP))}
           className="text-xl"
         >
           +
