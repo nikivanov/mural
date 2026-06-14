@@ -324,7 +324,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         <Slider
           label="Pen width (mm) — preview only"
           min={0.5}
-          max={3}
+          max={2}
           step={0.1}
           value={penWidthMm}
           onChange={setPenWidthMm}

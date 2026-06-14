@@ -2,6 +2,13 @@ import paper from 'paper'
 
 export const RENDER_SCALE = 2
 
+function svgToBase64(svgStr: string): string {
+  const bytes = new TextEncoder().encode(svgStr)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
+}
+
 const TRANSFORM_GROUP_ID = 'muralTransformGroup'
 const NUDGE_FACTOR = 0.025
 const ZOOM_FACTOR = 0.05
@@ -141,7 +148,7 @@ export function getPreviewDataUrl(state: SvgState): { dataUrl: string; renderedH
   bg.setAttribute('fill', 'white')
   svgEl.insertBefore(bg, svgEl.firstChild)
   const svgStr = new XMLSerializer().serializeToString(doc)
-  const dataUrl = `data:image/svg+xml;base64,${btoa(svgStr)}`
+  const dataUrl = `data:image/svg+xml;base64,${svgToBase64(svgStr)}`
   return { dataUrl, renderedHeight }
 }
 
@@ -159,7 +166,7 @@ export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
   const { renderedHeight } = makeTransformedDoc(state)
   const scaledH = renderedHeight * RENDER_SCALE
 
-  const dataUrl = `data:image/svg+xml;base64,${btoa(svgStr)}`
+  const dataUrl = `data:image/svg+xml;base64,${svgToBase64(svgStr)}`
   const canvas = new OffscreenCanvas(scaledW, scaledH)
   const ctx = canvas.getContext('2d')!
 
@@ -176,9 +183,14 @@ export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
 
 /** Converts an SVG string to Paper.js JSON using an isolated scope */
 export function svgStringToJson(svgString: string): string {
+  // Remove <image> elements since they cannot be rendered or even instantiated
+  const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml')
+  doc.querySelectorAll('image').forEach(el => el.remove())
+  const cleanSvg = new XMLSerializer().serializeToString(doc)
+
   const scope = new paper.PaperScope()
-  scope.setup({ width: 10000, height: 10000 } as paper.Size)
-  const svg = scope.project.importSVG(svgString, {
+  scope.setup({ width: 1000, height: 1000 } as paper.Size)
+  const svg = scope.project.importSVG(cleanSvg, {
     expandShapes: true,
     applyMatrix: true,
   })

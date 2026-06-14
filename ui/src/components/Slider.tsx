@@ -31,7 +31,8 @@ export function Slider({ id, label, min, max, step = 1, value, onChange, classNa
           const raw = Number(e.target.value)
           const decimals = (step.toString().split('.')[1] ?? '').length
           const snapped = parseFloat((Math.round(raw / step) * step).toFixed(decimals))
-          onChange(Math.max(min, Math.min(max, snapped)))
+          const next = Math.max(min, Math.min(max, snapped))
+          if (next !== value) onChange(next)
         }}
         className="w-full h-2 sm:h-3 2xl:h-4 rounded-full cursor-pointer accent-cyan-500"
       />
