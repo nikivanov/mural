@@ -2,6 +2,13 @@ import paper from 'paper'
 
 export const RENDER_SCALE = 2
 
+function svgToBase64(svgStr: string): string {
+  const bytes = new TextEncoder().encode(svgStr)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
+}
+
 const TRANSFORM_GROUP_ID = 'muralTransformGroup'
 const NUDGE_FACTOR = 0.025
 const ZOOM_FACTOR = 0.05
@@ -141,7 +148,7 @@ export function getPreviewDataUrl(state: SvgState): { dataUrl: string; renderedH
   bg.setAttribute('fill', 'white')
   svgEl.insertBefore(bg, svgEl.firstChild)
   const svgStr = new XMLSerializer().serializeToString(doc)
-  const dataUrl = `data:image/svg+xml;base64,${btoa(svgStr)}`
+  const dataUrl = `data:image/svg+xml;base64,${svgToBase64(svgStr)}`
   return { dataUrl, renderedHeight }
 }
 
@@ -159,7 +166,7 @@ export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
   const { renderedHeight } = makeTransformedDoc(state)
   const scaledH = renderedHeight * RENDER_SCALE
 
-  const dataUrl = `data:image/svg+xml;base64,${btoa(svgStr)}`
+  const dataUrl = `data:image/svg+xml;base64,${svgToBase64(svgStr)}`
   const canvas = new OffscreenCanvas(scaledW, scaledH)
   const ctx = canvas.getContext('2d')!
 
