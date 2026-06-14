@@ -1,6 +1,7 @@
 import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgJsonToCommands } from "./toCommands";
 import { vectorizeImageData } from './vectorizer';
+import { renderRasterZigZag } from './zigzag';
 import { InfillDensities, RequestTypes } from "./types";
 
 const updateStatusFn = (status: string) => {
@@ -15,6 +16,8 @@ self.onmessage = async (e: MessageEvent<any>) => {
         vectorize(e.data);
     } else if (isRenderSvgRequest(e.data)) {
         await render(e.data);
+    } else if (isRenderRasterZigZagRequest(e.data)) {
+        renderZigZag(e.data);
     } else {
         throw new Error("Bad request");
     }
@@ -64,6 +67,39 @@ function isVectorizeRequest(obj: any): obj is RequestTypes.VectorizeRequest {
     return true;
 }
 
+
+function renderZigZag(request: RequestTypes.RenderRasterZigZagRequest) {
+    const result = renderRasterZigZag(request, updateStatusFn);
+    self.postMessage({
+        type: "renderer",
+        payload: {
+            commands: result.commands,
+            svgJson: result.svgJson,
+            distance: result.distance,
+            drawDistance: result.drawDistance,
+        }
+    });
+}
+
+function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRasterZigZagRequest {
+    return typeof obj === 'object' && obj !== null && obj.type === 'renderRasterZigZag'
+        && typeof obj.widthMm === 'number'
+        && typeof obj.heightMm === 'number'
+        && typeof obj.homeX === 'number'
+        && typeof obj.homeY === 'number'
+        && typeof obj.lineSpacing === 'number'
+        && typeof obj.amplitude === 'number'
+        && typeof obj.brightness === 'number'
+        && typeof obj.contrast === 'number'
+        && typeof obj.blackPoint === 'number'
+        && typeof obj.whitePoint === 'number'
+        && typeof obj.angle === 'number'
+        && typeof obj.continuousPath === 'boolean'
+        && typeof obj.imageLeft === 'number'
+        && typeof obj.imageTop === 'number'
+        && typeof obj.imageRight === 'number'
+        && typeof obj.imageBottom === 'number';
+}
 
 function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
     if (!('type' in obj) || obj.type !== 'renderSvg') {

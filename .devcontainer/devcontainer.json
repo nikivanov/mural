@@ -10,20 +10,20 @@
 	},
 	"customizations": {
 		"vscode": {
-			"settings": {
-				"terminal.integrated.defaultProfile.linux": "zsh"
-			},
 			"extensions": [
 				"ms-vscode.cpptools",
-				"platformio.platformio-ide"
+				"platformio.platformio-ide",
+				"Anthropic.claude-code"
 			]
 		}
 	},
 	"forwardPorts": [
-		8008
+		8008,
+		5173
 	],
 	"mounts": [
-		"source=/dev/,target=/dev/,type=bind,consistency=consistent"
+		"source=/dev/,target=/dev/,type=bind,consistency=consistent",
+		"source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
 	],
 	"runArgs": [
 		"--privileged"
@@ -34,5 +34,6 @@
     	},
 		"ghcr.io/devcontainers/features/git-lfs:1": "latest"
 	},
-	"postAttachCommand": "sudo service udev restart"
+	"postAttachCommand": "sudo service udev restart",
+	"postCreateCommand": "npm i --prefix worker && npm i --prefix ui"
 }
