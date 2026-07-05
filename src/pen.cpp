@@ -46,7 +46,7 @@ void doSlowMove(Pen* pen, int startDegree, int targetDegree, int speedDegPerSec)
 Pen::Pen()
 {
     servo = new Servo();
-    servo->attach(2);
+    servo->attach(21);
     servo->write(70);
     currentPosition = 70;
 }

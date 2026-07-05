@@ -6,6 +6,8 @@
 #define TEXT_HEIGHT 8
 
 Display::Display() {
+    auto i2c_valid = Wire.begin(15, 4);
+    Serial.printf("I2C changed OK to pins 15 and 4: %d\n", i2c_valid);
     display = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
     if (!display->begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println(F("SSD1306 allocation failed"));

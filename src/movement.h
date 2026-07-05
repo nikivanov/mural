@@ -4,6 +4,7 @@
 #include "AccelStepper.h"
 #include "Arduino.h" 
 #include "display.h"
+#include "TMCStepper.h"
 
 // Motor driver parameters.
 constexpr int printSpeedSteps = 500;
@@ -40,14 +41,19 @@ constexpr double safeXFraction = 0.2;           // Left and right margin: from d
 // Variables used for debugging:
 // constexpr int sleepDurationAfterMove_ms = 0;    // Delay after linear movement [ms], e.g. 50.
 
-// ESP setup:
-constexpr int LEFT_STEP_PIN = 13;
+// Left motor, plugged into MOT E
+constexpr int LEFT_STEP_PIN = 14;
 constexpr int LEFT_DIR_PIN = 12;
-constexpr int LEFT_ENABLE_PIN = 14;
+constexpr int LEFT_UART_ADDR = 0;
+constexpr int LEFT_DIAG_PIN = 36;
 
-constexpr int RIGHT_STEP_PIN = 27;
+// Right motor, plugged into MOT X
+constexpr int RIGHT_STEP_PIN = 25;
 constexpr int RIGHT_DIR_PIN = 26;
-constexpr int RIGHT_ENABLE_PIN = 25;
+constexpr int RIGHT_UART_ADDR = 1;
+constexpr int RIGHT_DIAG_PIN = 39;
+
+constexpr int MOTOR_ENABLE_PIN = 13;
 
 class Movement{
 private:
@@ -62,6 +68,9 @@ private:
     bool startedHoming;
     AccelStepper *leftMotor;
     AccelStepper *rightMotor;
+    HardwareSerial *tmcSerial;
+    TMC2209Stepper *leftDriver;
+    TMC2209Stepper *rightDriver;
     Display *display;
     void setOrigin();
 
