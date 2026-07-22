@@ -7,15 +7,15 @@
 #include "TMCStepper.h"
 
 // Motor driver parameters.
-constexpr int printSpeedSteps = 500;
-constexpr int  moveSpeedSteps = 1500;
+constexpr int printSpeedSteps = 650;
+constexpr int  moveSpeedSteps = 2000;
 constexpr long INFINITE_STEPS = 999999999;
 constexpr long acceleration = 999999999;  // Essentially infinite, causing instant stop / start
 constexpr int stepsPerRotation = 200 * 8; // 1/8 microstepping
 
 // Geometry parameters:
 // Effective diameter of the pulley+belts. Use EStep calibration to refine this value.
-constexpr double diameter = 12.69;          // [mm]
+constexpr double diameter = 10.19;          // [mm] //TODO: CALIBRATE!
 const double circumference = diameter * PI; // [mm]
 constexpr double midPulleyToWall = 41.0;    // (Height) distance from mid of pulley to wall [mm].
 constexpr float homedStepOffsetMM = 40.0;   // Length of fully retracted belt hitting stop screw.
