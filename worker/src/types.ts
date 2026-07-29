@@ -55,11 +55,37 @@ export namespace RequestTypes {
         contrast: number,
         blackPoint: number,
         whitePoint: number,
+        gamma: number,
         angle: number,
         continuousPath: boolean,
         liftOnTransparent: boolean,
         /** Bounding box of the actual image content within the canvas (mm).
          *  Points outside this rectangle are always skipped, regardless of trimWhite. */
+        imageLeft: number,
+        imageTop: number,
+        imageRight: number,
+        imageBottom: number,
+    }
+
+    export type RenderRasterSpaceFillRequest = {
+        type: 'renderRasterSpaceFill',
+        imageData: ImageData,
+        widthMm: number,
+        heightMm: number,
+        homeX: number,
+        homeY: number,
+        /** Curve pitch in the lightest drawn areas (mm) */
+        maxSpacing: number,
+        /** Curve pitch in the darkest areas (mm), floor ~ pen width */
+        minSpacing: number,
+        brightness: number,
+        contrast: number,
+        blackPoint: number,
+        whitePoint: number,
+        gamma: number,
+        /** Darkness (0..1) below which cells are left blank */
+        whiteCutoff: number,
+        liftOnTransparent: boolean,
         imageLeft: number,
         imageTop: number,
         imageRight: number,

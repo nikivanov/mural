@@ -3,23 +3,7 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { renderCommandsToSvgJson } from './toSvgJson';
-
-function getPixelLuma(data: Uint8ClampedArray, imgW: number, px: number, py: number): number {
-    const i = (py * imgW + px) * 4;
-    const alpha = data[i + 3] / 255;
-    // Composite against white so that transparent areas read as white (not black).
-    const luma = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-    return luma * alpha + 255 * (1 - alpha);
-}
-
-function adjustBrightnessContrast(luma: number, brightness: number, contrast: number): number {
-    luma += brightness * (128 / 100);
-    if (contrast !== 0) {
-        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-        luma = factor * (luma - 127.5) + 127.5;
-    }
-    return Math.max(0, Math.min(255, luma)) / 255; // 0=black, 1=white
-}
+import { createRasterField } from './rasterField';
 
 /**
  * Clip parametric line P(t) = (ox + t*dx, oy + t*dy) to the rectangle
@@ -57,8 +41,10 @@ export function renderRasterZigZag(
     request: RequestTypes.RenderRasterZigZagRequest,
     updateStatus: updateStatusFn,
 ): { commands: string[]; svgJson: string; distance: number; drawDistance: number } {
-    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, angle, continuousPath, liftOnTransparent, imageLeft, imageTop, imageRight, imageBottom } = request;
-    const { data, width: imgW, height: imgH } = imageData;
+    const { imageData, widthMm, heightMm, homeX, homeY, lineSpacing, amplitude, brightness, contrast, blackPoint, whitePoint, gamma, angle, continuousPath, liftOnTransparent, imageLeft, imageTop, imageRight, imageBottom } = request;
+
+    updateStatus('Sampling image');
+    const field = createRasterField(imageData, widthMm, heightMm, { brightness, contrast, blackPoint, whitePoint, gamma });
 
     const angleRad = (angle * Math.PI) / 180;
     // lineDir: direction along the scan line
@@ -100,16 +86,11 @@ export function renderRasterZigZag(
         const points: { x: number; y: number }[] = [];
         const rawPoints: { x: number; y: number }[] = []; // unclamped, used for boundary trimming
 
-        const samplePixel = (x_mm: number, y_mm: number): { darkness: number; alpha: number } => {
-            const px = Math.min(Math.max(Math.round((x_mm / widthMm) * (imgW - 1)), 0), imgW - 1);
-            const py = Math.min(Math.max(Math.round((y_mm / heightMm) * (imgH - 1)), 0), imgH - 1);
-            const luma = getPixelLuma(data, imgW, px, py);
-            let t_norm = adjustBrightnessContrast(luma, brightness, contrast);
-            t_norm = whitePoint > blackPoint
-                ? (Math.max(blackPoint, Math.min(whitePoint, t_norm)) - blackPoint) / (whitePoint - blackPoint)
-                : 0.5;
-            return { darkness: 1 - t_norm, alpha: data[(py * imgW + px) * 4 + 3] };
-        };
+        // 1 mm footprint = the sample step, so each sample averages the ink area it covers.
+        const samplePixel = (x_mm: number, y_mm: number): { darkness: number; alpha: number } => ({
+            darkness: field.darknessAt(x_mm, y_mm, 1),
+            alpha: field.alphaAt(x_mm, y_mm),
+        });
 
         const alphas: number[] = [];
 

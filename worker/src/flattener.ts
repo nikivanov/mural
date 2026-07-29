@@ -1,7 +1,5 @@
-import {loadPaper} from './paperLoader';
+import paper from 'paper';
 import { updateStatusFn } from './types';
-
-const paper = loadPaper();
 
 export function flattenPaths(paths: paper.PathItem[], updateStatusFn: updateStatusFn) {
     updateStatusFn("Sorting paths");

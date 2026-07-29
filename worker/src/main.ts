@@ -2,6 +2,7 @@ import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgJsonToCommands } from "./toCommands";
 import { vectorizeImageData } from './vectorizer';
 import { renderRasterZigZag } from './zigzag';
+import { renderRasterSpaceFill } from './spaceFill';
 import { renderTestPattern } from './testPattern';
 import { InfillDensities, RequestTypes } from "./types";
 
@@ -19,6 +20,8 @@ self.onmessage = async (e: MessageEvent<any>) => {
         await render(e.data);
     } else if (isRenderRasterZigZagRequest(e.data)) {
         renderZigZag(e.data);
+    } else if (isRenderRasterSpaceFillRequest(e.data)) {
+        renderSpaceFill(e.data);
     } else if (isRenderTestPatternRequest(e.data)) {
         renderTestPatternRequest(e.data);
     } else {
@@ -84,6 +87,19 @@ function renderZigZag(request: RequestTypes.RenderRasterZigZagRequest) {
     });
 }
 
+function renderSpaceFill(request: RequestTypes.RenderRasterSpaceFillRequest) {
+    const result = renderRasterSpaceFill(request, updateStatusFn);
+    self.postMessage({
+        type: "renderer",
+        payload: {
+            commands: result.commands,
+            svgJson: result.svgJson,
+            distance: result.distance,
+            drawDistance: result.drawDistance,
+        }
+    });
+}
+
 function renderTestPatternRequest(request: RequestTypes.RenderTestPatternRequest) {
     const result = renderTestPattern(request, updateStatusFn);
     self.postMessage({
@@ -119,8 +135,30 @@ function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRaster
         && typeof obj.contrast === 'number'
         && typeof obj.blackPoint === 'number'
         && typeof obj.whitePoint === 'number'
+        && typeof obj.gamma === 'number'
         && typeof obj.angle === 'number'
         && typeof obj.continuousPath === 'boolean'
+        && typeof obj.imageLeft === 'number'
+        && typeof obj.imageTop === 'number'
+        && typeof obj.imageRight === 'number'
+        && typeof obj.imageBottom === 'number';
+}
+
+function isRenderRasterSpaceFillRequest(obj: any): obj is RequestTypes.RenderRasterSpaceFillRequest {
+    return typeof obj === 'object' && obj !== null && obj.type === 'renderRasterSpaceFill'
+        && typeof obj.widthMm === 'number'
+        && typeof obj.heightMm === 'number'
+        && typeof obj.homeX === 'number'
+        && typeof obj.homeY === 'number'
+        && typeof obj.maxSpacing === 'number'
+        && typeof obj.minSpacing === 'number'
+        && typeof obj.brightness === 'number'
+        && typeof obj.contrast === 'number'
+        && typeof obj.blackPoint === 'number'
+        && typeof obj.whitePoint === 'number'
+        && typeof obj.gamma === 'number'
+        && typeof obj.whiteCutoff === 'number'
+        && typeof obj.liftOnTransparent === 'boolean'
         && typeof obj.imageLeft === 'number'
         && typeof obj.imageTop === 'number'
         && typeof obj.imageRight === 'number'

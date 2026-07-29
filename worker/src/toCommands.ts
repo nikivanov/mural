@@ -6,10 +6,8 @@ import { renderPathsToCommands } from './renderer';
 import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
-import { loadPaper } from './paperLoader';
+import paper from 'paper';
 import { flattenPaths } from './flattener';
-
-const paper = loadPaper();
 
 export async function renderSvgJsonToCommands(
     request: RequestTypes.RenderSVGRequest,

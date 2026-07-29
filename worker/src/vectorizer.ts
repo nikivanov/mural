@@ -1,8 +1,5 @@
-import { loadPaper } from './paperLoader';
+import paper from 'paper';
 import {Potrace} from './tracer';
-
-
-const paper = loadPaper();
 
 const WHITE_COLOR = new paper.Color("#FFFFFF");
 

@@ -37,7 +37,6 @@ const config = {
         extensions: ['.tsx', '.ts', '.jsx', '.js', '...'],
     },
     externals: {
-        'paper': 'paper',
         'jsdom': 'jsdom',
         'canvas': 'canvas',
     }

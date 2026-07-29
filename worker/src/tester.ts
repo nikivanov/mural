@@ -4,10 +4,8 @@ import { renderSvgJsonToCommands } from "./toCommands";
 import path from 'path';
 import * as fs from 'fs';
 import {loadImage, createCanvas} from 'canvas';
-import { loadPaper } from './paperLoader';
+import paper from 'paper';
 import { RequestTypes } from "./types";
-
-const paper = loadPaper();
 
 const width = 1000;
 const renderScaleFactor = 2;

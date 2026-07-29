@@ -1,6 +1,4 @@
-import { loadPaper } from './paperLoader';
-
-const paper = loadPaper();
+import paper from 'paper';
 
 export function generatePaths(svg: paper.Item): paper.PathItem[] {
     return generatePathsRecursive(svg);

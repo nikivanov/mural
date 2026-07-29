@@ -1,7 +1,5 @@
-import { loadPaper } from './paperLoader';
+import paper from 'paper';
 import { InfillDensity, InfilledPath } from './types';
-
-const paper = loadPaper();
 
 const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
     [1, 20],

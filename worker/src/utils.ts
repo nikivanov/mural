@@ -1,9 +1,7 @@
 import { Command, CoordinateCommand } from "./types";
 //import path from 'path';
 //import * as fs from 'fs';
-import {loadPaper} from './paperLoader';
-
-const paper = loadPaper();
+import paper from 'paper';
 
 export function getLastPoint(commandList: Command[]) : CoordinateCommand | undefined {
     for (let i = commandList.length - 1; i >= 0; i--) {

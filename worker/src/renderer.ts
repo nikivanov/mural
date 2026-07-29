@@ -1,7 +1,5 @@
 import { Command } from './types';
-import { loadPaper } from './paperLoader';
-
-const paper = loadPaper();
+import paper from 'paper';
 
 export function renderPathsToCommands(paths: paper.Path[], width: number, height: number): Command[] {
     const viewRectangle = new paper.Rectangle(0, 0, width, height);

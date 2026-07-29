@@ -50,6 +50,26 @@ export interface RendererDefinition {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Compute where the image content actually lives within the canvas (mm),
+ * accounting for any pan/zoom/crop the user applied.
+ * heightMm is derived from imageData pixel height to account for canvas expansion
+ * when the image is shifted down (t[5] > 0).
+ */
+export function computeImageBoundsMm(imageState: RasterImageState, imageData: ImageData) {
+  const t = imageState.transform
+  const W = imageState.width
+  const H = imageState.height
+  const heightMm = imageData.height * (H / imageState.naturalHeight)
+  return {
+    heightMm,
+    imageLeft: Math.max(0, t[4] * W),
+    imageTop: Math.max(0, t[5] * H),
+    imageRight: Math.min(W, (t[4] + t[0]) * W),
+    imageBottom: Math.min(heightMm, (t[5] + t[3]) * H),
+  }
+}
+
 export function getInfillDensity(params: Record<string, RendererParamValue>): InfillDensity {
   const v = Number(params['infillDensity'] ?? 0)
   if (v === 0 || v === 1 || v === 2 || v === 3 || v === 4) return v
@@ -78,12 +98,14 @@ export function listenForRendererResult(
 import { pathTracingRenderer } from './pathTracing'
 import { vectorRasterVectorRenderer } from './vectorRasterVector'
 import { rasterZigZagRenderer } from './rasterZigZag'
+import { rasterSpaceFillRenderer } from './rasterSpaceFill'
 import { testPatternRenderer } from './testPattern'
 
 export const RENDERERS: RendererDefinition[] = [
   pathTracingRenderer,
   vectorRasterVectorRenderer,
   rasterZigZagRenderer,
+  rasterSpaceFillRenderer,
   testPatternRenderer,
 ]
 

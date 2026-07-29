@@ -1,7 +1,5 @@
-import { loadPaper } from "./paperLoader";
+import paper from "paper";
 import { InfilledPath } from "./types";
-
-const paper = loadPaper();
 
 type GridEntry = {
     infilledPath: InfilledPath;
