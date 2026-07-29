@@ -5,6 +5,7 @@ import type { RasterImageState } from '../rasterControl'
 import { jsonToPreviewDataUrl } from '../svgControl'
 import { compressCommands } from '../commandCompression'
 import { type RendererDefinition, type RendererParamLeaf, type RendererParamValue } from '../renderers/index'
+import { TEST_PATTERN_HEIGHT_MM } from '../renderers/testPattern'
 import { useWorkerRenderer } from '../hooks/useWorkerRenderer'
 import { Card } from '../components/Card'
 import { Slider } from '../components/Slider'
@@ -114,8 +115,8 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   )
   const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null)
 
-  const previewWidth = svgState?.width ?? imageState!.width
-  const previewHeight = svgState?.baseHeight ?? imageState!.height
+  const previewWidth = svgState?.width ?? imageState?.width ?? state.safeWidth ?? 1000
+  const previewHeight = svgState?.baseHeight ?? imageState?.height ?? TEST_PATTERN_HEIGHT_MM
 
   // Context-view geometry (only valid when topDistance is known)
   const topDist = (state.topDistance && state.topDistance > 0) ? state.topDistance : null

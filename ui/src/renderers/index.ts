@@ -41,7 +41,7 @@ export interface RendererDefinition {
   id: string
   label: string
   description?: string
-  inputType: 'svg' | 'raster'
+  inputType: 'svg' | 'raster' | 'testPattern'
   params: RendererParam[]
   execute(opts: ExecuteOpts): Promise<RenderResult>
 }
@@ -78,13 +78,15 @@ export function listenForRendererResult(
 import { pathTracingRenderer } from './pathTracing'
 import { vectorRasterVectorRenderer } from './vectorRasterVector'
 import { rasterZigZagRenderer } from './rasterZigZag'
+import { testPatternRenderer } from './testPattern'
 
 export const RENDERERS: RendererDefinition[] = [
   pathTracingRenderer,
   vectorRasterVectorRenderer,
   rasterZigZagRenderer,
+  testPatternRenderer,
 ]
 
-export function getRenderersByInputType(type: 'svg' | 'raster'): RendererDefinition[] {
+export function getRenderersByInputType(type: 'svg' | 'raster' | 'testPattern'): RendererDefinition[] {
   return RENDERERS.filter((r) => r.inputType === type)
 }
