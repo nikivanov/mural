@@ -64,11 +64,6 @@ export namespace RequestTypes {
         imageTop: number,
         imageRight: number,
         imageBottom: number,
-        /** FM: distance (mm) between consecutive zigzag vertices in the darkest areas. */
-        minHalfPeriod: number,
-        /** FM: distance (mm) between consecutive zigzag vertices in the lightest areas. */
-        maxHalfPeriod: number,
-        useAmFm: boolean,
     }
 
     export type RenderTestPatternRequest = {
