@@ -13,6 +13,6 @@ class Display {
     void showHotspot();
     void showConnected(String ipAddress);
     void showCalibration(double x, double y);
-    void showDrawing(double x, double y, int progress);
+    void showDrawing(int progress);
 };
 #endif

@@ -55,7 +55,29 @@ void Display::showCalibration(double x, double y) {
     drawLines(lines, 1);
 }
 
-void Display::showDrawing(double x, double y, int progress) {
-    String lines[] = {"X:" + String((int)x) + " Y:" + String((int)y), String(progress) + "%"};
-    drawLines(lines, 2);
+void Display::showDrawing(int progress) {
+   display->clearDisplay();
+
+    const int x = 8;
+    const int y = 8;
+    const int width = SCREEN_WIDTH - 16;
+    const int height = SCREEN_HEIGHT - 16;
+
+    display->drawRect(x, y, width, height, WHITE);
+
+    int fillWidth = (width - 2) * progress / 100;
+    if (fillWidth > 0) {
+        display->fillRect(x + 1, y + 1, fillWidth, height - 2, WHITE);
+    }
+
+    String label = String(progress) + "%";
+    int16_t x1, y1;
+    uint16_t w, h;
+    display->getTextBounds(label, 0, 0, &x1, &y1, &w, &h);
+    display->setCursor(x + (width - w) / 2, y + (height - h) / 2 - y1);
+    display->setTextColor(INVERSE);
+    display->print(label);
+    display->setTextColor(WHITE);
+
+    display->display();
 }
