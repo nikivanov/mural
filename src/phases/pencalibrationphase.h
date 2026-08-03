@@ -12,9 +12,6 @@ class PenCalibrationPhase : public NotSupportedPhase {
     Pen* pen;
     Movement* movement;
     Display* display;
-    bool jogInitialized;
-    double jogX;
-    double jogY;
     public:
     PenCalibrationPhase(PhaseManager* manager, Pen* pen, Movement* movement, Display* display);
     void handleCommand(AsyncWebServerRequest *request);

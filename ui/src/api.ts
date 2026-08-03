@@ -147,8 +147,8 @@ export function downloadCommands(
 }
 
 // Motor helpers
-export const sendJog = (vx: number, vy: number): Promise<void> =>
-  post<void>('/command', { command: 'jog', vx: String(vx), vy: String(vy) })
+export const raiseBot = (): Promise<number> => post<number>('/command', { command: 'raise' })
+export const lowerBot = (): Promise<number> => post<number>('/command', { command: 'lower' })
 
 export const leftRetractDown = () => postMotorCommand('l-ret')
 export const leftExtendDown = () => postMotorCommand('l-ext')

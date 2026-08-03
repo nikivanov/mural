@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { setServo, setPenDistance, sendJog } from '../api'
+import { useState, useEffect, useRef } from 'react'
+import { setServo, setPenDistance, raiseBot, lowerBot } from '../api'
 import type { BackendState } from '../types'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Slider } from '../components/Slider'
-import { Thumbstick } from '../components/Thumbstick'
 
 interface Props {
   onDone: (state: BackendState) => void
@@ -22,6 +21,7 @@ function toServoAngle(sliderVal: number) {
 export function PenCalibrationScreen({ onDone }: Props) {
   const [sliderVal, setSliderVal] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [moving, setMoving] = useState(false)
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastCallRef = useRef(0)
 
@@ -46,9 +46,16 @@ export function PenCalibrationScreen({ onDone }: Props) {
     }
   }
 
-  const handleJog = useCallback((vx: number, vy: number) => {
-    sendJog(vx, vy).catch(() => {})
-  }, [])
+  async function handleMove(direction: 'raise' | 'lower') {
+    setMoving(true)
+    try {
+      const seconds = await (direction === 'raise' ? raiseBot() : lowerBot())
+      await delay(seconds * 1000)
+    } catch {
+      // ignore
+    }
+    setMoving(false)
+  }
 
   async function handleConfirm() {
     setBusy(true)
@@ -86,9 +93,21 @@ export function PenCalibrationScreen({ onDone }: Props) {
         </Button>
       </div>
 
-      <div className="flex flex-col items-center gap-2">
-        <Thumbstick onJog={handleJog} />
-        <p className="text-xs text-gray-500">Drag to move the robot</p>
+      <div className="flex gap-3">
+        <Button
+          variant="secondary"
+          onClick={() => handleMove('raise')}
+          disabled={moving}
+        >
+          Raise
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => handleMove('lower')}
+          disabled={moving}
+        >
+          Lower
+        </Button>
       </div>
 
       <Button onClick={handleConfirm} disabled={busy}>
@@ -96,4 +115,8 @@ export function PenCalibrationScreen({ onDone }: Props) {
       </Button>
     </Card>
   )
+}
+
+function delay(ms: number) {
+  return new Promise((r) => setTimeout(r, ms))
 }
