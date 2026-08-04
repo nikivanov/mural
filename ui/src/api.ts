@@ -111,20 +111,22 @@ export function uploadCommands(
 
 export function downloadCommands(
   onProgress: (pct: number) => void,
-): Promise<Blob> {
+): Promise<string> {
   if (_mockMode) {
     return new Promise((resolve) => {
       let pct = 0
-      const iv = setInterval(() => {
+      const iv = setInterval(async () => {
         pct = Math.min(100, pct + 20)
         onProgress(pct)
-        if (pct === 100) { clearInterval(iv); resolve(_mockUploadedBlob ?? new Blob()) }
+        if (pct === 100) {
+          clearInterval(iv)
+          resolve(_mockUploadedBlob ? await _mockUploadedBlob.text() : '')
+        }
       }, 80)
     })
   }
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.responseType = 'blob'
 
     xhr.addEventListener('progress', (evt) => {
       if (evt.lengthComputable) {
@@ -134,7 +136,7 @@ export function downloadCommands(
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr.response as Blob)
+        resolve(xhr.responseText)
       } else {
         reject(new Error(`Download failed: ${xhr.status}`))
       }

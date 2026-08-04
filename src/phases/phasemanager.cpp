@@ -1,5 +1,5 @@
 #include "phasemanager.h"
-#include "LittleFS.h"
+#include "SD.h"
 #include "retractbeltsphase.h"
 #include "settopdistancephase.h"
 #include "extendtohomephase.h"
@@ -25,9 +25,9 @@ PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWe
 }
 
 void PhaseManager::updateFreeKb() {
-    size_t free = LittleFS.totalBytes() - LittleFS.usedBytes();
-    if (LittleFS.exists("/commands")) {
-        File f = LittleFS.open("/commands");
+    size_t free = SD.totalBytes() - SD.usedBytes();
+    if (SD.exists("/commands")) {
+        File f = SD.open("/commands");
         if (f) { free += f.size(); f.close(); }
     }
     Serial.printf("Free bytes: %d\n", free);

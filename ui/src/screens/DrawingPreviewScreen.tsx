@@ -3,7 +3,6 @@ import type { BackendState } from '../types'
 import type { SvgState } from '../svgControl'
 import type { RasterImageState } from '../rasterControl'
 import { jsonToPreviewDataUrl } from '../svgControl'
-import { compressCommands } from '../commandCompression'
 import { type RendererDefinition, type RendererParamLeaf, type RendererParamValue } from '../renderers/index'
 import { TEST_PATTERN_HEIGHT_MM } from '../renderers/testPattern'
 import { useWorkerRenderer } from '../hooks/useWorkerRenderer'
@@ -26,7 +25,7 @@ interface Props {
   svgState?: SvgState
   imageState?: RasterImageState
   renderer: RendererDefinition
-  onAccept: (blob: Blob) => void
+  onAccept: (commands: string) => void
   onBack: () => void
 }
 
@@ -113,7 +112,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   const [penWidthMm, setPenWidthMm] = useState<number>(() =>
     parseFloat(localStorage.getItem('muralPenWidthMm') ?? '1.5'),
   )
-  const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null)
+  const [commandsText, setCommandsText] = useState<string | null>(null)
 
   const previewWidth = svgState?.width ?? imageState?.width ?? state.safeWidth ?? 1000
   const previewHeight = svgState?.baseHeight ?? imageState?.height ?? TEST_PATTERN_HEIGHT_MM
@@ -152,17 +151,14 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
     }
   }, [result, previewWidth, previewHeight, penWidthMm])
 
-  // Compress result once — blob is reused for upload, size drives the thermometer.
-  // Don't clear the stale blob while re-rendering; the Accept button is already
-  // disabled via isRendering, so showing the old size avoids a layout shift that
-  // scrolls the page on every slider drag.
+  // Recompute the plain command text once per render result — reused for
+  // upload, size drives the thermometer. Don't clear it while re-rendering
+  // (result is briefly null); the Accept button is already disabled via
+  // isRendering, so keeping the old text avoids a layout shift that scrolls
+  // the page on every slider drag.
   useEffect(() => {
     if (!result) return
-    let stale = false
-    compressCommands(result.commands.join('\n')).then((blob) => {
-      if (!stale) setCompressedBlob(blob)
-    })
-    return () => { stale = true }
+    setCommandsText(result.commands.join('\n'))
   }, [result])
 
   function triggerRender(p: Record<string, RendererParamValue>) {
@@ -176,8 +172,8 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   }
 
   function handleAccept() {
-    if (!compressedBlob) return
-    onAccept(compressedBlob)
+    if (!commandsText) return
+    onAccept(commandsText)
   }
 
   function handleReset() {
@@ -332,10 +328,10 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         />
       </div>
 
-      {compressedBlob !== null && (() => {
+      {commandsText !== null && (() => {
         const MAX_KB = state.freeKb ?? 2600
         const WARN_KB = Math.round(MAX_KB * 0.8)
-        const sizeKb = Math.round(compressedBlob.size / 1024)
+        const sizeKb = Math.round(new Blob([commandsText]).size / 1024)
         const pct = Math.min(100, (sizeKb / MAX_KB) * 100)
         const barColor = sizeKb >= MAX_KB ? 'bg-red-500' : sizeKb >= WARN_KB ? 'bg-yellow-400' : 'bg-emerald-500'
         const labelColor = sizeKb >= MAX_KB ? 'text-red-400' : sizeKb >= WARN_KB ? 'text-yellow-400' : 'text-gray-400'
@@ -355,7 +351,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         )
       })()}
 
-      <Button onClick={handleAccept} disabled={!compressedBlob || isRendering}>
+      <Button onClick={handleAccept} disabled={!commandsText || isRendering}>
         Accept
       </Button>
       <Button variant="secondary" onClick={onBack}>

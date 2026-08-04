@@ -55,6 +55,21 @@ void Display::showCalibration(double x, double y) {
     drawLines(lines, 1);
 }
 
+void Display::showNoCard() {
+    String lines[] = {"NO CARD"};
+    drawLines(lines, 1);
+}
+
+void Display::showFormatCountdown(int secondsLeft) {
+    String lines[] = {"Formatting SD in", String(secondsLeft) + "s..."};
+    drawLines(lines, 2);
+}
+
+void Display::showFormatting() {
+    String lines[] = {"Formatting", "SD Card..."};
+    drawLines(lines, 2);
+}
+
 void Display::showDrawing(int progress) {
    display->clearDisplay();
 

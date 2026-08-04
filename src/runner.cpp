@@ -4,7 +4,7 @@
 #include "tasks/pentask.h"
 #include "pen.h"
 #include "display.h"
-#include "LittleFS.h"
+#include "SD.h"
 using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
@@ -15,8 +15,9 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
 }
 
 void Runner::initTaskProvider() {
-    if (!openedFile.open(LittleFS.open("/commands"))) {
-        Serial.println("Failed to open commands file");
+    openedFile = SD.open("/commands");
+    if (!openedFile || !openedFile.available()) {
+        Serial.println("Failed to open file");
         throw std::invalid_argument("No File");
     }
 

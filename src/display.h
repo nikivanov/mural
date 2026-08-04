@@ -14,5 +14,8 @@ class Display {
     void showConnected(String ipAddress);
     void showCalibration(double x, double y);
     void showDrawing(int progress);
+    void showNoCard();
+    void showFormatCountdown(int secondsLeft);
+    void showFormatting();
 };
 #endif

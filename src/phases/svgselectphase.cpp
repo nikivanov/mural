@@ -1,5 +1,5 @@
 #include "svgselectphase.h"
-#include "LittleFS.h"
+#include "SD.h"
 
 SvgSelectPhase::SvgSelectPhase(PhaseManager* manager) {
     this->manager = manager;
@@ -9,20 +9,20 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
 {
     if (!index)
     {
-        if (LittleFS.exists("/commands")) {
-            LittleFS.remove("/commands");
+        if (SD.exists("/commands")) {
+            SD.remove("/commands");
         }
 
-        Serial.printf("%d bytes total, %d bytes free\n",  LittleFS.totalBytes(), LittleFS.totalBytes() - LittleFS.usedBytes());
+        Serial.printf("%d bytes total, %d bytes free\n",  SD.totalBytes(), SD.totalBytes() - SD.usedBytes());
         Serial.printf("Upload size: %d bytes\n", request->contentLength());
 
-        if (LittleFS.totalBytes() -  LittleFS.usedBytes() < request->contentLength()) {
-            Serial.println("Not enough space on LittleFS");
+        if (SD.totalBytes() -  SD.usedBytes() < request->contentLength()) {
+            Serial.println("Not enough space on SD card");
             request->send(400, "text/plain", "Not enough space for upload");
             return;
         }
-            
-        request->_tempFile = LittleFS.open("/commands", "w");
+
+        request->_tempFile = SD.open("/commands", "w");
         Serial.println("Upload started");
     }
 

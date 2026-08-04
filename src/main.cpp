@@ -4,12 +4,15 @@
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <LittleFS.h>
+#include <SPI.h>
+#include <SD.h>
 #include <Wire.h>
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
+#include "sdcard.h"
 #include "phases/phasemanager.h"
 
 AsyncWebServer server(80);
@@ -48,6 +51,9 @@ void setup()
     display = new Display();
     display->showStarting();
     Serial.println("Initialized display");
+
+    initSdCardOrHalt(display);
+    Serial.println("Initialized SD card");
 
     // initialize movement right away or the motors can start creeping due to floating output
     movement = new Movement(display);
@@ -129,7 +135,7 @@ void setup()
     server.on(
         "/downloadCommands", HTTP_GET,
         [](AsyncWebServerRequest *request) {
-            request->send(LittleFS, "/commands", "application/octet-stream");
+            request->send(SD, "/commands", "text/plain");
         }
     );
 
