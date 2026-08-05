@@ -15,7 +15,7 @@ constexpr int stepsPerRotation = 200 * 8; // 1/8 microstepping
 
 // Geometry parameters:
 // Effective diameter of the pulley+belts. Use EStep calibration to refine this value.
-constexpr double diameter = 10.19;          // [mm] //TODO: CALIBRATE!
+constexpr double diameter = 10.14926;          // [mm] //TODO: CALIBRATE!
 const double circumference = diameter * PI; // [mm]
 constexpr double midPulleyToWall = 41.0;    // (Height) distance from mid of pulley to wall [mm].
 constexpr float homedStepOffsetMM = 40.0;   // Length of fully retracted belt hitting stop screw.
