@@ -128,7 +128,7 @@ public:
     float beginLinearTravel(double x, double y, int speed);
 
     // Used for calibration of the esteps.
-    void extend1000mm(); 
+    void extendBelts(int distanceMm);
 
     Point getHomeCoordinates();
     void disableMotors();

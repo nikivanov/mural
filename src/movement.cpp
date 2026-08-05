@@ -432,8 +432,8 @@ Movement::Point Movement::getCoordinates() {
     return Movement::Point(X, Y);
 }
 
-void Movement::extend1000mm() {
-    const int steps = int((1000 / circumference) * stepsPerRotation);   
+void Movement::extendBelts(int distanceMm) {
+    const int steps = int((distanceMm / circumference) * stepsPerRotation);
 
     leftMotor->move(steps);
     leftMotor->setSpeed(moveSpeedSteps);

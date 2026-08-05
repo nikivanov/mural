@@ -57,8 +57,8 @@ export const setServo = (angle: number): Promise<void> =>
 export const setPenDistance = (angle: number): Promise<BackendState> =>
   post('/setPenDistance', { angle: String(angle) })
 
-export const estepsCalibration = (): Promise<void> =>
-  post<void>('/estepsCalibration')
+export const estepsCalibration = (distanceMm: number): Promise<void> =>
+  post<void>('/estepsCalibration', { distance: String(distanceMm) })
 
 export const postMotorCommand = (command: string): Promise<void> =>
   post<void>('/command', { command })

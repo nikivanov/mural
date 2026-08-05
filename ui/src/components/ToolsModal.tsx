@@ -9,6 +9,7 @@ import {
   setServo,
   estepsCalibration,
 } from '../api'
+import { showAlert } from './AlertModal'
 import { Button } from './Button'
 
 interface ToolsModalProps {
@@ -19,6 +20,7 @@ interface ToolsModalProps {
 export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
   const [leftMotor, setLeftMotor] = useState(0)
   const [rightMotor, setRightMotor] = useState(0)
+  const [extendDistance, setExtendDistance] = useState(1000)
 
   // Stop motors when modal closes
   useEffect(() => {
@@ -42,6 +44,14 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
     if (v <= -1) rightRetractDown()
     else if (v >= 1) rightExtendDown()
     else rightStop()
+  }
+
+  async function handleEstepsCalibration() {
+    if (isNaN(extendDistance) || extendDistance <= 0) {
+      await showAlert('Please enter a valid distance in millimeters')
+      return
+    }
+    estepsCalibration(extendDistance)
   }
 
   if (!isOpen) return null
@@ -98,8 +108,21 @@ export function ToolsModal({ isOpen, onClose }: ToolsModalProps) {
           Park Servo
         </Button>
 
-        <Button onClick={() => estepsCalibration()} variant="secondary">
-          Extend 1000mm (E-steps calibration)
+        <div className="space-y-1">
+          <label className="text-xs sm:text-sm text-gray-400 uppercase tracking-wide">
+            E-steps calibration distance (mm)
+          </label>
+          <input
+            type="number"
+            value={extendDistance}
+            onChange={(e) => setExtendDistance(Number(e.target.value))}
+            placeholder="e.g. 1000"
+            className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder:text-gray-600"
+          />
+        </div>
+
+        <Button onClick={handleEstepsCalibration} variant="secondary">
+          Extend
         </Button>
 
         <Button onClick={onClose} variant="primary">
