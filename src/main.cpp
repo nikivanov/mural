@@ -14,6 +14,7 @@
 #include <stdexcept>
 
 AsyncWebServer server(80);
+AsyncEventSource events("/events");
 
 Movement *movement;
 Runner *runner;
@@ -105,13 +106,21 @@ void setup()
     movement = new Movement(display);
     Serial.println("Initialized steppers");
 
+    // Also initialize the pen servo right away, before the blocking WiFi connect
+    // below (which can take 20+ seconds). Pen's constructor immediately writes the
+    // neutral/up angle, so a pen left resting on the wall from a prior session lifts
+    // as soon as power comes back, instead of sitting on the wall ink-down for the
+    // whole WiFi connect window.
+    pen = new Pen();
+    Serial.println("Initialized servo");
+
     bool resetAfterConnect = false;
     std::function<void()> serverCallback = [&] () {
         resetAfterConnect = true;
     };
-    
+
     WiFiManager wifiManager;
-    
+
     wifiManager.setConnectTimeout(20);
     wifiManager.setTitle("Connect to WiFi");
     wifiManager.setMenu(menu);
@@ -122,17 +131,15 @@ void setup()
         Serial.println("Connected to WiFi through captive portal, restarting...");
         ESP.restart();
     }
-    
+
     Serial.println("Connected to wifi");
 
     MDNS.begin("mural");
 
     Serial.println("Started mDNS for mural");
 
-    pen = new Pen();
-    Serial.println("Initialized servo");
-
     runner = new Runner(movement, pen, display);
+    runner->setEventSource(&events);
     Serial.println("Initialized runner");
 
     server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html").setCacheControl("no-cache");
@@ -179,6 +186,20 @@ void setup()
     server.on("/installTestPattern", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->installTestPattern(request); });
 
+    // Pause/resume primitive (see docs/multi-color.md section 4) - only accepted
+    // during the Drawing phase, 400s ("busy drawing" style) everywhere else via
+    // NotSupportedPhase's defaults.
+    server.on("/pauseDrawing", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->pauseDrawing(request); });
+
+    server.on("/resumeDrawing", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->resumeDrawing(request); });
+
+    // Confirms a resume-after-power-loss offer (see ResumeDrawingPhase); the
+    // existing generic /doneWithPhase is reused for discarding it.
+    server.on("/confirmResume", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->confirmResume(request); });
+
     server.on(
         "/uploadCommands", HTTP_POST,
         [](AsyncWebServerRequest *request) {
@@ -196,9 +217,22 @@ void setup()
 
     server.onNotFound(notFound);
 
+    // Live drawing status (see Runner::pushProgressEvent). Sends a fresh snapshot to
+    // each newly (re)connected client immediately, rather than waiting for the next
+    // throttled push, so a page reload/EventSource reconnect mid-drawing shows
+    // correct progress right away instead of a stale/empty bar for up to ~1s.
+    events.onConnect([](AsyncEventSourceClient *client) {
+        if (runner != NULL) {
+            char buffer[192];
+            runner->buildProgressJson(buffer, sizeof(buffer));
+            client->send(buffer, "progress", millis());
+        }
+    });
+    server.addHandler(&events);
+
     Serial.println("Finished setting up the server");
 
-    phaseManager = new PhaseManager(movement, pen, runner, &server);
+    phaseManager = new PhaseManager(movement, pen, runner);
 
     server.begin();
     Serial.println("Server started");

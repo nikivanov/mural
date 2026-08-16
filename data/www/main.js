@@ -462,8 +462,48 @@ function init() {
 
     $("#beginDrawing").click(function() {
         $(".muralSlide").hide();
-        $("#drawingBegan").show();
-        $.post("/run", {});
+        $("#loadingSlide").show();
+        $.post("/run", {}, function(state) {
+            adaptToState(state);
+        }).fail(function() {
+            showError("Failed to start drawing", () => $("#beginDrawing").trigger('click'));
+            if (currentState) {
+                adaptToState(currentState);
+            }
+        });
+    });
+
+    $("#pauseDrawingBtn").click(function() {
+        $(this).prop("disabled", true);
+        $.post("/pauseDrawing", {}).fail(function() {
+            $("#pauseDrawingBtn").prop("disabled", false);
+            showError("Failed to pause drawing", null);
+        });
+    });
+
+    $("#resumeDrawingBtn").click(function() {
+        $(this).prop("disabled", true);
+        $.post("/resumeDrawing", {}).fail(function() {
+            $("#resumeDrawingBtn").prop("disabled", false);
+            showError("Failed to resume drawing", null);
+        });
+    });
+
+    $("#resumeDrawingConfirmBtn").click(function() {
+        $(".muralSlide").hide();
+        $("#loadingSlide").show();
+        $.post("/confirmResume", {}, function(state) {
+            adaptToState(state);
+        }).fail(function() {
+            showError("Failed to resume drawing", () => $("#resumeDrawingConfirmBtn").trigger('click'));
+            if (currentState) {
+                adaptToState(currentState);
+            }
+        });
+    });
+
+    $("#discardResumeDrawingBtn").click(function() {
+        doneWithPhase();
     });
 
     $("#reset").click(function() {
@@ -675,6 +715,19 @@ function adaptToState(state) {
             break;
         case "ExtendToHome":
             $("#extendToHomeSlide").show();
+            if (state.resuming) {
+                $("#extendToHomeTitle").text("Extend to resume position");
+                $("#extendToHomeText").text(
+                    "The belts will extend back to where the interrupted drawing left off. Make sure the " +
+                    "belts are unobstructed and the motors do not skip, or the drawing accuracy may be affected"
+                );
+            } else {
+                $("#extendToHomeTitle").text("Extend belts");
+                $("#extendToHomeText").text(
+                    "The belts will extend to their home position. Make sure the belts are unobstructed and " +
+                    "the motors do not skip, or the drawing accuracy may be affected"
+                );
+            }
             if (state.moving || state.startedHoming) {
                 $("#extendToHome").prop( "disabled", true);
                 $("#extendingSpinner").css('visibility', 'visible');
@@ -695,8 +748,137 @@ function adaptToState(state) {
         case "BeginDrawing":
             $("#beginDrawingSlide").show();
             break;
+        case "Drawing":
+            $("#drawingLiveSlide").show();
+            startLiveDrawingView();
+            break;
+        case "ResumeDrawing":
+            $("#resumeDrawingSlide").show();
+            const percent = (typeof state.resumePercent === 'number' && state.resumePercent >= 0) ? state.resumePercent : null;
+            $("#resumeDrawingText").text(
+                percent !== null
+                    ? `A previous drawing was interrupted (likely by a power loss) at ${percent}% complete. ` +
+                      `The belts may have moved since then, so you'll need to re-retract them before resuming.`
+                    : "A previous drawing was interrupted, likely by a power loss. The belts may have moved " +
+                      "since then, so you'll need to re-retract them before resuming."
+            );
+            break;
         default:
             showError("Unrecognized phase: " + state.phase, null);
+    }
+}
+
+// Live drawing view (see DrawingPhase / Runner's /events SSE stream).
+let liveEventSource = null;
+let liveProgressHistory = [];
+
+function closeLiveEventSource() {
+    if (liveEventSource) {
+        liveEventSource.close();
+        liveEventSource = null;
+    }
+}
+
+function startLiveDrawingView() {
+    closeLiveEventSource();
+    liveProgressHistory = [];
+    $("#pauseDrawingBtn").show().prop('disabled', false).text('Pause');
+    $("#resumeDrawingBtn").hide().prop('disabled', false);
+    $("#liveConnectionNotice").hide();
+    $("#liveProgressBar").css('width', '0%').text('0%');
+    $("#liveStatsText").text('');
+
+    liveEventSource = new EventSource('/events');
+
+    liveEventSource.addEventListener('progress', function(e) {
+        $("#liveConnectionNotice").hide();
+        let data;
+        try {
+            data = JSON.parse(e.data);
+        } catch (err) {
+            return;
+        }
+        updateLiveProgress(data);
+    });
+
+    // EventSource retries automatically on its own (native reconnect) - we just
+    // surface an inline notice while it's down, per docs/multi-color.md's plan,
+    // reusing alerts.js's visual style rather than its dismissible/retry mechanics
+    // (which are built for one-off request failures, not a connection that's
+    // expected to come back on its own).
+    liveEventSource.onerror = function() {
+        $("#liveConnectionNotice").show();
+    };
+    liveEventSource.onopen = function() {
+        $("#liveConnectionNotice").hide();
+    };
+}
+
+function formatDuration(totalSeconds) {
+    const seconds = Math.max(0, Math.round(totalSeconds));
+    if (seconds < 60) {
+        return `${seconds}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    if (minutes < 60) {
+        return `${minutes}m ${remainingSeconds}s`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+}
+
+function updateLiveProgress(data) {
+    const percent = Math.max(0, Math.min(100, data.percent || 0));
+    $("#liveProgressBar").css('width', percent + '%').text(percent + '%');
+
+    const now = Date.now();
+    liveProgressHistory.push({t: now, lines: data.executedLines});
+    while (liveProgressHistory.length > 20) {
+        liveProgressHistory.shift();
+    }
+
+    let etaText = '';
+    if (data.state === 'running' && liveProgressHistory.length >= 2 && data.totalLines > data.executedLines) {
+        const first = liveProgressHistory[0];
+        const deltaLines = data.executedLines - first.lines;
+        const deltaSeconds = (now - first.t) / 1000;
+        if (deltaLines > 0 && deltaSeconds > 0) {
+            const linesPerSecond = deltaLines / deltaSeconds;
+            const remainingLines = data.totalLines - data.executedLines;
+            etaText = ` &mdash; ETA ~${formatDuration(remainingLines / linesPerSecond)}`;
+        }
+    }
+
+    const stateLabels = {
+        started: 'Starting',
+        running: 'Drawing',
+        paused: 'Paused',
+        stalled: 'Stalled (motor stall detected)',
+        finished: 'Finished',
+    };
+    const stateLabel = stateLabels[data.state] || data.state;
+
+    $("#liveStatsText").html(
+        `${stateLabel} &middot; line ${data.executedLines}/${data.totalLines} &middot; ` +
+        `(${Math.round(data.x)}, ${Math.round(data.y)})mm${etaText}`
+    );
+
+    if (data.state === 'paused' || data.state === 'stalled') {
+        $("#pauseDrawingBtn").hide();
+        $("#resumeDrawingBtn").show().prop('disabled', data.state === 'stalled');
+    } else {
+        $("#pauseDrawingBtn").show().prop('disabled', false);
+        $("#resumeDrawingBtn").hide();
+    }
+
+    if (data.state === 'finished') {
+        // The firmware restarts shortly after sending this event (see
+        // Runner::getNextTask()) - a full reload naturally picks the app back up
+        // once it's back on the network instead of leaving stale wizard state.
+        closeLiveEventSource();
+        setTimeout(() => location.reload(), 2000);
     }
 }
 
