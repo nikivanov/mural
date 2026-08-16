@@ -1,5 +1,5 @@
 #include "runner.h"
-#include "tasks/movementtask.h"
+#include <stdexcept>
 #include "tasks/interpolatingmovementtask.h"
 #include "tasks/pentask.h"
 #include "pen.h"
@@ -88,7 +88,6 @@ Task *Runner::getNextTask()
             sequenceIx = sequenceIx + 1;
             return finishingSequence[currentIx];
         } else {
-            // DistanceState::storeDistance(movement->getTopDistance());
             delay(200);
             ESP.restart();
             // unreachable
