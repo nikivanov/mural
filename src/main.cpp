@@ -11,6 +11,7 @@
 #include "pen.h"
 #include "display.h"
 #include "phases/phasemanager.h"
+#include <stdexcept>
 
 AsyncWebServer server(80);
 
@@ -32,6 +33,58 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
 
 void handleGetState(AsyncWebServerRequest *request) {
     phaseManager->respondWithState(request);
+}
+
+// Runtime-configurable physics constants (see KinematicModel.md / movement.h). These are
+// available regardless of the current phase, same as /getState.
+void handleGetPhysicsConstants(AsyncWebServerRequest *request) {
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.createObject();
+
+    root["massBot"] = movement->getMassBot();
+    root["beltElongationCoefficient"] = movement->getBeltElongationCoefficient();
+    root["effectiveDiameter"] = movement->getEffectiveDiameter();
+    root["homedStepOffsetMM"] = movement->getHomedStepOffsetMM();
+
+    root.printTo(*response);
+    request->send(response);
+}
+
+void handleSetPhysicsConstants(AsyncWebServerRequest *request) {
+    if (request->hasParam("massBot", true)) {
+        movement->setMassBot(request->getParam("massBot", true)->value().toDouble());
+    }
+    if (request->hasParam("beltElongationCoefficient", true)) {
+        movement->setBeltElongationCoefficient(request->getParam("beltElongationCoefficient", true)->value().toDouble());
+    }
+    if (request->hasParam("effectiveDiameter", true)) {
+        movement->setEffectiveDiameter(request->getParam("effectiveDiameter", true)->value().toDouble());
+    }
+    if (request->hasParam("homedStepOffsetMM", true)) {
+        movement->setHomedStepOffsetMM(request->getParam("homedStepOffsetMM", true)->value().toDouble());
+    }
+
+    handleGetPhysicsConstants(request);
+}
+
+// Hooks the existing E-steps calibration flow (see Movement::extend1000mm()): given the
+// distance the user actually measured after that extension, backs out and persists a
+// corrected effective pulley diameter.
+void handleEstepsCalibrationApply(AsyncWebServerRequest *request) {
+    if (!request->hasParam("measuredDistanceMM", true)) {
+        request->send(400, "text/plain", "Missing measuredDistanceMM");
+        return;
+    }
+
+    double measuredDistanceMM = request->getParam("measuredDistanceMM", true)->value().toDouble();
+    double correctedDiameter;
+    if (!movement->calibrateEffectiveDiameterFromMeasurement(measuredDistanceMM, correctedDiameter)) {
+        request->send(400, "text/plain", "No calibration extension has been performed yet");
+        return;
+    }
+
+    handleGetPhysicsConstants(request);
 }
 
 std::vector<const char *> menu = {"wifi", "sep"};
@@ -113,6 +166,18 @@ void setup()
 
     server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleGetState(request); });
+
+    server.on("/getPhysicsConstants", HTTP_GET, [](AsyncWebServerRequest *request)
+              { handleGetPhysicsConstants(request); });
+
+    server.on("/setPhysicsConstants", HTTP_POST, [](AsyncWebServerRequest *request)
+              { handleSetPhysicsConstants(request); });
+
+    server.on("/estepsCalibrationApply", HTTP_POST, [](AsyncWebServerRequest *request)
+              { handleEstepsCalibrationApply(request); });
+
+    server.on("/installTestPattern", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->installTestPattern(request); });
 
     server.on(
         "/uploadCommands", HTTP_POST,

@@ -435,7 +435,57 @@ function init() {
         $.post("/estepsCalibration", {});
     });
 
+    $("#estepsApplyTool").click(function() {
+        const measuredDistanceMM = parseFloat($("#estepsMeasuredInput").val());
+        if (isNaN(measuredDistanceMM)) {
+            alert("Enter the measured travel distance in mm first");
+            return;
+        }
+        $.post("/estepsCalibrationApply", {measuredDistanceMM}, function(data) {
+            populatePhysicsConstants(data);
+        }).fail(function() {
+            alert("E-steps calibration failed. Did you extend 1000mm first?");
+        });
+    });
+
+    function populatePhysicsConstants(data) {
+        $("#massBotInput").val(data.massBot);
+        $("#beltElongationInput").val(data.beltElongationCoefficient);
+        $("#diameterInput").val(data.effectiveDiameter);
+        $("#homedStepOffsetInput").val(data.homedStepOffsetMM);
+    }
+
+    $("#savePhysicsConstantsTool").click(function() {
+        $.post("/setPhysicsConstants", {
+            massBot: $("#massBotInput").val(),
+            beltElongationCoefficient: $("#beltElongationInput").val(),
+            effectiveDiameter: $("#diameterInput").val(),
+            homedStepOffsetMM: $("#homedStepOffsetInput").val(),
+        }, function(data) {
+            populatePhysicsConstants(data);
+        }).fail(function() {
+            alert("Failed to save physics constants");
+        });
+    });
+
+    $("#installTestPatternButton").click(function() {
+        $(".muralSlide").hide();
+        $("#loadingSlide").show();
+        $.post("/installTestPattern", {}, function(state) {
+            adaptToState(state);
+        }).fail(function() {
+            alert("Failed to install calibration test pattern");
+            location.reload();
+        });
+    });
+
     const toolsModal = $("#toolsModal")[0];
+
+    toolsModal.addEventListener('show.bs.modal', function (event) {
+        $.get("/getPhysicsConstants", function(data) {
+            populatePhysicsConstants(data);
+        });
+    });
 
     toolsModal.addEventListener('hidden.bs.modal', function (event) {
         client.rightRetractUp();

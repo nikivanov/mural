@@ -145,6 +145,8 @@
         </div>
         <input class="form-control form-control-lg mb-2" id="uploadSvg" type="file" accept=".svg">
         <button class="w-100 btn btn-lg btn-primary mb-6" id="preview" disabled>Preview drawing</button>
+        <button class="w-100 btn btn-lg btn-outline-secondary mb-5" id="installTestPatternButton">Draw calibration test pattern</button>
+        <div style="position:fixed; top: 10px; right: 10px;" data-bs-toggle="modal" data-bs-target="#toolsModal"><i class="bi-gear fs-2"></i></div>
       </div>
       <div id="chooseRendererSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Choose render type</h3>
@@ -201,7 +203,23 @@
           <label for="rightMotorTool" class="form-label">Right Motor</label>
           <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="rightMotorTool" value="0">
           <button class="w-100 btn btn-lg btn-primary mb-5" id="parkServoTool">Park Servo</button>
-          <button class="w-100 btn btn-lg btn-primary mb-5" id="estepsTool">Extend 1000mm (E-steps calibration)</button>
+          <button class="w-100 btn btn-lg btn-primary mb-2" id="estepsTool">Extend 1000mm (E-steps calibration)</button>
+          <label for="estepsMeasuredInput" class="form-label">Measured travel (mm)</label>
+          <div class="input-group mb-5">
+            <input type="number" class="form-control" id="estepsMeasuredInput" placeholder="e.g. 998.4">
+            <button class="btn btn-primary" id="estepsApplyTool">Apply</button>
+          </div>
+          <hr>
+          <h6 class="mb-3">Physics constants</h6>
+          <label for="massBotInput" class="form-label">Bot mass (kg)</label>
+          <input type="number" step="any" class="form-control mb-3" id="massBotInput">
+          <label for="beltElongationInput" class="form-label">Belt elongation coefficient (m/N)</label>
+          <input type="number" step="any" class="form-control mb-3" id="beltElongationInput">
+          <label for="diameterInput" class="form-label">Effective pulley diameter (mm)</label>
+          <input type="number" step="any" class="form-control mb-3" id="diameterInput">
+          <label for="homedStepOffsetInput" class="form-label">Homed step offset (mm)</label>
+          <input type="number" step="any" class="form-control mb-3" id="homedStepOffsetInput">
+          <button class="w-100 btn btn-lg btn-primary mb-5" id="savePhysicsConstantsTool">Save physics constants</button>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>

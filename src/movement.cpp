@@ -4,7 +4,9 @@
 Movement::Movement(Display *display)
 {
     this->display = display;
-   
+
+    loadPhysicsConstants();
+
     leftMotor = new AccelStepper(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
     leftMotor->setEnablePin(LEFT_ENABLE_PIN);
     leftMotor->setMaxSpeed(moveSpeedSteps);
@@ -16,12 +18,105 @@ Movement::Movement(Display *display)
     rightMotor->setMaxSpeed(moveSpeedSteps);
     rightMotor->disableOutputs();
 
+
     topDistance = -1;
    
     moving = false;
     homed = false;
     startedHoming = false;
 };
+
+// Loads the runtime-configurable physics constants from NVS (via the Preferences
+// library), falling back to the compile-time defaults on first boot / if unset.
+void Movement::loadPhysicsConstants() {
+    preferences.begin("mural-phys", false);
+    diameter = preferences.getDouble("diameter", default_diameter);
+    homedStepOffsetMM = preferences.getDouble("homeOffsetMM", default_homedStepOffsetMM);
+    mass_bot = preferences.getDouble("massBot", default_mass_bot);
+    belt_elongation_coefficient = preferences.getDouble("beltElong", default_belt_elongation_coefficient);
+    preferences.end();
+
+    recomputeDerivedPhysicsConstants();
+}
+
+void Movement::recomputeDerivedPhysicsConstants() {
+    circumference = diameter * PI;
+    homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
+}
+
+Kinematics::PhysicsParams Movement::getPhysicsParams() const {
+    Kinematics::PhysicsParams params;
+    params.d_t = d_t;
+    params.d_p = d_p;
+    params.d_m = d_m;
+    params.mass_bot = mass_bot;
+    params.g_constant = g_constant;
+    params.belt_elongation_coefficient = belt_elongation_coefficient;
+    params.midPulleyToWall = midPulleyToWall;
+    return params;
+}
+
+double Movement::getMassBot() {
+    return mass_bot;
+}
+
+double Movement::getBeltElongationCoefficient() {
+    return belt_elongation_coefficient;
+}
+
+double Movement::getEffectiveDiameter() {
+    return diameter;
+}
+
+double Movement::getHomedStepOffsetMM() {
+    return homedStepOffsetMM;
+}
+
+void Movement::setMassBot(double value) {
+    mass_bot = value;
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("massBot", value);
+    preferences.end();
+}
+
+void Movement::setBeltElongationCoefficient(double value) {
+    belt_elongation_coefficient = value;
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("beltElong", value);
+    preferences.end();
+}
+
+void Movement::setEffectiveDiameter(double value) {
+    diameter = value;
+    recomputeDerivedPhysicsConstants();
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("diameter", value);
+    preferences.end();
+}
+
+void Movement::setHomedStepOffsetMM(double value) {
+    homedStepOffsetMM = value;
+    recomputeDerivedPhysicsConstants();
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("homeOffsetMM", value);
+    preferences.end();
+}
+
+// Hooks into the existing E-steps calibration flow (see extend1000mm()): given how far
+// the bot actually traveled (measured by the user) for the commanded step count, backs
+// out and persists a corrected effective pulley diameter.
+bool Movement::calibrateEffectiveDiameterFromMeasurement(double measuredDistanceMM, double& correctedDiameter) {
+    if (lastEstepsCalibrationSteps <= 0 || measuredDistanceMM <= 0) {
+        Serial.println("No calibration extension has been performed yet");
+        return false;
+    }
+
+    const double correctedCircumference = (measuredDistanceMM * stepsPerRotation) / lastEstepsCalibrationSteps;
+    correctedDiameter = correctedCircumference / PI;
+    setEffectiveDiameter(correctedDiameter);
+    return true;
+}
+
 
 void Movement::setTopDistance(const int distance) {
     Serial.printf("Top distance set to %d\n", distance);
@@ -133,112 +228,6 @@ void Movement::runSteppers()
     }
 };
 
-inline void Movement::getLeftTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const {
-    // Input frameX and frameY are the coordinates of the pen center.
-    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from point Q. [mm]
-    const double P_LX = s_L * cos(gamma) - d_p * sin(gamma); // [mm] distance from pen center in x
-    const double P_LY = s_L * sin(gamma) + d_p * cos(gamma); // [mm] .. and y
-    x_PL = frameX - P_LX;    // [mm] Left pulley tangent point in frame coordinate system.
-    y_PL = frameY - P_LY;    // [mm]
-}
-
-inline void Movement::getRightTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const {
-    // Coordinates of right pulley tangent point:
-    const double s_R = d_t / 2.0;
-    const double P_RX = s_R * cos(gamma) + d_p * sin(gamma); // [mm]
-    const double P_RY = s_R * sin(gamma) - d_p * cos(gamma); // [mm]
-    x_PR = frameX + P_RX;    // [mm] Right pulley tangent point in frame coordinate system.
-    y_PR = frameY + P_RY;    // [mm]
-}
-
-// Compute angles of the belts and the forces on them.
-// Input: - Mural coordinates X and Y in frame coordinate system [mm].
-//        - Mural inclination gamma [rad].
-// Output: - belt angles phi_L, phi_R [rad], measured against the line connecting the pins.
-void Movement::getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R) const {
-    double x_PL;
-    double y_PL;
-    getLeftTangentPoint(frameX, frameY, gamma, x_PL, y_PL);
-    phi_L = atan2(y_PL, x_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
-
-    double x_PR;
-    double y_PR;
-    getRightTangentPoint(frameX, frameY, gamma, x_PR, y_PR);
-    phi_R = atan2(y_PR, topDistance - x_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
-}
-
-void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const {
-    // Computing the Forces. 
-    // Force vectors are parallel to their belts, so the direction is given by phi_R and phi_L.
-    // We assume that the bot is in a stable state (no torque), which allows us for having
-    // the force vectors of left (L) and right (R) pulley meet in a single point. 
-    // In this stable state the pulley forces cancel out the gravity force in x and y.
-    // Note this is an approximation which is refined due to iteratively updating the values (torque, angles, forces). 
-    const double F_G = mass_bot * g_constant;       // [N] Gravity force is pulling bot down. No x component.
-    F_R = F_G * cos(phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
-    F_L = F_G * cos(phi_R) / sin(phi_L + phi_R);    // [N]
-}
-
-double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_init) const {
-    // Solve for torque equilibrium: As the belts are pulling on two distinct point, there's a torque rotating the
-    // bot around a reference point. Here, we assume this reference point corresponds to Q, where tangent line d_t
-    // and mass line d_m meet.
-    // In the static case the residual torque is zero, which occurs at a certain inclination gamma. The goal here is
-    // to find this gamma.
-    const double s_L = d_t / 2.0;   // [mm] Lenght of the effective arm for the left pulley.
-    const double s_R = d_t / 2.0;   // [mm]
-
-    double gamma_best = 99999999;
-    double T_delta_best = 99999999;
-
-    // Solver parameters.
-    constexpr double gamma_step = 0.20 * PI / 180.0;   // [rad] solver step width.
-    constexpr double gamma_min = -90.0 * PI / 180.0;   // [rad] Solver search range: max and min values.
-    constexpr double gamma_max = 90.0 * PI / 180.0;    // [rad]
-    constexpr double gamma_search_window = 2.0 * PI / 180.0;    // [rad] Solver will focus on gamma_init +- gamma_search_window.
-    
-    // Simple solver: finding the minimum T_delta by searching over the range specified above:
-    for (double gamma = gamma_init - gamma_search_window;
-            gamma > gamma_min &&
-            gamma < gamma_max &&
-            gamma <= gamma_init + gamma_search_window;
-            gamma += gamma_step){
-        const double alpha = phi_L - gamma;   // [rad] Angle between left belt and line connecting tangent points (of pulleys and belts).
-        const double beta = phi_R + gamma;    // [rad] Angle between right belt and line connecting tangent points.
-    
-        double T_L = /* s_L * F_L = */ s_L * sin(alpha) * F_L;  // [N * mm]
-        double T_R = s_R * sin(beta) * F_R;                     // [N * mm]
-
-        // The center of mass sits under the center of line connecting the tangent points.
-        double s_m = d_m * tan(gamma);                          // [mm]
-        const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
-        double F_m = F_G * cos(gamma);
-        double T_m = s_m * F_m;                                 // [N * mm]
-
-        // Left pulley tries to turn the bot clockwise. Right pulley ccw. Gravity ccw if gamma is positive (i.e. the bot inclined to the right).
-        double T_delta = T_R - T_L + T_m;                       // [N * mm]
-        // Solve gamma for T_delta = 0.0 .
-        if (abs(T_delta) < abs(T_delta_best)){
-            T_delta_best = T_delta;
-            gamma_best = gamma;
-        } else {
-            // There is only one zero crossing: terminate early if T_delta gets worse than best one so far.
-            return gamma_best;
-        }
-    }
-
-    return gamma_best;
-}
-
-inline double Movement::getDilationCorrectedBeltLength(double belt_length, double F_belt) const {
-    // Apply belt length correction: The belts stretch because of Mural's mass. 
-    // This function returns a (shorter) length of the belt, such that with gravity the belt
-    // exactly as long as required.
-    const double elongation_factor = 1 + belt_elongation_coefficient * F_belt;
-    const double belth_length_corrected = belt_length / elongation_factor;
-    return belth_length_corrected;
-}
-
 // Calculate the lengths of the left and right belt in mm based on the input coordinates.
 // input: x [mm], y [mm] ; both in image coordinate system
 // output: Struct containing the target stepper position for each motor to move.
@@ -277,47 +266,21 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     const double frameX = x + minSafeXOffset;
     const double frameY = y + minSafeY;
 
-    double gamma = gamma_last_position;              // Inclination of the bot [rad]. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
-    double phi_L = 0.0;
-    double phi_R = 0.0;
-    double F_L = 0.0;                               // [N] magnitude of the force vector (left belt)
-    double F_R = 0.0;                               // [N] magnitude of the force vector (right belt)
     constexpr int solver_max_iterations = 20;       // Maximum number of outer loop iterations of the solver.
-    constexpr double gamma_delta_termination = 0.25 / 180.0 * PI; // [rad] Outer loop of solver will stop if last update is smaller than this. 
-                                                                  // Value should be greater than gamma step size in solveTorqueEquilibrium.
+    constexpr double gamma_delta_termination = 0.01 / 180.0 * PI; // [rad] Outer loop of solver will stop if last update is smaller than this.
+                                                                  // The inner solver (Kinematics::solveTorqueEquilibrium) now converges to
+                                                                  // ~0.01 degree via root-finding rather than a coarse grid search, so this
+                                                                  // outer threshold can be tightened accordingly without costing extra
+                                                                  // iterations in practice.
 
-    // Solve for belt angles phi and bot inclination gamma by running a few rounds.
-    int debug_step_count = 0;
-    for (int i = 0; i < solver_max_iterations; i++){
-        getBeltAngles(frameX, frameY, gamma, phi_L, phi_R);
+    const Kinematics::BeltLengthsResult result = Kinematics::computeBeltLengths(
+        frameX, frameY, topDistance, gamma_last_position, getPhysicsParams(),
+        gamma_delta_termination, solver_max_iterations);
 
-        getBeltForces(phi_L, phi_R, F_L, F_R);
+    gamma_last_position = result.gamma;
 
-        const double gamma_last = gamma;
-        gamma = solveTorqueEquilibrium(phi_L, phi_R, F_L, F_R, gamma);
-        debug_step_count = i;
-        if (abs(gamma_last - gamma) < gamma_delta_termination) break;
-    }
-    gamma_last_position = gamma;
-
-    double leftX, leftY;
-    double rightX, rightY;
-    getLeftTangentPoint(frameX, frameY, gamma, leftX, leftY);
-    getRightTangentPoint(frameX, frameY, gamma, rightX, rightY);
-
-    // Left and right leg distances flush to the wall.
-    const double leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
-    const double rightLegFlat = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
-
-    // Left and right leg distances including the standoff length.
-    double leftLeg = sqrt(pow(leftLegFlat, 2) + pow(midPulleyToWall, 2));
-    double rightLeg = sqrt(pow(rightLegFlat, 2) + pow(midPulleyToWall, 2));
-
-    leftLeg = getDilationCorrectedBeltLength(leftLeg, F_L);
-    rightLeg = getDilationCorrectedBeltLength(rightLeg, F_R);
-    
-    const long leftLegSteps = lround((leftLeg / circumference) * stepsPerRotation);
-    const long rightLegSteps = lround((rightLeg / circumference) * stepsPerRotation);
+    const long leftLegSteps = lround((result.leftLeg / circumference) * stepsPerRotation);
+    const long rightLegSteps = lround((result.rightLeg / circumference) * stepsPerRotation);
 
     return Lengths(leftLegSteps, rightLegSteps);
 }
@@ -399,7 +362,8 @@ bool Movement::getCoordinates(Point& point) {
 }
 
 void Movement::extend1000mm() {
-    const int steps = int((1000 / circumference) * stepsPerRotation);   
+    const int steps = int((1000 / circumference) * stepsPerRotation);
+    lastEstepsCalibrationSteps = steps; // remembered so a later measured-distance can be turned back into diameter.
 
     leftMotor->move(steps);
     leftMotor->setSpeed(moveSpeedSteps);

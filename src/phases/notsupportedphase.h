@@ -15,6 +15,7 @@ class NotSupportedPhase : public Phase {
     void run(AsyncWebServerRequest *request);
     void doneWithPhase(AsyncWebServerRequest *request);
     void estepsCalibration(AsyncWebServerRequest *request);
+    void installTestPattern(AsyncWebServerRequest *request);
     const char* getName();
     void loopPhase();
 };

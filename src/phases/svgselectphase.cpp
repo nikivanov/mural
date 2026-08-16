@@ -40,6 +40,36 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
     }
 }
 
+// Installs the canned calibration test pattern (bundled as a static asset at
+// data/calibrationPattern.txt, i.e. LittleFS "/calibrationPattern.txt") as the active
+// /commands file, then advances the phase machine exactly like a normal upload does.
+void SvgSelectPhase::installTestPattern(AsyncWebServerRequest *request) {
+    if (!LittleFS.exists("/calibrationPattern.txt")) {
+        request->send(404, "text/plain", "Calibration pattern asset missing");
+        return;
+    }
+
+    if (LittleFS.exists("/commands")) {
+        LittleFS.remove("/commands");
+    }
+
+    File source = LittleFS.open("/calibrationPattern.txt", "r");
+    File dest = LittleFS.open("/commands", "w");
+
+    uint8_t buffer[512];
+    while (source.available()) {
+        size_t bytesRead = source.read(buffer, sizeof(buffer));
+        dest.write(buffer, bytesRead);
+    }
+
+    source.close();
+    dest.close();
+
+    Serial.println("Installed calibration test pattern");
+    manager->setPhase(PhaseManager::RetractBelts);
+    manager->respondWithState(request);
+}
+
 const char* SvgSelectPhase::getName() {
     return "SvgSelect";
 }
