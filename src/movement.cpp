@@ -17,12 +17,78 @@ Movement::Movement(Display *display)
     rightMotor->setMaxSpeed(moveSpeedSteps);
     rightMotor->disableOutputs();
 
+#ifdef MURAL_TMC_UART
+    // UNTESTED ON HARDWARE: bring up the shared TMC2209 UART and configure
+    // both drivers. Motion is still driven via the existing STEP/DIR pins
+    // above (AccelStepper); UART is only used for configuration and for
+    // reading StallGuard/DIAG state.
+    setupTmcDrivers();
+#endif
+
     topDistance = -1;
    
     moving = false;
     homed = false;
     startedHoming = false;
 };
+
+#ifdef MURAL_TMC_UART
+// UNTESTED ON HARDWARE: configure both TMC2209 drivers over the shared UART.
+// See docs/tmc-uart.md for wiring and for how to safely validate this on the
+// bench before trusting it for homing/stall-monitoring.
+void Movement::setupTmcDrivers() {
+    tmcSerial.begin(MURAL_TMC_UART_BAUD, SERIAL_8N1, MURAL_TMC_UART_RX_PIN, MURAL_TMC_UART_TX_PIN);
+
+    leftDriver = new TMC2209Stepper(&tmcSerial, TMC_R_SENSE, LEFT_TMC_ADDRESS);
+    rightDriver = new TMC2209Stepper(&tmcSerial, TMC_R_SENSE, RIGHT_TMC_ADDRESS);
+
+    leftDriver->begin();
+    rightDriver->begin();
+
+    leftDriver->toff(4);
+    rightDriver->toff(4);
+
+    leftDriver->rms_current(TMC_RUN_CURRENT_MA);
+    rightDriver->rms_current(TMC_RUN_CURRENT_MA);
+
+    // Microstepping is set via UART here (MS1/MS2 are repurposed as the UART
+    // address straps in this mode), and must match stepsPerRotation above.
+    leftDriver->microsteps(8);
+    rightDriver->microsteps(8);
+
+    // SpreadCycle (not StealthChop) for reliable StallGuard/DIAG stall
+    // detection. This is louder than StealthChop; once StallGuard behavior is
+    // validated on real hardware it's reasonable to explore StealthChop +
+    // pwm_autoscale-based stall detection instead if quieter running matters
+    // more than detection reliability.
+    leftDriver->en_spreadCycle(true);
+    rightDriver->en_spreadCycle(true);
+    leftDriver->pwm_autoscale(false);
+    rightDriver->pwm_autoscale(false);
+
+    leftDriver->TCOOLTHRS(TMC_TCOOLTHRS);
+    rightDriver->TCOOLTHRS(TMC_TCOOLTHRS);
+    leftDriver->SGTHRS(TMC_SGTHRS);
+    rightDriver->SGTHRS(TMC_SGTHRS);
+
+    pinMode(LEFT_DIAG_PIN, INPUT);
+    pinMode(RIGHT_DIAG_PIN, INPUT);
+}
+
+// UNTESTED ON HARDWARE: true if either driver's DIAG pin currently reports a
+// stall/error condition.
+bool Movement::checkStallGuard() {
+    return digitalRead(LEFT_DIAG_PIN) == HIGH || digitalRead(RIGHT_DIAG_PIN) == HIGH;
+}
+
+bool Movement::isStalled() {
+    return stalled;
+}
+
+void Movement::clearStall() {
+    stalled = false;
+}
+#endif
 
 void Movement::setTopDistance(const int distance) {
     Serial.printf("Top distance set to %s\n", String(distance));
@@ -73,6 +139,12 @@ void Movement::leftStepper(const int dir)
         leftMotor->stop();
     }
 
+#ifdef MURAL_TMC_UART
+    if (dir != 0) {
+        // A freshly-commanded move supersedes any previous stall.
+        stalled = false;
+    }
+#endif
     moving = true;
 };
 
@@ -94,6 +166,12 @@ void Movement::rightStepper(const int dir)
         rightMotor->stop();
     }
 
+#ifdef MURAL_TMC_UART
+    if (dir != 0) {
+        // A freshly-commanded move supersedes any previous stall.
+        stalled = false;
+    }
+#endif
     moving = true;
 };
 
@@ -119,6 +197,21 @@ void Movement::runSteppers()
 {
     if (moving)
     {
+#ifdef MURAL_TMC_UART
+        // UNTESTED ON HARDWARE: stop feeding step pulses the moment either
+        // driver reports a stall, instead of continuing to command motion
+        // into whatever is blocking the belt (which would just desync
+        // AccelStepper's step count from reality). RetractBeltsPhase relies
+        // on this to detect the end of StallGuard homing; Runner relies on
+        // it to pause the current job if a stall happens mid-drawing.
+        if (checkStallGuard()) {
+            leftMotor->setSpeed(0);
+            rightMotor->setSpeed(0);
+            moving = false;
+            stalled = true;
+            return;
+        }
+#endif
         leftMotor->runSpeedToPosition();
         rightMotor->runSpeedToPosition();
 
@@ -334,6 +427,10 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
 float Movement::beginLinearTravel(double x, double y, int speed)
 {
+#ifdef MURAL_TMC_UART
+    // A freshly-commanded move supersedes any previous stall.
+    stalled = false;
+#endif
     X = x;
     Y = y;
     if (topDistance == -1 || !homed) {
