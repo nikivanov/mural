@@ -195,6 +195,12 @@ public:
     void leftStepper(const int dir);
     void rightStepper(const int dir);
     bool extendToHome(int& moveTime);
+    // Generalizes extendToHome(): re-zeros at the fully-retracted stop (setOrigin())
+    // then extends to an arbitrary (x, y) instead of the fixed home coordinates. Used
+    // by the resume-after-power-loss flow to extend back to a checkpointed position
+    // instead of home. topDistance must already be set (e.g. from the checkpoint)
+    // before calling this.
+    bool extendToPoint(double x, double y, int& moveTime);
     void runSteppers();
     bool beginLinearTravel(double x, double y, int speed, float& moveTime);
 

@@ -1,6 +1,7 @@
 #include "svgselectphase.h"
 #include "LittleFS.h"
 #include "../crc32.h"
+#include "../runner.h"
 
 SvgSelectPhase::SvgSelectPhase(PhaseManager* manager) {
     this->manager = manager;
@@ -13,6 +14,9 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
         if (LittleFS.exists("/commands")) {
             LittleFS.remove("/commands");
         }
+
+        // A new upload invalidates any in-progress checkpoint for the previous job.
+        Runner::clearCheckpoint();
 
         Serial.printf("%d bytes total, %d bytes free\n",  LittleFS.totalBytes(), LittleFS.totalBytes() - LittleFS.usedBytes());
         Serial.printf("Upload size: %d bytes\n", request->contentLength());
@@ -56,6 +60,9 @@ void SvgSelectPhase::installTestPattern(AsyncWebServerRequest *request) {
     if (LittleFS.exists("/commands")) {
         LittleFS.remove("/commands");
     }
+
+    // Installing the test pattern is also a new job - invalidate any old checkpoint.
+    Runner::clearCheckpoint();
 
     File source = LittleFS.open("/calibrationPattern.txt", "r");
     File dest = LittleFS.open("/commands", "w");

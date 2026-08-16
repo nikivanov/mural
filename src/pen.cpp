@@ -62,6 +62,10 @@ void Pen::setPenDistance(int value) {
     this->penDistance = value;
 }
 
+int Pen::getPenDistance() {
+    return penDistance;
+}
+
 bool Pen::slowUp() {
     if (penDistance == -1) {
         return false;

@@ -302,18 +302,23 @@ Movement::Point Movement::getHomeCoordinates() {
     return Point(width / 2, HOME_Y_OFFSET_MM);
 }
 
-bool Movement::extendToHome(int& moveTime)
+bool Movement::extendToPoint(double x, double y, int& moveTime)
 {
     setOrigin();
 
-    auto homeCoordinates = getHomeCoordinates();
     startedHoming = true;
     float moveTimeF;
-    if (!beginLinearTravel(homeCoordinates.x, homeCoordinates.y, moveSpeedSteps, moveTimeF)) {
+    if (!beginLinearTravel(x, y, moveSpeedSteps, moveTimeF)) {
         return false;
     }
     moveTime = int(ceil(moveTimeF));
     return true;
+};
+
+bool Movement::extendToHome(int& moveTime)
+{
+    auto homeCoordinates = getHomeCoordinates();
+    return extendToPoint(homeCoordinates.x, homeCoordinates.y, moveTime);
 };
 
 void Movement::runSteppers()
