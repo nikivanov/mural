@@ -1,5 +1,6 @@
 #include "svgselectphase.h"
 #include "LittleFS.h"
+#include "../crc32.h"
 
 SvgSelectPhase::SvgSelectPhase(PhaseManager* manager) {
     this->manager = manager;
@@ -23,6 +24,7 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
         }
             
         request->_tempFile = LittleFS.open("/commands", "w");
+        crcState = crc32_init();
         Serial.println("Upload started");
     }
 
@@ -30,12 +32,14 @@ void SvgSelectPhase::handleUpload(AsyncWebServerRequest *request, String filenam
     {
         // stream the incoming chunk to the opened file
         request->_tempFile.write(data, len);
+        crcState = crc32_update(crcState, data, len);
     }
 
     if (final)
     {
         request->_tempFile.close();
-        Serial.println("Upload finished");
+        lastUploadCrc32 = crc32_finalize(crcState);
+        Serial.printf("Upload finished, CRC32: %08X\n", lastUploadCrc32);
         manager->setPhase(PhaseManager::RetractBelts);
     }
 }
@@ -72,4 +76,8 @@ void SvgSelectPhase::installTestPattern(AsyncWebServerRequest *request) {
 
 const char* SvgSelectPhase::getName() {
     return "SvgSelect";
+}
+
+uint32_t SvgSelectPhase::getUploadCrc32() {
+    return lastUploadCrc32;
 }

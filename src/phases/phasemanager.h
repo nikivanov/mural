@@ -5,6 +5,7 @@
 #include "pen.h"
 #include "runner.h"
 #include <ESPAsyncWebServer.h>
+class SvgSelectPhase;
 class PhaseManager {
     private:
     Phase* currentPhase;
@@ -12,7 +13,7 @@ class PhaseManager {
     Phase* setTopDistancePhase;
     Phase* extendToHomePhase;
     Phase* penCalibrationPhase;
-    Phase* svgSelectPhase;
+    SvgSelectPhase* svgSelectPhase;
     Phase* beginDrawingPhase;
     Movement* movement;
     public:

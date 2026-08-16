@@ -1,3 +1,5 @@
+import { showError } from './alerts.js';
+
 export async function leftRetractDown() {
     await postCommand("l-ret");
 }
@@ -32,7 +34,6 @@ export async function rightExtendUp() {
 
 async function postCommand(command) {
     $.post("/command", {command}).fail(function() {
-        alert("Command failed");
-        location.reload();
+        showError(`Command "${command}" failed`, () => postCommand(command));
     });
 }

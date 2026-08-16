@@ -1,5 +1,7 @@
 import * as svgControl from './svgControl.js';
 import * as client from './client.js';
+import { showError } from './alerts.js';
+import { crc32OfString } from './crc32.js';
 
 let currentState = null;
 
@@ -10,9 +12,14 @@ window.onload = function () {
 };
 
 let uploadConvertedCommands = null;
+// Tracks how uploadConvertedCommands was populated, so a failed upload can be
+// retried/recovered into the right slide: either the normal render pipeline
+// (drawingPreviewSlide) or a re-uploaded, previously saved command file
+// (svgUploadSlide, no render state to go back to).
+let uploadSource = 'render';
 
 async function checkIfExtendedToHome(extendToHomeTime) {
-    await new Promise(r => setTimeout(r, extendToHomeTime * 1000));
+    await new Promise(r => setTimeout(r, (extendToHomeTime || 0) * 1000));
 
     const waitPeriod = 2000;
     let done = false;
@@ -26,8 +33,8 @@ async function checkIfExtendedToHome(extendToHomeTime) {
                 await new Promise(r => setTimeout(r, waitPeriod));
             }
         } catch (err) {
-            alert("Failed to get current phase: " + err);
-            location.reload();
+            showError("Failed to get current phase: " + err, () => checkIfExtendedToHome(0));
+            done = true;
         }
     }
 }
@@ -47,8 +54,12 @@ function init() {
         $.post(custom.url, custom.data || {}, function(state) {
             adaptToState(state);
         }).fail(function() {
-            alert(`${custom.commandName} command failed`);
-            location.reload();
+            // Restore whatever slide we were on before retrying, instead of
+            // reloading the page and losing wizard state.
+            if (currentState) {
+                adaptToState(currentState);
+            }
+            showError(`${custom.commandName} command failed`, () => doneWithPhase(custom));
         });
     }
 
@@ -161,7 +172,70 @@ function init() {
         }
     });
 
-    
+    // A previously downloaded command file (see #downloadCommands) starts
+    // with a "d<total distance>" line.
+    function isCommandFile(text) {
+        const firstLine = (text.split('\n', 1)[0] || '').trim();
+        return /^d[\d.]+$/.test(firstLine);
+    }
+
+    // Movement coordinate lines look like "x y" (see runner.cpp's
+    // getNextTask, which parses everything that isn't a "p0"/"p1" pen
+    // command this way). The firmware only bounds x against the drawable
+    // width (movement.cpp beginLinearTravel: x < 0 || (x - 1) > width; y is
+    // only checked to be >= 0), so that's the dimension worth warning about
+    // when re-uploading a file that may have been generated for a different
+    // pin distance.
+    function findMaxCommandFileX(text) {
+        let maxX = null;
+        for (const line of text.split('\n')) {
+            const match = line.match(/^([\d.]+) ([\d.]+)$/);
+            if (match) {
+                const x = parseFloat(match[1]);
+                if (maxX === null || x > maxX) {
+                    maxX = x;
+                }
+            }
+        }
+        return maxX;
+    }
+
+    $("#uploadCommandsFile").change(async function() {
+        const [file] = $("#uploadCommandsFile")[0].files;
+        if (!file) {
+            return;
+        }
+
+        const text = await file.text();
+        $("#uploadCommandsFile").val("");
+
+        if (!isCommandFile(text)) {
+            showError("Selected file doesn't look like a Mural command file", null);
+            return;
+        }
+
+        if (currentState && currentState.safeWidth > 0) {
+            const maxX = findMaxCommandFileX(text);
+            if (maxX !== null && maxX > currentState.safeWidth) {
+                const proceed = window.confirm(
+                    `This command file was drawn up to ${maxX.toFixed(1)}mm wide, but the current setup only ` +
+                    `allows ${currentState.safeWidth}mm. Coordinates outside the drawable area will be ` +
+                    `rejected by Mural. Continue anyway?`
+                );
+                if (!proceed) {
+                    return;
+                }
+            }
+        }
+
+        // Skip the render pipeline entirely and upload the saved file as-is,
+        // following the same path as clicking Accept on a freshly rendered SVG.
+        uploadConvertedCommands = text;
+        uploadSource = 'commandFile';
+        doUploadCommands();
+    });
+
+
     let currentPreviewId = 0;
     let rendererFn = null;
 
@@ -350,46 +424,29 @@ function init() {
             throw new Error('Commands are empty');
         }
         $("#acceptSvg").attr("disabled", "disabled");
+        uploadSource = 'render';
+        doUploadCommands();
+    });
 
-        const commandsBlob = new Blob([uploadConvertedCommands], {
-            type: "text/plain"
-        });
-
-        $(".muralSlide").hide();
-        $("#uploadProgress").show();
-
-        const formData = new FormData();
-        formData.append("commands", commandsBlob);
-
-        $.ajax({
-            url: "/uploadCommands",
-            data: formData,
-            processData: false,
-            contentType: false,
-            type: 'POST',
-            success: function(data) {
-                verifyUpload(data);
-            },
-            error: function(err) {
-                alert('Upload to Mural failed! ' + err);
-                window.location.reload();
-            },
-            xhr: function () {
-                var xhr = new window.XMLHttpRequest();
-
-                xhr.upload.addEventListener("progress", function (evt) {
-                    if (evt.lengthComputable) {
-                        var percentComplete = evt.loaded / evt.total;
-                        percentComplete = parseInt(percentComplete * 100);
-                        $("#uploadProgress").attr("aria-valuemax", evt.total.toString());
-                        $("#uploadProgress").attr("aria-valuenow", evt.loaded.toString());
-                        $("#uploadProgress > .progress-bar").attr("style", `width: ${percentComplete}%`);
-                    }
-                }, false);
-
-                return xhr;
-            },
-        });
+    $("#downloadCommands").click(async function() {
+        try {
+            const response = await fetch("/downloadCommands");
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const text = await response.text();
+            const blob = new Blob([text], {type: "text/plain"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "mural-commands.txt";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            showError("Failed to download commands: " + err, () => $("#downloadCommands").trigger('click'));
+        }
     });
 
 
@@ -504,58 +561,92 @@ function init() {
     //     homeY: 0,
     // });
 
+    loadInitialState();
+}
+
+function loadInitialState() {
     $.get("/getState", function(data) {
         adaptToState(data);
     }).fail(function() {
-        alert("Failed to retrieve state");
+        showError("Failed to retrieve state", loadInitialState);
     });
 }
 
-function verifyUpload(state) {
-    $.ajax({
-            url: "/downloadCommands",
-            processData: false,
-            contentType: false,
-            type: 'GET',
-            success: function(data) {
-                const receivedData = data.split('\n');
-                const sentData = uploadConvertedCommands.split('\n');
-                if (receivedData.length !== sentData.length) {
-                    alert("Data verification failed");
-                    window.location.reload();
-                    return;
-                }
-                for (let i = 0; i < receivedData.length; i++) {
-                    if (receivedData[i] !== sentData[i]) {
-                        alert("Data verification failed");
-                        window.location.reload();
-                        return;
-                    }
-                }
-                setTimeout(function() {
-                    adaptToState(state);
-                }, 1000);
-            },
-            error: function(err) {
-                alert('Failed to download commands from Mural! ' + err);
-                window.location.reload();
-            },
-            xhr: function () {
-                var xhr = new window.XMLHttpRequest();
-                xhr.addEventListener("progress", function (evt) {
-                    if (evt.lengthComputable) {
-                        var percentComplete = evt.loaded / evt.total;
-                        percentComplete = parseInt(percentComplete * 100);
-                        $("#verificationProgress").attr("aria-valuemax", evt.total.toString());
-                        $("#verificationProgress").attr("aria-valuenow", evt.loaded.toString());
-                        $("#verificationProgress > .progress-bar").attr("style", `width: ${percentComplete}%`);
-                    }
-                }, false);
+// Restores the UI to a retryable state after a failed upload, without
+// discarding uploadConvertedCommands (so Retry can resubmit it as-is).
+function restoreAfterUploadFailure() {
+    $(".muralSlide").hide();
+    if (uploadSource === 'commandFile') {
+        $("#svgUploadSlide").show();
+    } else {
+        $("#drawingPreviewSlide").show();
+        $("#acceptSvg").removeAttr("disabled");
+    }
+}
 
-                return xhr;
-            },
-        });
-    
+function doUploadCommands() {
+    if (!uploadConvertedCommands) {
+        throw new Error('Commands are empty');
+    }
+
+    const commandsBlob = new Blob([uploadConvertedCommands], {
+        type: "text/plain"
+    });
+
+    $(".muralSlide").hide();
+    $("#uploadProgress").show();
+    $("#uploadProgress > .progress-bar").attr("style", "width: 0%");
+    $("#verificationProgress > .progress-bar").attr("style", "width: 0%");
+
+    const formData = new FormData();
+    formData.append("commands", commandsBlob);
+
+    $.ajax({
+        url: "/uploadCommands",
+        data: formData,
+        processData: false,
+        contentType: false,
+        type: 'POST',
+        success: function(data) {
+            verifyUpload(data);
+        },
+        error: function(err) {
+            restoreAfterUploadFailure();
+            showError('Upload to Mural failed: ' + (err.statusText || err), doUploadCommands);
+        },
+        xhr: function () {
+            var xhr = new window.XMLHttpRequest();
+
+            xhr.upload.addEventListener("progress", function (evt) {
+                if (evt.lengthComputable) {
+                    var percentComplete = evt.loaded / evt.total;
+                    percentComplete = parseInt(percentComplete * 100);
+                    $("#uploadProgress").attr("aria-valuemax", evt.total.toString());
+                    $("#uploadProgress").attr("aria-valuenow", evt.loaded.toString());
+                    $("#uploadProgress > .progress-bar").attr("style", `width: ${percentComplete}%`);
+                }
+            }, false);
+
+            return xhr;
+        },
+    });
+}
+
+// Verifies the upload by comparing a locally computed CRC32 of the uploaded
+// blob against the CRC32 the firmware computed while streaming it to
+// LittleFS, instead of re-downloading and diffing the whole file.
+function verifyUpload(state) {
+    const localCrc32 = crc32OfString(uploadConvertedCommands);
+    $("#verificationProgress > .progress-bar").attr("style", "width: 100%");
+
+    if (state.uploadCrc32 === localCrc32) {
+        setTimeout(function() {
+            adaptToState(state);
+        }, 500);
+    } else {
+        restoreAfterUploadFailure();
+        showError("Upload verification failed (checksum mismatch)", doUploadCommands);
+    }
 }
 
 function adaptToState(state) {
@@ -567,6 +658,11 @@ function adaptToState(state) {
             break;
         case "SetTopDistance":
             $("#distanceBetweenAnchorsSlide").show();
+            // Prefill with the last calibrated distance, persisted in NVS, so a
+            // firmware restart doesn't force re-measuring from scratch.
+            if (state.storedTopDistance && state.storedTopDistance !== -1) {
+                $("#distanceInput").val(state.storedTopDistance);
+            }
             break;
         case "ExtendToHome":
             $("#extendToHomeSlide").show();
@@ -579,6 +675,10 @@ function adaptToState(state) {
         case "PenCalibration":
             $.post("/setServo", {angle: 90});
             $("#penCalibrationSlide").show();
+            // Prefill with the last calibrated pen angle, persisted in NVS.
+            if (state.storedPenAngle && state.storedPenAngle !== -1) {
+                $("#servoRange").val(90 - state.storedPenAngle).trigger('input');
+            }
             break;
         case "SvgSelect":
             $("#svgUploadSlide").show();
@@ -587,7 +687,7 @@ function adaptToState(state) {
             $("#beginDrawingSlide").show();
             break;
         default:
-            alert("Unrecognized phase");
+            showError("Unrecognized phase: " + state.phase, null);
     }
 }
 
