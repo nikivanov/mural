@@ -58,7 +58,13 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        # Full install (not --ignore-scripts): "canvas" ships prebuilt Linux
+        # x64 binaries fetched by its install script, and the full-pipeline
+        # regression tests self-skip when require("paper") can't load canvas.
+        # With --ignore-scripts those tests would silently skip forever.
+        # Fall back to --ignore-scripts here only if the prebuilt fetch proves
+        # flaky on the runner; for local/macOS dev, --ignore-scripts is fine.
+        run: npm install
 
       - name: Type-check
         run: npx tsc --noEmit
@@ -67,4 +73,9 @@ jobs:
         run: npm run build
 
       - name: Test
-        run: npm test --if-present
+        run: |
+          if grep -q "no test specified" package.json; then
+            echo "Skipping: test script is still the unimplemented stub."
+          else
+            npm test --if-present
+          fi
