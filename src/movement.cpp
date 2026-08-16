@@ -338,9 +338,6 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
 bool Movement::beginLinearTravel(double x, double y, int speed, float& moveTime)
 {
-    X = x;
-    Y = y;
-    positionKnown = true;
     if (topDistance == -1 || !homed) {
         Serial.println("Not ready");
         return false;
@@ -388,6 +385,10 @@ bool Movement::beginLinearTravel(double x, double y, int speed, float& moveTime)
 
     //display->displayText(String(X) + ", " + String(Y));
     // delay(sleepDurationAfterMove_ms);
+
+    X = x;
+    Y = y;
+    positionKnown = true;
 
     moving = true;
     return true;
