@@ -249,7 +249,7 @@ export function vectorizeImageDataColor(imageData: ImageData, turdSize: number, 
     // to match.
     const order = paletteColors
         .map((color, originalIndex) => ({ color, originalIndex }))
-        .sort((a, b) => luminance(a.color) - luminance(b.color));
+        .sort((a, b) => luminance(b.color) - luminance(a.color));
 
     const remap = new Map<number, number>();
     order.forEach((entry, newIndex) => remap.set(entry.originalIndex, newIndex));

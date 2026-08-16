@@ -82,7 +82,7 @@ export function groupPathsByLiteralColor(paths: paper.PathItem[]): ColorGroup[] 
         bucket.paths.push(path);
     }
 
-    const ordered = [...buckets.values()].sort((a, b) => luminanceOf(a.color) - luminanceOf(b.color));
+    const ordered = [...buckets.values()].sort((a, b) => luminanceOf(b.color) - luminanceOf(a.color));
 
     return ordered.map((bucket, colorIndex) => {
         for (const path of bucket.paths) {
