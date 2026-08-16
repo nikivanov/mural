@@ -10,6 +10,7 @@
 #include "../prefskeys.h"
 #include <Preferences.h>
 #include <stdexcept>
+#include <cstring>
 
 PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server) {
     retractBeltsPhase = new RetractBeltsPhase(this, movement);
@@ -92,6 +93,17 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["storedTopDistance"] = storedTopDistance;
     root["storedPenAngle"] = storedPenAngle;
     root["uploadCrc32"] = svgSelectPhase->getUploadCrc32();
+
+#ifdef MURAL_TMC_UART
+    root["autoRetract"] = true;
+#else
+    root["autoRetract"] = false;
+#endif
+
+    if (strcmp(currentPhase, "RetractBelts") == 0) {
+        root["leftRetract"] = retractBeltsPhase->getLeftStatus();
+        root["rightRetract"] = retractBeltsPhase->getRightStatus();
+    }
 
     root.printTo(*response);
     request->send(response);
