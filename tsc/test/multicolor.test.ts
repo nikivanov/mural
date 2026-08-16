@@ -147,6 +147,46 @@ if (!paperAvailable) {
         assert.ok(layers[0].distance > 0);
         assert.ok(layers[1].distance > 0);
         assert.ok(Math.abs((layers[0].distance + layers[1].distance) - result.distance) < 1e-6);
+
+        // Geometry check, not just name check: layer 1's commands (drawn
+        // first) must actually be the yellow rect's geometry, and layer 2's
+        // the blue rect's - names are assigned by index regardless of
+        // ordering, so asserting on them alone (as this test used to) can't
+        // catch a reversed sort. Coordinates in the command file are in mm,
+        // scaled from SVG-space by request.width/request.svgWidth (see
+        // toCommands.ts) - derive expected ranges from that ratio instead of
+        // hardcoding mm values, so this stays correct if WIDTH/the fixture
+        // rects ever change.
+        const ratio = request.width / request.svgWidth;
+        const coordRe = /^(-?[\d.]+) (-?[\d.]+)$/;
+        const xsOf = (cmds: Command[]) => (cmds as unknown as string[])
+            .map((c) => coordRe.exec(c))
+            .filter((m): m is RegExpExecArray => m !== null)
+            .map((m) => parseFloat(m[1]));
+
+        const layer1Xs = xsOf(layer1Commands);
+        const layer2Xs = xsOf(layer2Commands);
+        assert.ok(layer1Xs.length > 0 && layer2Xs.length > 0, "expected coordinate commands in both layers");
+
+        // Yellow rect: SVG x in [5, 35]. Blue rect: SVG x in [140, 170]. Give
+        // a small tolerance for RDP simplification/infill; the viewport
+        // (request.width) clips anything past the drawing area's edge.
+        const tolerance = 3;
+        const yellowMin = 5 * ratio - tolerance;
+        const yellowMax = 35 * ratio + tolerance;
+        const blueMin = 140 * ratio - tolerance;
+        const blueMax = Math.min(170 * ratio, request.width) + tolerance;
+
+        for (const x of layer1Xs) {
+            assert.ok(x >= yellowMin && x <= yellowMax, `layer 1 (yellow) x=${x} outside [${yellowMin}, ${yellowMax}]`);
+        }
+        for (const x of layer2Xs) {
+            assert.ok(x >= blueMin && x <= blueMax, `layer 2 (blue) x=${x} outside [${blueMin}, ${blueMax}]`);
+        }
+        // Belt-and-braces spatial separation check, independent of the
+        // absolute ranges above: the two rects don't overlap in x, so
+        // layer 1 must be entirely to the left of layer 2.
+        assert.ok(Math.max(...layer1Xs) < Math.min(...layer2Xs), "expected layer 1 (yellow) to be entirely left of layer 2 (blue)");
     });
 
     test("multicolor: a supplied palette (index-aligned to the light-to-dark colorIndex order) names the layers", async () => {
@@ -161,5 +201,64 @@ if (!paperAvailable) {
 
         assert.strictEqual(result.commands[3], "n1 Sunshine");
         assert.strictEqual(result.commands[4], "n2 Ocean");
+    });
+
+    test("multicolor raster: vectorizeImageDataColor orders masks/palette light-to-dark, matching the yellow/blue geometry", () => {
+        const { vectorizeImageDataColor } = require("../src/vectorizer") as typeof import("../src/vectorizer");
+
+        // Synthetic 20x10 bitmap, solid colors (no anti-aliasing to confuse
+        // the quantizer/tracer): left half yellow, right half blue - same
+        // light/dark relationship as twoColorSvg above.
+        const rasterWidth = 20;
+        const rasterHeight = 10;
+        const data = new Uint8ClampedArray(rasterWidth * rasterHeight * 4);
+        for (let y = 0; y < rasterHeight; y++) {
+            for (let x = 0; x < rasterWidth; x++) {
+                const i = (y * rasterWidth + x) * 4;
+                const isLeft = x < rasterWidth / 2;
+                data[i] = isLeft ? 255 : 0;       // R
+                data[i + 1] = isLeft ? 255 : 0;   // G
+                data[i + 2] = isLeft ? 0 : 255;   // B
+                data[i + 3] = 255;                // A
+            }
+        }
+        const imageData = { data, width: rasterWidth, height: rasterHeight, colorSpace: "srgb" } as unknown as ImageData;
+
+        const result = vectorizeImageDataColor(imageData, 0, 2, [
+            { name: "Sunshine", color: "#ffff00" },
+            { name: "Ocean", color: "#0000ff" },
+        ]);
+
+        // Palette must come back light-to-dark: yellow (colorIndex 0) before
+        // blue (colorIndex 1).
+        assert.strictEqual(result.palette[0].name, "Sunshine");
+        assert.strictEqual(result.palette[1].name, "Ocean");
+
+        // And the geometry each `colorIndex`-tagged group carries must
+        // actually match: group 0 traces the left (yellow) half, group 1
+        // the right (blue) half - not just the palette label.
+        const probeSize = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+        paper.setup(probeSize);
+        const svg = paper.project.importSVG(result.svg, { expandShapes: true });
+
+        const groupsByColorIndex = new Map<number, paper.Item>();
+        for (const child of svg.children) {
+            const colorIndex = (child.data as { colorIndex?: number } | undefined)?.colorIndex;
+            if (colorIndex !== undefined) {
+                groupsByColorIndex.set(colorIndex, child);
+            }
+        }
+        paper.project.remove();
+
+        assert.strictEqual(groupsByColorIndex.size, 2, "expected two colorIndex-tagged groups");
+        const group0Bounds = groupsByColorIndex.get(0)!.bounds;
+        const group1Bounds = groupsByColorIndex.get(1)!.bounds;
+
+        assert.ok(group0Bounds.width > 0, "colorIndex 0 group has no traced geometry");
+        assert.ok(group1Bounds.width > 0, "colorIndex 1 group has no traced geometry");
+        // colorIndex 0 (yellow) must sit in the left half, colorIndex 1
+        // (blue) in the right half.
+        assert.ok(group0Bounds.right <= rasterWidth / 2, `colorIndex 0 (yellow) bounds ${JSON.stringify(group0Bounds)} not confined to the left half`);
+        assert.ok(group1Bounds.left >= rasterWidth / 2, `colorIndex 1 (blue) bounds ${JSON.stringify(group1Bounds)} not confined to the right half`);
     });
 }
