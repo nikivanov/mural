@@ -8,6 +8,9 @@ import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
 import { flattenPaths } from './flattener';
+import { simplifyPaths } from './simplifier';
+
+const RDP_TOLERANCE_MM = 0.1;
 
 const paper = loadPaper();
 
@@ -31,6 +34,9 @@ export async function renderSvgJsonToCommands(
     const paths = generatePaths(svg);
 
     paths.forEach(p => p.flatten(0.5));
+
+    updateStatusFn("Reducing path detail");
+    simplifyPaths(paths, RDP_TOLERANCE_MM);
 
     if (request.flattenPaths) {
         flattenPaths(paths, updateStatusFn);
