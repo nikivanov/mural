@@ -21,6 +21,66 @@ export function flattenPaths(paths: paper.PathItem[], updateStatusFn: updateStat
     }
 }
 
+// White-as-knockout-mask (docs/multi-color.md section 5, "white stays don't
+// draw", plus the fidelity fix on top of it): a pure white fill has always
+// meant "no ink" - the wall's own paper color - but simply skipping the
+// white path's own ink isn't enough on its own, because whatever is painted
+// *underneath* it (an infill hatch, another color's fill) would still get
+// drawn straight through where the invisible white shape should have
+// covered it. This subtracts every white-filled path's geometry from
+// whatever is beneath it in *paint order* - paper's isAbove()/painter's
+// order, the exact mechanism flattenPaths() above already uses, not
+// array/layer index - then drops the white paths themselves from the
+// returned list. A white shape with nothing beneath it in paint order (the
+// common "full-canvas white background rect", typically the first/
+// bottommost element in a real SVG) therefore knocks out nothing, which is
+// the correct behavior: everything below it in an empty stack is vacuously
+// satisfied.
+//
+// A white-filled path that also carries a visible stroke of its own is
+// *not* treated as a pure knockout mask here - it still has ink to draw (its
+// stroke), so it isn't "nothing", and callers (generateInfills in
+// infill.ts, groupPathsByLiteralColor in generator.ts) handle that
+// stroke-bearing case themselves rather than losing it here.
+//
+// paper's PathItem#subtract() carries over the `.data` (density/outline/
+// colorIndex tags) of the item it's called on, so those survive. Returns
+// the same array reference, untouched, when no white masks are present -
+// this keeps callers byte-identical on inputs that never hit this bug.
+export function applyWhiteKnockout(paths: paper.PathItem[]): paper.PathItem[] {
+    const isWhiteMask = (path: paper.PathItem) => {
+        const fill = path.fillColor;
+        const stroke = path.strokeColor;
+        const fillIsWhite = !!(fill && fill.alpha > 0 && fill.toCSS(true) === '#ffffff');
+        const strokeVisible = !!(stroke && stroke.alpha > 0);
+        return fillIsWhite && !strokeVisible;
+    };
+
+    if (!paths.some(isWhiteMask)) {
+        return paths;
+    }
+
+    // Topmost-first, exactly like flattenPaths() above.
+    const ordered = [...paths].sort((a, b) => a.isAbove(b) ? -1 : 1);
+    const resolved = new Map<paper.PathItem, paper.PathItem>(ordered.map(p => [p, p]));
+
+    for (let i = 0; i < ordered.length; i++) {
+        const mask = ordered[i];
+        if (!isWhiteMask(mask)) {
+            continue;
+        }
+        for (let j = i + 1; j < ordered.length; j++) {
+            const below = ordered[j];
+            if (isWhiteMask(below)) {
+                continue;
+            }
+            resolved.set(below, resolved.get(below)!.subtract(mask, { insert: false }));
+        }
+    }
+
+    return paths.filter(p => !isWhiteMask(p)).map(p => resolved.get(p)!);
+}
+
 // Multi-color knockout (docs/multi-color.md section 5): generalizes the same
 // painter's-order subtraction flattenPaths() does within one color, across
 // color layers instead. `layersLightToDark` must already be ordered

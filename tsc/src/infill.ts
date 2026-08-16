@@ -1,5 +1,6 @@
 import { loadPaper } from './paperLoader';
 import { InfillDensity, InfilledPath, PathDensityData } from './types';
+import { applyWhiteKnockout } from './flattener';
 
 const paper = loadPaper();
 
@@ -48,11 +49,16 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
 
     const boundsPath = new paper.Path.Rectangle(view.bounds);
 
-    const infilledPaths = pathsToInfill.map(path => {
-        if (path.fillColor && path.fillColor.toCSS(true) === '#ffffff' && !path.strokeColor) {
-            return null;
-        }
+    // White-as-knockout (see flattener.ts's applyWhiteKnockout): a pure
+    // white fill with no stroke of its own is dropped entirely (matching
+    // the pre-existing "nothing to draw" treatment below for any leftover
+    // white fill), but first subtracts its geometry from whatever paint
+    // order puts beneath it, so a white shape drawn over a colored one
+    // leaves unmarked paper instead of that color's infill hatching showing
+    // straight through it.
+    const knockedOutPaths = applyWhiteKnockout(pathsToInfill);
 
+    const infilledPaths = knockedOutPaths.map(path => {
         const pathData = path.data as PathDensityData | undefined;
         const density = pathData?.density !== undefined ? pathData.density : infillDensity;
         const includeOutline = pathData?.outline !== undefined ? pathData.outline : true;
@@ -121,7 +127,7 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
         };
 
         return infilledPath;
-    }).filter((ip) => !!ip) as InfilledPath[];
+    });
 
     return infilledPaths;
 }

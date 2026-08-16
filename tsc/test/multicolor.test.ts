@@ -261,4 +261,111 @@ if (!paperAvailable) {
         assert.ok(group0Bounds.right <= rasterWidth / 2, `colorIndex 0 (yellow) bounds ${JSON.stringify(group0Bounds)} not confined to the left half`);
         assert.ok(group1Bounds.left >= rasterWidth / 2, `colorIndex 1 (blue) bounds ${JSON.stringify(group1Bounds)} not confined to the right half`);
     });
+
+    // --- Fidelity fixes: white-as-knockout (BUG 1) and fill+stroke dual
+    // contribution (BUG 2) - see the doc comments on applyWhiteKnockout
+    // (flattener.ts) and groupPathsByLiteralColor (generator.ts). ---
+
+    const blackRectOnlySvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="10" y="10" width="60" height="30" fill="#000000"/>
+    </svg>`;
+
+    // A full-canvas white rect, painted *first* (i.e. bottom of the z-order
+    // - the common "white background" SVG pattern). It must knock out
+    // nothing, since nothing is drawn beneath it.
+    const whiteBackgroundBehindBlackRectSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" fill="#ffffff"/>
+        <rect x="10" y="10" width="60" height="30" fill="#000000"/>
+    </svg>`;
+
+    // Force identical scaling for both SVGs above (rather than letting
+    // svgToRequest derive svgWidth/svgHeight from each SVG's own bounding
+    // box, which would differ once the white background rect is added),
+    // so the two pipeline outputs are directly comparable coordinate-for-
+    // coordinate.
+    const fixedFrameOverrides = { svgWidth: WIDTH, svgHeight: HEIGHT, height: HEIGHT };
+
+    test("multicolor fidelity: a full-canvas white background rect (bottom of z-order) knocks out nothing", async () => {
+        const withoutBg = svgToRequest(blackRectOnlySvg, paper, fixedFrameOverrides);
+        const withBg = svgToRequest(whiteBackgroundBehindBlackRectSvg, paper, fixedFrameOverrides);
+
+        const resultWithoutBg = await renderSvgJsonToCommands(withoutBg, noopStatus);
+        const resultWithBg = await renderSvgJsonToCommands(withBg, noopStatus);
+
+        assert.deepStrictEqual(resultWithBg.commands, resultWithoutBg.commands);
+        assert.strictEqual(resultWithBg.distance, resultWithoutBg.distance);
+    });
+
+    // A white rect drawn *above* (later in document order than) a filled
+    // black rect, entirely inside its bounds - the letters-on-a-panel shape
+    // from the W3C logo, minimized to a rectangle.
+    const blackRectWithWhiteHoleSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="10" y="10" width="60" height="30" fill="#000000"/>
+        <rect x="30" y="18" width="20" height="10" fill="#ffffff"/>
+    </svg>`;
+
+    test("multicolor fidelity: a white shape above a filled shape produces a hole in that shape's hatching", async () => {
+        const withoutHole = svgToRequest(blackRectOnlySvg, paper, fixedFrameOverrides);
+        const withHole = svgToRequest(blackRectWithWhiteHoleSvg, paper, fixedFrameOverrides);
+
+        const resultWithoutHole = await renderSvgJsonToCommands(withoutHole, noopStatus);
+        const resultWithHole = await renderSvgJsonToCommands(withHole, noopStatus);
+
+        // Carving a hole out of the middle of the rect changes what gets
+        // drawn (fewer/shorter hatch lines inside the hole, but also a new
+        // inner boundary to trace around it, so total draw distance isn't
+        // guaranteed to move in one particular direction) - the geometric
+        // check below is the real proof the hole exists; this is just a
+        // sanity check that something changed at all, i.e. the white shape
+        // wasn't silently dropped with no effect on its surroundings (the
+        // pre-fix behavior).
+        assert.notDeepStrictEqual(resultWithHole.commands, resultWithoutHole.commands);
+
+        // Direct geometric proof: with fixedFrameOverrides (ratio 1), mm
+        // coordinates equal SVG coordinates, so no drawn point should land
+        // strictly inside the white hole's [30,50] x [18,28] interior (a
+        // small margin excludes points that legitimately trace the hole's
+        // own boundary edge).
+        const margin = 1;
+        const coordRe = /^(-?[\d.]+) (-?[\d.]+)$/;
+        for (const cmd of resultWithHole.commands) {
+            const m = coordRe.exec(cmd);
+            if (!m) continue;
+            const x = parseFloat(m[1]);
+            const y = parseFloat(m[2]);
+            const insideHole = x > 30 + margin && x < 50 - margin && y > 18 + margin && y < 28 - margin;
+            assert.ok(!insideHole, `coordinate (${x}, ${y}) falls inside the white hole - expected unmarked paper`);
+        }
+    });
+
+    test("multicolor fidelity: a path with a differently-colored fill and stroke contributes to both layers", async () => {
+        const orangeFillBlackStrokeSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="10" width="60" height="30" fill="#ff8800" stroke="#000000" stroke-width="2"/>
+        </svg>`;
+        // Explicit frame (see fixedFrameOverrides above): a single small
+        // shape's own bounding box would otherwise become the scaling
+        // reference, which - combined with its x/y offset - can stretch it
+        // partly outside the [0,width] x [0,height] view that
+        // renderPathsToCommands clips to.
+        const request = svgToRequest(orangeFillBlackStrokeSvg, paper, { colorSeparation: true, ...fixedFrameOverrides });
+        const result = await renderSvgJsonToCommands(request, noopStatus);
+
+        const layers = (result as any).layers;
+        assert.ok(Array.isArray(layers) && layers.length === 2, "expected the fill and stroke to produce two separate layers");
+
+        // Orange is lighter than black, so it must be layer 1 (drawn first).
+        assert.strictEqual(layers[0].color, "#ff8800");
+        assert.strictEqual(layers[1].color, "#000000");
+        assert.ok(layers[0].distance > 0 && layers[1].distance > 0, "both the fill and stroke layers must actually draw something");
+
+        // The fill layer hatches the whole interior (many infill lines);
+        // the stroke layer only traces the outline once (data.density = 0)
+        // - so the fill layer's draw distance must be materially larger.
+        assert.ok(
+            layers[0].distance > layers[1].distance,
+            `expected fill layer distance (${layers[0].distance}) > stroke layer distance (${layers[1].distance})`,
+        );
+
+        assert.ok(result.commands.includes("c2"), "expected a single c2 boundary between the two layers");
+    });
 }
