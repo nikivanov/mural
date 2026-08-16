@@ -167,18 +167,32 @@ void Movement::setupTmcDrivers() {
     pinMode(RIGHT_DIAG_PIN, INPUT);
 }
 
-// UNTESTED ON HARDWARE: true if either driver's DIAG pin currently reports a
-// stall/error condition.
-bool Movement::checkStallGuard() {
-    return digitalRead(LEFT_DIAG_PIN) == HIGH || digitalRead(RIGHT_DIAG_PIN) == HIGH;
+// UNTESTED ON HARDWARE: true if that driver's DIAG pin currently reports a
+// stall/error condition. Read independently per motor so a stall on one belt
+// doesn't get attributed to (or stop) the other.
+bool Movement::checkLeftStallGuard() {
+    return digitalRead(LEFT_DIAG_PIN) == HIGH;
+}
+
+bool Movement::checkRightStallGuard() {
+    return digitalRead(RIGHT_DIAG_PIN) == HIGH;
 }
 
 bool Movement::isStalled() {
-    return stalled;
+    return leftStalled || rightStalled;
+}
+
+bool Movement::isLeftStalled() {
+    return leftStalled;
+}
+
+bool Movement::isRightStalled() {
+    return rightStalled;
 }
 
 void Movement::clearStall() {
-    stalled = false;
+    leftStalled = false;
+    rightStalled = false;
 }
 #endif
 
@@ -232,10 +246,12 @@ void Movement::leftStepper(const int dir)
         leftMotor->stop();
     }
 
+    leftCommandedDir = dir;
+
 #ifdef MURAL_TMC_UART
     if (dir != 0) {
         // A freshly-commanded move supersedes any previous stall.
-        stalled = false;
+        leftStalled = false;
     }
 #endif
     moving = true;
@@ -259,14 +275,24 @@ void Movement::rightStepper(const int dir)
         rightMotor->stop();
     }
 
+    rightCommandedDir = dir;
+
 #ifdef MURAL_TMC_UART
     if (dir != 0) {
         // A freshly-commanded move supersedes any previous stall.
-        stalled = false;
+        rightStalled = false;
     }
 #endif
     moving = true;
 };
+
+bool Movement::isLeftRetracting() {
+    return leftCommandedDir < 0 && leftMotor->distanceToGo() != 0;
+}
+
+bool Movement::isRightRetracting() {
+    return rightCommandedDir < 0 && rightMotor->distanceToGo() != 0;
+}
 
 Movement::Point Movement::getHomeCoordinates() {
     if (topDistance == -1) {
@@ -300,19 +326,36 @@ void Movement::runSteppers()
     if (moving)
     {
 #ifdef MURAL_TMC_UART
-        // UNTESTED ON HARDWARE: stop feeding step pulses the moment either
-        // driver reports a stall, instead of continuing to command motion
-        // into whatever is blocking the belt (which would just desync
-        // AccelStepper's step count from reality). RetractBeltsPhase relies
-        // on this to detect the end of StallGuard homing; Runner relies on
-        // it to pause the current job if a stall happens mid-drawing.
-        if (checkStallGuard()) {
+        // UNTESTED ON HARDWARE: stop feeding step pulses to each motor the
+        // moment its own DIAG pin reports a stall, instead of continuing to
+        // command motion into whatever is blocking that belt (which would
+        // just desync AccelStepper's step count from reality). Checked and
+        // latched per motor - rather than halting both the instant either
+        // one trips - so RetractBeltsPhase can track/stop each belt's
+        // StallGuard homing independently; Runner still treats a stall on
+        // either belt as reason to pause the whole job (see isStalled()).
+        if (checkLeftStallGuard()) {
             leftMotor->setSpeed(0);
-            rightMotor->setSpeed(0);
-            moving = false;
-            stalled = true;
-            return;
+            leftStalled = true;
         }
+        if (checkRightStallGuard()) {
+            rightMotor->setSpeed(0);
+            rightStalled = true;
+        }
+
+        if (!leftStalled) {
+            leftMotor->runSpeedToPosition();
+        }
+        if (!rightStalled) {
+            rightMotor->runSpeedToPosition();
+        }
+
+        if ((leftStalled || leftMotor->distanceToGo() == 0) &&
+            (rightStalled || rightMotor->distanceToGo() == 0))
+        {
+            moving = false;
+        }
+        return;
 #endif
         leftMotor->runSpeedToPosition();
         rightMotor->runSpeedToPosition();
@@ -385,7 +428,8 @@ bool Movement::beginLinearTravel(double x, double y, int speed, float& moveTime)
 {
 #ifdef MURAL_TMC_UART
     // A freshly-commanded move supersedes any previous stall.
-    stalled = false;
+    leftStalled = false;
+    rightStalled = false;
 #endif
     if (topDistance == -1 || !homed) {
         Serial.println("Not ready");

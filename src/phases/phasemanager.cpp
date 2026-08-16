@@ -13,6 +13,7 @@
 #include <Preferences.h>
 #include <LittleFS.h>
 #include <stdexcept>
+#include <cstring>
 
 PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner) {
     retractBeltsPhase = new RetractBeltsPhase(this, movement);
@@ -118,6 +119,17 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["uploadCrc32"] = svgSelectPhase->getUploadCrc32();
     root["resuming"] = resuming;
     root["resumePercent"] = resumePercent;
+
+#ifdef MURAL_TMC_UART
+    root["autoRetract"] = true;
+#else
+    root["autoRetract"] = false;
+#endif
+
+    if (strcmp(currentPhase, "RetractBelts") == 0) {
+        root["leftRetract"] = retractBeltsPhase->getLeftStatus();
+        root["rightRetract"] = retractBeltsPhase->getRightStatus();
+    }
 
     root.printTo(*response);
     request->send(response);

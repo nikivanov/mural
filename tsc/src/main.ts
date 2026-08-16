@@ -160,6 +160,10 @@ function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {
         return false;
     }
 
+    if (!('topDistance' in obj) || typeof obj.topDistance !== 'number') {
+        return false;
+    }
+
     return true;
 }
 

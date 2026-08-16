@@ -63,6 +63,10 @@ export async function renderSvgJsonToCommands(
     const distances = measureDistance(dedupedCommands);
     const totalDistance = +distances.totalDistance.toFixed(1);
     dedupedCommands.unshift(`d${totalDistance}`);
+    // Inserted after the d/h headers (index 2) so runner.cpp's
+    // initTaskProvider(), which already reads d then h positionally, can
+    // keep doing that and simply peek for an optional third header line.
+    dedupedCommands.splice(2, 0, `t${Math.round(request.topDistance)}`);
 
     const commandStrings = dedupedCommands.map(stringifyCommand);
     return {

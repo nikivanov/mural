@@ -21,5 +21,8 @@ static const char* PREFS_CKPT_X_KEY = "x";
 static const char* PREFS_CKPT_Y_KEY = "y";
 static const char* PREFS_CKPT_TOP_DIST_KEY = "topDist";
 static const char* PREFS_CKPT_PEN_ANGLE_KEY = "penAngle";
+// Whether the pen was down (mid-stroke) at the moment this checkpoint was
+// written - see Runner::Checkpoint's doc comment.
+static const char* PREFS_CKPT_PEN_DOWN_KEY = "penDown";
 
 #endif

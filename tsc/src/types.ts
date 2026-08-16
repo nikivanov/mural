@@ -10,8 +10,9 @@ export type PenUpCommand = 'p0';
 export type PenDownCommand = 'p1';
 export type DistanceCommand = `d${number}`
 export type HeightCommand = `h${number}`;
+export type TopDistanceCommand = `t${number}`;
 
-export type Command = CoordinateCommand | PenUpCommand | PenDownCommand | DistanceCommand | HeightCommand;
+export type Command = CoordinateCommand | PenUpCommand | PenDownCommand | DistanceCommand | HeightCommand | TopDistanceCommand;
 
 export type InfilledPath = {
     outlinePaths: paper.Path[],
@@ -45,6 +46,12 @@ export namespace RequestTypes {
         homeY: number,
         infillDensity: InfillDensity,
         flattenPaths: boolean,
+        // Pin-to-pin distance (mm) the drawable width was derived from when
+        // this request was built (drawable width = 0.6 * topDistance, see
+        // movement.h's safeXFraction). Recorded into the command file's `t`
+        // header so a later replay can warn if the plotter's current pin
+        // distance no longer matches.
+        topDistance: number,
     };
 
     export type VectorizeRequest = {

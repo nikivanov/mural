@@ -109,10 +109,23 @@ private:
     HardwareSerial tmcSerial = HardwareSerial(2);
     TMC2209Stepper *leftDriver;
     TMC2209Stepper *rightDriver;
-    bool stalled = false;
+    // Tracked per motor (rather than one combined flag) so RetractBeltsPhase
+    // can report/stop each belt's StallGuard homing independently - see the
+    // per-DIAG-pin handling in runSteppers().
+    bool leftStalled = false;
+    bool rightStalled = false;
     void setupTmcDrivers();
-    bool checkStallGuard();
+    bool checkLeftStallGuard();
+    bool checkRightStallGuard();
 #endif
+
+    // Direction (-1, 0, 1) last commanded via leftStepper()/rightStepper(),
+    // used to report a live "retracting" status per motor while a manual jog
+    // is held (see isLeftRetracting()/isRightRetracting()). Tracked outside
+    // MURAL_TMC_UART since manual jogging is the default (and always
+    // available) way to retract the belts.
+    int leftCommandedDir = 0;
+    int rightCommandedDir = 0;
 
     struct Lengths {
         int left;
@@ -166,6 +179,13 @@ public:
     }
 
     bool isMoving();
+    // True while that motor is actively jogging in the retract direction
+    // (dir < 0 last commanded via leftStepper()/rightStepper() and still has
+    // steps left to run). Used by RetractBeltsPhase to report a live
+    // "retracting" status per motor in manual mode; goes back to false as
+    // soon as the jog is released, it never claims "retracted" on its own.
+    bool isLeftRetracting();
+    bool isRightRetracting();
     bool hasStartedHoming();
     bool getWidth(double& width);
     bool getCoordinates(Point& point);
@@ -206,11 +226,15 @@ public:
 
 #ifdef MURAL_TMC_UART
     // UNTESTED ON HARDWARE: true once runSteppers() has observed a stall
-    // (DIAG asserted) mid-move and halted both motors. Used both by
-    // RetractBeltsPhase (StallGuard homing) and by Runner (pausing the job
-    // if a stall happens while drawing). Cleared automatically whenever a
-    // new move is (re-)started.
+    // (DIAG asserted) mid-move and halted that motor. isStalled() reports
+    // either belt (used by Runner to pause the job if a stall happens while
+    // drawing); isLeftStalled()/isRightStalled() let RetractBeltsPhase track
+    // each belt's StallGuard homing independently. Cleared automatically
+    // whenever a new move is (re-)started for that motor, or explicitly via
+    // clearStall().
     bool isStalled();
+    bool isLeftStalled();
+    bool isRightStalled();
     void clearStall();
 #endif
 };

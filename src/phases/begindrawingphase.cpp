@@ -6,7 +6,11 @@ BeginDrawingPhase::BeginDrawingPhase(PhaseManager* manager, Runner* runner) {
 
 void BeginDrawingPhase::run(AsyncWebServerRequest *request) {
     if (!runner->start()) {
-        request->send(400, "text/plain", "Not ready");
+        String error = runner->getLastError();
+        if (error.length() == 0) {
+            error = "Not ready";
+        }
+        request->send(400, "text/plain", error);
         return;
     }
 

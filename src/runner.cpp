@@ -41,30 +41,74 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     this->movement = movement;
     this->pen = pen;
     this->display = display;
+    lastError = "";
+}
+
+String Runner::getLastError() {
+    return lastError;
+}
+
+// Reads the mandatory d/h header and the optional t<mm> pin-distance header from an
+// open command file, leaving the file positioned at the first command line. Shared
+// by initTaskProvider() and beginResume() so the two don't duplicate header parsing
+// (and so a fix like the t-header support here automatically benefits both, rather
+// than needing to be re-applied to whichever one gets updated). Static/pen-and-
+// movement-independent so countTotalCommandLines() can use it too, from a File it
+// opened itself, without needing a Runner instance.
+bool Runner::parseCommandFileHeader(File& file, double& totalDistanceOut, bool& hasTopDistanceOut, double& topDistanceOut) {
+    auto line = file.readStringUntil('\n');
+    if (line.charAt(0) != 'd') {
+        Serial.println("Bad file - no distance");
+        return false;
+    }
+    totalDistanceOut = line.substring(1, line.length() - 1).toDouble();
+
+    auto heightLine = file.readStringUntil('\n');
+    if (heightLine.charAt(0) != 'h') {
+        Serial.println("Bad file - no height");
+        return false;
+    }
+
+    // Optional `t<mm>` pin-distance header (added after the d/h headers by
+    // toCommands.ts). Older command files won't have it, so peek at the next
+    // line and seek back if it's not there instead of consuming it.
+    hasTopDistanceOut = false;
+    auto beforeTopDistanceLine = file.position();
+    auto topDistanceLine = file.readStringUntil('\n');
+    if (topDistanceLine.charAt(0) == 't') {
+        String topDistanceValue = topDistanceLine.substring(1);
+        topDistanceValue.trim();
+        topDistanceOut = topDistanceValue.toDouble();
+        hasTopDistanceOut = true;
+    } else {
+        file.seek(beforeTopDistanceLine);
+    }
+
+    return true;
 }
 
 bool Runner::initTaskProvider() {
+    lastError = "";
+
     openedFile = LittleFS.open("/commands");
     if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
         return false;
     }
 
-    auto line = openedFile.readStringUntil('\n');
-    if (line.charAt(0) == 'd') {
-        totalDistance = line.substring(1, line.length() - 1).toDouble();
-    } else {
-        Serial.println("Bad file - no distance");
+    bool hasTopDistance;
+    double fileTopDistance;
+    if (!parseCommandFileHeader(openedFile, totalDistance, hasTopDistance, fileTopDistance)) {
         return false;
     }
 
-    auto heightLine = openedFile.readStringUntil('\n');
-    if (heightLine.charAt(0) == 'h') {
-        auto height = heightLine.substring(1, heightLine.length() - 1).toDouble();
-        // we actually dont need it, just validating
-    } else {
-        Serial.println("Bad file - no height");
-        return false;
+    if (hasTopDistance) {
+        auto currentTopDistance = (double)movement->getTopDistance();
+        if (abs(fileTopDistance - currentTopDistance) > 1.0) {
+            Serial.println("Command file pin distance mismatch: file=" + String(fileTopDistance) + " current=" + String(currentTopDistance));
+            lastError = "Command file was generated for pin distance " + String((int)fileTopDistance) + " mm, current setup is " + String((int)currentTopDistance) + " mm";
+            return false;
+        }
     }
 
     Serial.println("Total distance to travel: " + String(totalDistance));
@@ -406,6 +450,10 @@ void Runner::writeCheckpoint(uint32_t offset) {
     prefs.putDouble(PREFS_CKPT_Y_KEY, position.y);
     prefs.putInt(PREFS_CKPT_TOP_DIST_KEY, movement->getTopDistance());
     prefs.putInt(PREFS_CKPT_PEN_ANGLE_KEY, pen->getPenDistance());
+    // Whether the pen is down right now, at the same instant as the position above -
+    // see beginResume()'s hand-off ordering for why this has to be restored before
+    // any resumed command line is fed.
+    prefs.putBool(PREFS_CKPT_PEN_DOWN_KEY, pen->isDown());
     prefs.end();
 }
 
@@ -420,6 +468,7 @@ bool Runner::loadCheckpoint(Checkpoint& out) {
         out.y = prefs.getDouble(PREFS_CKPT_Y_KEY, 0);
         out.topDistance = prefs.getInt(PREFS_CKPT_TOP_DIST_KEY, -1);
         out.penAngle = prefs.getInt(PREFS_CKPT_PEN_ANGLE_KEY, -1);
+        out.penDown = prefs.getBool(PREFS_CKPT_PEN_DOWN_KEY, false);
     }
     prefs.end();
     return valid;
@@ -438,14 +487,10 @@ int Runner::countTotalCommandLines() {
         return 0;
     }
 
-    auto distanceLine = f.readStringUntil('\n');
-    if (distanceLine.charAt(0) != 'd') {
-        f.close();
-        return 0;
-    }
-
-    auto heightLine = f.readStringUntil('\n');
-    if (heightLine.charAt(0) != 'h') {
+    double totalDistanceUnused;
+    bool hasTopDistanceUnused;
+    double topDistanceUnused;
+    if (!parseCommandFileHeader(f, totalDistanceUnused, hasTopDistanceUnused, topDistanceUnused)) {
         f.close();
         return 0;
     }
@@ -471,18 +516,24 @@ bool Runner::beginResume(const Checkpoint& cp) {
         return false;
     }
 
-    auto distanceLine = openedFile.readStringUntil('\n');
-    if (distanceLine.charAt(0) == 'd') {
-        totalDistance = distanceLine.substring(1, distanceLine.length() - 1).toDouble();
-    } else {
-        Serial.println("Resume failed: bad file - no distance");
+    bool hasTopDistance;
+    double fileTopDistance;
+    if (!parseCommandFileHeader(openedFile, totalDistance, hasTopDistance, fileTopDistance)) {
+        Serial.println("Resume failed: bad command file header");
         return false;
     }
 
-    auto heightLine = openedFile.readStringUntil('\n');
-    if (heightLine.charAt(0) != 'h') {
-        Serial.println("Resume failed: bad file - no height");
-        return false;
+    if (hasTopDistance) {
+        // ResumeDrawingPhase::confirmResume() already restored movement's
+        // topDistance from cp.topDistance before this runs, so this doubles as
+        // sanity-checking the checkpoint's own topDistance against the file it
+        // was checkpointed against - same guard initTaskProvider() applies to a
+        // fresh /run.
+        auto currentTopDistance = (double)movement->getTopDistance();
+        if (abs(fileTopDistance - currentTopDistance) > 1.0) {
+            Serial.println("Resume failed: command file pin distance mismatch: file=" + String(fileTopDistance) + " current=" + String(currentTopDistance));
+            return false;
+        }
     }
 
     auto commandsStart = openedFile.position();
@@ -505,6 +556,20 @@ bool Runner::beginResume(const Checkpoint& cp) {
     auto homeCoordinates = movement->getHomeCoordinates();
     finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
     sequenceIx = 0;
+
+    // Safety-critical ordering: the belt-extend travel back to (cp.x, cp.y) that the
+    // caller just finished (see ExtendToHomePhase::loopPhase(), which only calls
+    // beginResume() once movement has stopped moving) always happens with the pen
+    // up - Pen() boots up, and nothing here or upstream lowers it before this point.
+    // Only now, with that travel complete, do we lower the pen back down (if it was
+    // down when the checkpoint was taken) - and only before the first resumed
+    // command is fed, never while still travelling to get there. This must not move
+    // into a Task (e.g. prepended to the file's first task) because a Task can be
+    // paused/retried/reordered by the pause primitive; this call site is guaranteed
+    // to run exactly once, exactly here.
+    if (cp.penDown) {
+        pen->slowDown();
+    }
 
     currentTask = getNextTask();
     currentTask->startRunning();

@@ -18,6 +18,63 @@ let uploadConvertedCommands = null;
 // (svgUploadSlide, no render state to go back to).
 let uploadSource = 'render';
 
+// Token guarding the RetractBelts status poll loop below: bumping it makes
+// any in-flight loop (mid-await) exit on its next check instead of racing a
+// freshly started one - simpler than a start/stop boolean once a loop can
+// overlap its own restart.
+let retractPollToken = 0;
+
+function stopRetractPolling() {
+    retractPollToken++;
+}
+
+function setRetractStatusUI(side, status) {
+    const spinner = $(`#${side}RetractSpinner`);
+    const label = $(`#${side}RetractLabel`);
+    const name = side === 'left' ? 'Left belt' : 'Right belt';
+    if (status === 'retracted') {
+        spinner.css('visibility', 'hidden');
+        label.text(`${name}: retracted ✓`);
+    } else if (status === 'retracting') {
+        spinner.css('visibility', 'visible');
+        label.text(`${name}: retracting…`);
+    } else {
+        spinner.css('visibility', 'hidden');
+        label.text(`${name}: idle`);
+    }
+}
+
+// Polls /getState ~1s while the RetractBelts phase is showing, to move the
+// per-motor status rows from idle -> retracting -> retracted live (both for
+// the optional auto-retract and, more modestly, to keep the rows "alive"
+// while a manual jog toggle is held). Stops itself once the phase moves on -
+// which happens server-side, either because auto-retract finished both
+// belts or because "Belts are retracted" was pressed.
+async function pollRetractStatus() {
+    const token = ++retractPollToken;
+    while (retractPollToken === token) {
+        try {
+            const state = await $.get("/getState");
+            if (retractPollToken !== token) {
+                return;
+            }
+            if (state.phase !== 'RetractBelts') {
+                adaptToState(state);
+                return;
+            }
+            setRetractStatusUI('left', state.leftRetract || 'idle');
+            setRetractStatusUI('right', state.rightRetract || 'idle');
+        } catch (err) {
+            // Transient failure - keep polling. The manual "Belts are
+            // retracted" fallback button doesn't depend on this loop.
+        }
+        if (retractPollToken !== token) {
+            return;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+    }
+}
+
 async function checkIfExtendedToHome(extendToHomeTime) {
     await new Promise(r => setTimeout(r, (extendToHomeTime || 0) * 1000));
 
@@ -80,6 +137,11 @@ function init() {
             data: {distance: inputValue},
             commandName: "Set Top Distance",
         });
+    });
+
+    $("#autoRetractButton").click(async function() {
+        $(this).prop("disabled", true);
+        await client.autoRetractStart();
     });
 
     $("#leftMotorToggle").change(function() {
@@ -202,6 +264,22 @@ function init() {
         return maxX;
     }
 
+    // Command files rendered by this UI carry an optional "t<pin distance
+    // mm>" header, written right after the d/h headers (see toCommands.ts
+    // and runner.cpp's initTaskProvider), recording the pin distance the
+    // file's coordinates were laid out for. Older files (or ones downloaded
+    // before this header existed) won't have it.
+    function findFileTopDistance(text) {
+        const headerLines = text.split('\n', 3);
+        for (const line of headerLines) {
+            const match = line.trim().match(/^t([\d.]+)$/);
+            if (match) {
+                return parseFloat(match[1]);
+            }
+        }
+        return null;
+    }
+
     $("#uploadCommandsFile").change(async function() {
         const [file] = $("#uploadCommandsFile")[0].files;
         if (!file) {
@@ -216,16 +294,32 @@ function init() {
             return;
         }
 
-        if (currentState && currentState.safeWidth > 0) {
-            const maxX = findMaxCommandFileX(text);
-            if (maxX !== null && maxX > currentState.safeWidth) {
-                const proceed = window.confirm(
-                    `This command file was drawn up to ${maxX.toFixed(1)}mm wide, but the current setup only ` +
-                    `allows ${currentState.safeWidth}mm. Coordinates outside the drawable area will be ` +
-                    `rejected by Mural. Continue anyway?`
-                );
-                if (!proceed) {
-                    return;
+        if (currentState) {
+            const fileTopDistance = findFileTopDistance(text);
+            if (fileTopDistance !== null && typeof currentState.topDistance === 'number') {
+                if (Math.abs(fileTopDistance - currentState.topDistance) > 1) {
+                    const proceed = window.confirm(
+                        `This command file was generated for a pin distance of ${fileTopDistance}mm, but the ` +
+                        `current setup is ${currentState.topDistance}mm. Coordinates may be shifted or fall ` +
+                        `outside the drawable area. Continue anyway?`
+                    );
+                    if (!proceed) {
+                        return;
+                    }
+                }
+            } else if (currentState.safeWidth > 0) {
+                // Fallback for files without a t-header: warn if the widest
+                // recorded x-coordinate wouldn't fit the current setup.
+                const maxX = findMaxCommandFileX(text);
+                if (maxX !== null && maxX > currentState.safeWidth) {
+                    const proceed = window.confirm(
+                        `This command file was drawn up to ${maxX.toFixed(1)}mm wide, but the current setup only ` +
+                        `allows ${currentState.safeWidth}mm. Coordinates outside the drawable area will be ` +
+                        `rejected by Mural. Continue anyway?`
+                    );
+                    if (!proceed) {
+                        return;
+                    }
                 }
             }
         }
@@ -333,6 +427,7 @@ function init() {
             homeY: currentState.homeY,
             infillDensity: getInfillDensity(),
             flattenPaths: getFlattenPaths(),
+            topDistance: currentState.topDistance,
         }
 
         worker.onmessage = (e) => {
@@ -699,11 +794,22 @@ function verifyUpload(state) {
 }
 
 function adaptToState(state) {
+    stopRetractPolling();
     $(".muralSlide").hide();
     currentState = state;
     switch(state.phase) {
         case "RetractBelts":
             $("#retractBeltsSlide").show();
+            // autoRetract reflects the firmware build (MURAL_TMC_UART), not
+            // just this phase - only offer the button (and its "manual is
+            // the fallback" framing) when the firmware actually supports it.
+            // The manual toggles + "Belts are retracted" button always work.
+            $("#autoRetractButton").prop("disabled", false)
+                .toggle(!!state.autoRetract);
+            $("#manualRetractHint").toggle(!!state.autoRetract);
+            setRetractStatusUI('left', state.leftRetract || 'idle');
+            setRetractStatusUI('right', state.rightRetract || 'idle');
+            pollRetractStatus();
             break;
         case "SetTopDistance":
             $("#distanceBetweenAnchorsSlide").show();

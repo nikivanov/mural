@@ -21,6 +21,12 @@ class Runner {
         double y;
         int topDistance;
         int penAngle;
+        // Whether the pen was down (mid-stroke) at the moment this checkpoint was
+        // written. Restoring this on resume matters: without it, a power loss
+        // mid-stroke resumes with the pen up and silently skips drawing the rest
+        // of that stroke (up to checkpointIntervalLines worth of it) until the
+        // next p1. See beginResume()'s hand-off ordering.
+        bool penDown;
     };
 
     private:
@@ -65,11 +71,29 @@ class Runner {
     const char* getStateName();
     void pushProgressEvent(bool force, const char* stateOverride = nullptr);
 
+    // Reads the mandatory d/h header and the optional t<mm> pin-distance header
+    // (added by toCommands.ts after d/h; older command files won't have it) from
+    // an open command file, leaving the file positioned at the first command
+    // line. Sets totalDistanceOut from the d line. If a t line is present,
+    // hasTopDistanceOut is set true and topDistanceOut holds its value, so
+    // instance callers (which have a Movement pointer) can validate it against
+    // the current setup; static callers that don't care about validation (see
+    // countTotalCommandLines()) can just ignore the out-params. Returns false
+    // only if d or h is missing/malformed. Shared by initTaskProvider() and
+    // beginResume() so the two don't duplicate header parsing.
+    static bool parseCommandFileHeader(File& file, double& totalDistanceOut, bool& hasTopDistanceOut, double& topDistanceOut);
+
     public:
+    // Set by initTaskProvider() when start()/dryRun() returns false, so the
+    // caller (BeginDrawingPhase) can surface a specific reason instead of a
+    // generic "Not ready". Empty when no specific reason was recorded.
+    String lastError;
+
     Runner(Movement *movement, Pen *pen, Display *display);
     bool start();
     void run();
     void dryRun();
+    String getLastError();
 
     // Live status (see /events SSE stream, wired in main.cpp).
     void setEventSource(AsyncEventSource *events);
@@ -85,13 +109,14 @@ class Runner {
     // Resume-after-power-loss: reopens /commands, seeks to the checkpointed offset,
     // restores executedLines/totalLines so progress reporting is correct, and starts
     // feeding tasks again. Movement must already be homed to the checkpoint's (x, y)
-    // (see ExtendToHomePhase) before calling this.
+    // (see ExtendToHomePhase) before calling this - the pen is only lowered (if
+    // cp.penDown) once that travel is complete and confirmed, never during it.
     bool beginResume(const Checkpoint& cp);
 
     static bool loadCheckpoint(Checkpoint& out);
     static void clearCheckpoint();
-    // Counts command lines (post d/h header) in /commands without disturbing any
-    // open Runner file handle - used to compute a resume-offer percentage before a
+    // Counts command lines (post-header) in /commands without disturbing any open
+    // Runner file handle - used to compute a resume-offer percentage before a
     // Runner instance has (re)opened the file itself.
     static int countTotalCommandLines();
 };
