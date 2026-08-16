@@ -52,6 +52,9 @@ export function renderCommandsToSvgJson(commands: string[], width: number, heigh
         } else if (firstChar === 'h') {
             console.log(`Drawing height is ${command.slice(1)}`);
             continue;
+        } else if (firstChar === 't') {
+            console.log(`Pin distance is ${command.slice(1)}`);
+            continue;
         } else if (firstChar === 'p') {
             const secondChar = command.charAt(1);
             if (secondChar === '1') {
