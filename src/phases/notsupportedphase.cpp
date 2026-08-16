@@ -39,6 +39,10 @@ void NotSupportedPhase::estepsCalibration(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 
+void NotSupportedPhase::installTestPattern(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
 const char* NotSupportedPhase::getName() {
     throw std::invalid_argument("should be overridden");
 }

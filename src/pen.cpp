@@ -1,4 +1,5 @@
 #include "pen.h"
+#include <stdexcept>
 
 bool shouldStop(int currentDegree, int targetDegree, bool positive) {
     if (positive) {
