@@ -7,6 +7,8 @@
 #include "begindrawingphase.h"
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
+#include "../prefskeys.h"
+#include <Preferences.h>
 #include <stdexcept>
 
 PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server) {
@@ -66,6 +68,16 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     auto topDistance = movement->getTopDistance();
     auto safeWidth = topDistance != -1 ? movement->getWidth() : -1;
 
+    // Values persisted in NVS survive firmware restarts even though the
+    // in-memory movement/pen state above does not. Exposing them separately
+    // lets the UI prefill the distance input and pen slider with the last
+    // known-good calibration instead of forcing the user to redo it.
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, true);
+    int storedTopDistance = prefs.getInt(PREFS_TOP_DISTANCE_KEY, -1);
+    int storedPenAngle = prefs.getInt(PREFS_PEN_ANGLE_KEY, -1);
+    prefs.end();
+
     AsyncResponseStream *response = request->beginResponseStream("application/json");
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
@@ -76,6 +88,9 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["safeWidth"] = safeWidth;
     root["homeX"] = homePosition.x;
     root["homeY"] = homePosition.y;
+    root["storedTopDistance"] = storedTopDistance;
+    root["storedPenAngle"] = storedPenAngle;
+    root["uploadCrc32"] = svgSelectPhase->getUploadCrc32();
 
     root.printTo(*response);
     request->send(response);
