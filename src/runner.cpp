@@ -7,6 +7,32 @@
 #include "LittleFS.h"
 using namespace std;
 
+#ifdef MURAL_SMOOTH_MOTION
+// UNTESTED ON HARDWARE: motion smoothing. Angle threshold below which two
+// consecutive drawing segments are treated as collinear enough to fold into
+// a single InterpolatingMovementTask, so the belts keep moving through the
+// join instead of the Runner stopping and starting a fresh task at every
+// waypoint from the input file. Re-tune once this has been validated on
+// real hardware.
+constexpr double smoothAngleThresholdRad = 3.0 * PI / 180.0;
+
+// Angle in radians between segment (a->b) and segment (b->c). A
+// zero-length segment is treated as a hard corner (never smoothed).
+double angleBetweenSegments(Movement::Point a, Movement::Point b, Movement::Point c) {
+    double v1x = b.x - a.x, v1y = b.y - a.y;
+    double v2x = c.x - b.x, v2y = c.y - b.y;
+    double len1 = sqrt(v1x * v1x + v1y * v1y);
+    double len2 = sqrt(v2x * v2x + v2y * v2y);
+    if (len1 < 1e-6 || len2 < 1e-6) {
+        return PI;
+    }
+    double dot = (v1x * v2x + v1y * v2y) / (len1 * len2);
+    if (dot > 1.0) dot = 1.0;
+    if (dot < -1.0) dot = -1.0;
+    return acos(dot);
+}
+#endif
+
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     stopped = true;
     this->movement = movement;
@@ -98,6 +124,37 @@ Task *Runner::getNextTask()
             auto x = line.substring(0, line.indexOf(" ")).toDouble();
             auto y = line.substring(line.indexOf(" ") + 1).toDouble();
             targetPosition = Movement::Point(x, y);
+
+#ifdef MURAL_SMOOTH_MOTION
+            // UNTESTED ON HARDWARE: fold in as many further consecutive
+            // waypoints as stay nearly collinear with the path so far, so
+            // InterpolatingMovementTask's existing 1mm interpolation drives
+            // straight through to the merged target without the Runner
+            // stopping to switch tasks at every one of them. Any waypoint
+            // read here but not merged is put back so it's read again
+            // normally on a later call.
+            auto previousPoint = movement->getCoordinates();
+            auto mergedTarget = targetPosition;
+            while (openedFile.available()) {
+                auto bookmark = openedFile.position();
+                auto peekLine = openedFile.readStringUntil('\n');
+                if (peekLine.length() == 0 || peekLine.charAt(0) == 'p') {
+                    openedFile.seek(bookmark);
+                    break;
+                }
+                auto px = peekLine.substring(0, peekLine.indexOf(" ")).toDouble();
+                auto py = peekLine.substring(peekLine.indexOf(" ") + 1).toDouble();
+                Movement::Point peekedTarget(px, py);
+                if (angleBetweenSegments(previousPoint, mergedTarget, peekedTarget) > smoothAngleThresholdRad) {
+                    openedFile.seek(bookmark);
+                    break;
+                }
+                previousPoint = mergedTarget;
+                mergedTarget = peekedTarget;
+            }
+            targetPosition = mergedTarget;
+#endif
+
             return new InterpolatingMovementTask(movement, targetPosition);
         }
     }
@@ -122,6 +179,23 @@ void Runner::run()
     {
         return;
     }
+
+#ifdef MURAL_TMC_UART
+    // UNTESTED ON HARDWARE: stall monitoring during drawing. If either
+    // driver reported a stall, Movement::runSteppers() already halted both
+    // motors; here we stop feeding the runner's tasks, lift the pen, and
+    // show a message on the OLED instead of trying to continue or auto-
+    // resume the job. See docs/tmc-uart.md for how to recover from this.
+    if (movement->isStalled()) {
+        if (!pausedForStall) {
+            pausedForStall = true;
+            Serial.println("Stall detected while drawing - pausing.");
+            pen->slowUp();
+            display->displayText("STALL - paused");
+        }
+        return;
+    }
+#endif
 
     if (currentTask->isDone())
     {
