@@ -10,21 +10,21 @@ class Runner {
     Movement *movement;
     Pen *pen;
     Display *display;
-    void initTaskProvider();
+    bool initTaskProvider();
     Task* getNextTask();
     Task* currentTask;
     bool stopped;
     File openedFile;
     double totalDistance;
-    double distanceSoFar;
-    Movement::Point startPosition;
     Movement::Point targetPosition;
     int progress;
+    int totalLines;
+    int executedLines;
     Task *finishingSequence[1];
     int sequenceIx = 0;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);
-    void start();
+    bool start();
     void run();
     void dryRun();
 };

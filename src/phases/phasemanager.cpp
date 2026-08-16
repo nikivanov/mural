@@ -64,7 +64,8 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     auto homePosition = movement->getHomeCoordinates();
 
     auto topDistance = movement->getTopDistance();
-    auto safeWidth = topDistance != -1 ? movement->getWidth() : -1;
+    double widthValue;
+    auto safeWidth = movement->getWidth(widthValue) ? widthValue : -1;
 
     AsyncResponseStream *response = request->beginResponseStream("application/json");
     DynamicJsonBuffer jsonBuffer;

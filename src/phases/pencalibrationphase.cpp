@@ -2,7 +2,6 @@
 PenCalibrationPhase::PenCalibrationPhase(PhaseManager* manager, Pen* pen) {
     this->manager = manager;
     this->pen = pen;
-    this->runner = runner;
 }
 
 void PenCalibrationPhase::setServo(AsyncWebServerRequest *request) {
@@ -16,7 +15,10 @@ void PenCalibrationPhase::setPenDistance(AsyncWebServerRequest *request) {
     const AsyncWebParameter* p = request->getParam(0);
     int angle = p->value().toInt();
     pen->setPenDistance(angle);
-    pen->slowUp();
+    if (!pen->slowUp()) {
+        request->send(400, "text/plain", "Pen not ready");
+        return;
+    }
     manager->setPhase(PhaseManager::BeginDrawing);
     manager->respondWithState(request);
 }

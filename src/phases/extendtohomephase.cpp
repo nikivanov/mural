@@ -1,6 +1,11 @@
 #include "extendtohomephase.h"
 void ExtendToHomePhase::extendToHome(AsyncWebServerRequest *request) {
-    auto moveTime = movement->extendToHome() + 1; // extra second of waiting for good measure
+    int moveTime;
+    if (!movement->extendToHome(moveTime)) {
+        request->send(400, "text/plain", "Not ready");
+        return;
+    }
+    moveTime = moveTime + 1; // extra second of waiting for good measure
     request->send(200, "text/plain", String(moveTime));
 }
 
