@@ -133,9 +133,10 @@ Task *Runner::getNextTask()
             // stopping to switch tasks at every one of them. Any waypoint
             // read here but not merged is put back so it's read again
             // normally on a later call.
-            auto previousPoint = movement->getCoordinates();
+            Movement::Point previousPoint;
+            bool haveCoordinates = movement->getCoordinates(previousPoint);
             auto mergedTarget = targetPosition;
-            while (openedFile.available()) {
+            while (haveCoordinates && openedFile.available()) {
                 auto bookmark = openedFile.position();
                 auto peekLine = openedFile.readStringUntil('\n');
                 if (peekLine.length() == 0 || peekLine.charAt(0) == 'p') {
