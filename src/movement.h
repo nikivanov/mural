@@ -59,6 +59,7 @@ private:
     bool homed;
     double X = -1;              // Location of Pen in x [mm].
     double Y = -1;              // Location of Pen in y [mm].
+    bool positionKnown = false; // Whether X/Y currently hold a valid pen position.
     bool startedHoming;
     AccelStepper *leftMotor;
     AccelStepper *rightMotor;
@@ -107,16 +108,16 @@ public:
 
     bool isMoving();
     bool hasStartedHoming();
-    double getWidth();
-    Point getCoordinates();
+    bool getWidth(double& width);
+    bool getCoordinates(Point& point);
     void setTopDistance(const int distance);
     void resumeTopDistance(const int distance);
     int getTopDistance();
     void leftStepper(const int dir);
     void rightStepper(const int dir);
-    int extendToHome();
+    bool extendToHome(int& moveTime);
     void runSteppers();
-    float beginLinearTravel(double x, double y, int speed);
+    bool beginLinearTravel(double x, double y, int speed, float& moveTime);
 
     // Used for calibration of the esteps.
     void extend1000mm(); 

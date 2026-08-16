@@ -14,11 +14,11 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     this->display = display;
 }
 
-void Runner::initTaskProvider() {
+bool Runner::initTaskProvider() {
     openedFile = LittleFS.open("/commands");
     if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
-        throw std::invalid_argument("No File");
+        return false;
     }
 
     auto line = openedFile.readStringUntil('\n');
@@ -26,7 +26,7 @@ void Runner::initTaskProvider() {
         totalDistance = line.substring(1, line.length() - 1).toDouble();
     } else {
         Serial.println("Bad file - no distance");
-        throw std::invalid_argument("bad file");
+        return false;
     }
 
     auto heightLine = openedFile.readStringUntil('\n');
@@ -35,24 +35,43 @@ void Runner::initTaskProvider() {
         // we actually dont need it, just validating
     } else {
         Serial.println("Bad file - no height");
-        throw std::invalid_argument("bad file");
+        return false;
     }
 
     Serial.println("Total distance to travel: " + String(totalDistance));
 
-    distanceSoFar = 0;
+    // Pre-scan the command lines once so progress can be reported as
+    // executedLines/totalLines instead of tracking distance travelled.
+    auto commandsStart = openedFile.position();
+    totalLines = 0;
+    while (openedFile.available()) {
+        openedFile.readStringUntil('\n');
+        totalLines++;
+    }
+    openedFile.seek(commandsStart);
+
+    executedLines = 0;
     progress = -1; // so 0% appears right away
-    startPosition = movement->getCoordinates();
+
+    Movement::Point startPosition;
+    if (!movement->getCoordinates(startPosition)) {
+        Serial.println("Not ready to get coordinates");
+        return false;
+    }
 
     auto homeCoordinates = movement->getHomeCoordinates();
     finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
+    return true;
 }
 
-void Runner::start() {
-    initTaskProvider();
+bool Runner::start() {
+    if (!initTaskProvider()) {
+        return false;
+    }
     currentTask = getNextTask();
     currentTask->startRunning();
     stopped = false;
+    return true;
 }
 
 Task *Runner::getNextTask()
@@ -60,6 +79,7 @@ Task *Runner::getNextTask()
     if (openedFile.available())
     {
         auto line = openedFile.readStringUntil('\n');
+        executedLines++;
         if (line.charAt(0) == 'p')
         {
             if (line.charAt(1) == '1')
@@ -106,11 +126,13 @@ void Runner::run()
 
     if (currentTask->isDone())
     {
-        if (currentTask->name() == InterpolatingMovementTask::NAME) {
-            auto distanceCovered = Movement::distanceBetweenPoints(startPosition, targetPosition);
-            distanceSoFar += distanceCovered;
-            startPosition = targetPosition;
-            auto newProgress = int(floor(distanceSoFar / totalDistance * 100));
+        delete currentTask;
+        currentTask = getNextTask();
+        if (currentTask != NULL)
+        {
+            currentTask->startRunning();
+
+            auto newProgress = totalLines > 0 ? int(executedLines * 100 / totalLines) : 100;
             if (newProgress > 100) {
                 newProgress = 100;
             }
@@ -119,13 +141,6 @@ void Runner::run()
                 progress = newProgress;
                 display->displayText(String(progress) + "%");
             }
-
-        }
-        delete currentTask;
-        currentTask = getNextTask();
-        if (currentTask != NULL)
-        {
-            currentTask->startRunning();
         }
         else
         {
@@ -135,7 +150,10 @@ void Runner::run()
 }
 
 void Runner::dryRun() {
-    initTaskProvider();
+    if (!initTaskProvider()) {
+        Serial.println("Failed to initialize task provider");
+        return;
+    }
     auto task = getNextTask();
     auto index = 1;
     while (task != NULL) {

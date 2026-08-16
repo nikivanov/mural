@@ -61,22 +61,24 @@ void Pen::setPenDistance(int value) {
     this->penDistance = value;
 }
 
-void Pen::slowUp() {
+bool Pen::slowUp() {
     if (penDistance == -1) {
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     doSlowMove(this, currentPosition, 90, slowSpeedDegPerSec);
     currentPosition = 90;
+    return true;
 }
 
-void Pen::slowDown() {
+bool Pen::slowDown() {
     if (penDistance == -1) {
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     doSlowMove(this, currentPosition, penDistance, slowSpeedDegPerSec);
     currentPosition = penDistance;
+    return true;
 }
 
 bool Pen::isDown() {

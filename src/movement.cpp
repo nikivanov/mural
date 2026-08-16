@@ -1,6 +1,5 @@
 #include "movement.h"
 #include "display.h"
-#include <stdexcept>
 
 Movement::Movement(Display *display)
 {
@@ -25,7 +24,7 @@ Movement::Movement(Display *display)
 };
 
 void Movement::setTopDistance(const int distance) {
-    Serial.printf("Top distance set to %s\n", String(distance));
+    Serial.printf("Top distance set to %d\n", distance);
     topDistance = distance;                         // = d_pins [mm]
 
     minSafeY = safeYFraction * topDistance;         // = top_margin * d_pins [mm]
@@ -40,6 +39,7 @@ void Movement::resumeTopDistance(int distance /* = d_pin in mm */) {
     const Point homeCoordinates = getHomeCoordinates();
     X = homeCoordinates.x;
     Y = homeCoordinates.y;
+    positionKnown = true;
 
     const Lengths lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
     leftMotor->setCurrentPosition(lengths.left);
@@ -105,14 +105,18 @@ Movement::Point Movement::getHomeCoordinates() {
     return Point(width / 2, HOME_Y_OFFSET_MM);
 }
 
-int Movement::extendToHome()
+bool Movement::extendToHome(int& moveTime)
 {
     setOrigin();
 
     auto homeCoordinates = getHomeCoordinates();
     startedHoming = true;
-    auto moveTime = beginLinearTravel(homeCoordinates.x, homeCoordinates.y, moveSpeedSteps);
-    return int(ceil(moveTime));
+    float moveTimeF;
+    if (!beginLinearTravel(homeCoordinates.x, homeCoordinates.y, moveSpeedSteps, moveTimeF)) {
+        return false;
+    }
+    moveTime = int(ceil(moveTimeF));
+    return true;
 };
 
 void Movement::runSteppers()
@@ -326,41 +330,42 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     leftLeg = getDilationCorrectedBeltLength(leftLeg, F_L);
     rightLeg = getDilationCorrectedBeltLength(rightLeg, F_R);
     
-    const double leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
-    const double rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
+    const long leftLegSteps = lround((leftLeg / circumference) * stepsPerRotation);
+    const long rightLegSteps = lround((rightLeg / circumference) * stepsPerRotation);
 
     return Lengths(leftLegSteps, rightLegSteps);
 }
 
-float Movement::beginLinearTravel(double x, double y, int speed)
+bool Movement::beginLinearTravel(double x, double y, int speed, float& moveTime)
 {
     X = x;
     Y = y;
+    positionKnown = true;
     if (topDistance == -1 || !homed) {
         Serial.println("Not ready");
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     if (x < 0 || (x - 1) > width)
     {
         Serial.println("Invalid x");
-        throw std::invalid_argument("Invalid x");
+        return false;
     }
 
     if (y < 0)
     {
         Serial.println("Invalid y");
-        throw std::invalid_argument("Invalid y");
+        return false;
     }
 
     auto lengths = getBeltLengths(x, y);
     auto leftLegSteps = lengths.left;
     auto rightLegSteps = lengths.right;
 
-    auto deltaLeft = int(abs(abs(leftMotor->currentPosition()) - leftLegSteps));
-    auto deltaRight = int(abs(abs(rightMotor->currentPosition()) - rightLegSteps));
+    long deltaLeft = abs(abs(leftMotor->currentPosition()) - (long)leftLegSteps);
+    long deltaRight = abs(abs(rightMotor->currentPosition()) - (long)rightLegSteps);
 
-    float leftSpeed, rightSpeed, moveTime;
+    float leftSpeed, rightSpeed;
     if (deltaLeft >= deltaRight)
     {
         leftSpeed = speed;
@@ -385,27 +390,29 @@ float Movement::beginLinearTravel(double x, double y, int speed)
     // delay(sleepDurationAfterMove_ms);
 
     moving = true;
-    return moveTime;
+    return true;
 };
 
-double Movement::getWidth() {
+bool Movement::getWidth(double& width) {
     if (topDistance == -1) {
-        throw std::invalid_argument("not ready");
+        return false;
     }
-    return width;
+    width = this->width;
+    return true;
 }
 
-Movement::Point Movement::getCoordinates() {
-    if (X == -1 || Y == -1) {
+bool Movement::getCoordinates(Point& point) {
+    if (!positionKnown) {
         Serial.println("Not ready to get coordinates");
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     if (moving) {
         Serial.println("Can't get coordinates while moving");
-        throw std::invalid_argument("not ready");
+        return false;
     }
-    return Movement::Point(X, Y);
+    point = Movement::Point(X, Y);
+    return true;
 }
 
 void Movement::extend1000mm() {

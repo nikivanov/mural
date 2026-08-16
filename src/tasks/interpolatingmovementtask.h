@@ -8,6 +8,7 @@ class InterpolatingMovementTask : public Task {
     Movement *movement;
     Movement::Point target;
     Movement::Point position;
+    bool failed = false;
     public:
     const static char* NAME;
     InterpolatingMovementTask(Movement *movement, Movement::Point target);
