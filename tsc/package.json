@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "build": "webpack --mode=production --node-env=production",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "pretest": "tsc -p tsconfig.test.json",
+    "test": "node --test dist-test/test/*.test.js"
   },
   "keywords": [],
   "author": "Nik Ivanov",
