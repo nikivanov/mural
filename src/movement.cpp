@@ -125,7 +125,6 @@ void Movement::runSteppers()
         if (leftMotor->distanceToGo() == 0 && rightMotor->distanceToGo() == 0)
         {
             moving = false;
-            //Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->currentPosition(), rightMotor->currentPosition());
         }
     }
 };
@@ -174,10 +173,6 @@ void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L
     const double F_G = mass_bot * g_constant;       // [N] Gravity force is pulling bot down. No x component.
     F_R = F_G * cos(phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
     F_L = F_G * cos(phi_R) / sin(phi_L + phi_R);    // [N]
-    // double F_Ly = F_L * sin(phi_L);                         // [N] components in y and x
-    // double F_Lx = F_L * sin(phi_L);                         // [N] ...
-    // double F_Ry = F_R * sin(phi_R);                         // [N]
-    // double F_Rx = F_R * sin(phi_R);                         // [N]
 }
 
 double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_init) const {
@@ -222,13 +217,8 @@ double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, 
         if (abs(T_delta) < abs(T_delta_best)){
             T_delta_best = T_delta;
             gamma_best = gamma;
-            // Serial.printf("  solveTorqueEquilibrium: T_delta=%1.4f @ gamma=%1.4f, T_delta_best=%1.4f @ gamma_best=%1.4f\n",
-            //     T_delta, gamma, T_delta_best, gamma_best);
         } else {
             // There is only one zero crossing: terminate early if T_delta gets worse than best one so far.
-
-            // Serial.printf("  solveTorqueEquilibrium: T_delta=%1.4f @ gamma=%1.4f, T_delta_best=%1.4f @ gamma_best=%1.4f Exit function.\n",
-            //     T_delta, gamma, T_delta_best, gamma_best);
             return gamma_best;
         }
     }
@@ -301,14 +291,10 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
 
         const double gamma_last = gamma;
         gamma = solveTorqueEquilibrium(phi_L, phi_R, F_L, F_R, gamma);
-        // Serial.printf(" Solver loop: i=%d, frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, gamma=%1.4f\n", 
-        //     i, frameX, frameY, phi_L, phi_R, F_L, F_R, gamma);
         debug_step_count = i;
         if (abs(gamma_last - gamma) < gamma_delta_termination) break;
     }
     gamma_last_position = gamma;
-    // Serial.printf("Solver found: frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, debug_step_count=%d, gamma=%1.4f\n", 
-    //     frameX, frameY, phi_L, phi_R, F_L, F_R, debug_step_count, gamma);
 
     double leftX, leftY;
     double rightX, rightY;
@@ -374,15 +360,11 @@ float Movement::beginLinearTravel(double x, double y, int speed)
         leftSpeed = deltaLeft / moveTime;
     }
 
-    //Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
     leftMotor->moveTo(leftLegSteps);
     leftMotor->setSpeed(leftSpeed);
-    
+
     rightMotor->moveTo(rightLegSteps);
     rightMotor->setSpeed(rightSpeed);
-
-    //display->displayText(String(X) + ", " + String(Y));
-    // delay(sleepDurationAfterMove_ms);
 
     moving = true;
     return moveTime;

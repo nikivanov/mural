@@ -1,4 +1,5 @@
 #include "notsupportedphase.h"
+#include <stdexcept>
 void NotSupportedPhase::handleCommand(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
