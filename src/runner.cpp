@@ -38,9 +38,16 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
     this->movement = movement;
     this->pen = pen;
     this->display = display;
+    lastError = "";
+}
+
+String Runner::getLastError() {
+    return lastError;
 }
 
 bool Runner::initTaskProvider() {
+    lastError = "";
+
     openedFile = LittleFS.open("/commands");
     if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
@@ -62,6 +69,25 @@ bool Runner::initTaskProvider() {
     } else {
         Serial.println("Bad file - no height");
         return false;
+    }
+
+    // Optional `t<mm>` pin-distance header (added after the d/h headers by
+    // toCommands.ts). Older command files won't have it, so peek at the next
+    // line and seek back if it's not there instead of consuming it.
+    auto beforeTopDistanceLine = openedFile.position();
+    auto topDistanceLine = openedFile.readStringUntil('\n');
+    if (topDistanceLine.charAt(0) == 't') {
+        String topDistanceValue = topDistanceLine.substring(1);
+        topDistanceValue.trim();
+        auto fileTopDistance = topDistanceValue.toDouble();
+        auto currentTopDistance = (double)movement->getTopDistance();
+        if (abs(fileTopDistance - currentTopDistance) > 1.0) {
+            Serial.println("Command file pin distance mismatch: file=" + String(fileTopDistance) + " current=" + String(currentTopDistance));
+            lastError = "Command file was generated for pin distance " + String((int)fileTopDistance) + " mm, current setup is " + String((int)currentTopDistance) + " mm";
+            return false;
+        }
+    } else {
+        openedFile.seek(beforeTopDistanceLine);
     }
 
     Serial.println("Total distance to travel: " + String(totalDistance));

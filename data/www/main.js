@@ -202,6 +202,22 @@ function init() {
         return maxX;
     }
 
+    // Command files rendered by this UI carry an optional "t<pin distance
+    // mm>" header, written right after the d/h headers (see toCommands.ts
+    // and runner.cpp's initTaskProvider), recording the pin distance the
+    // file's coordinates were laid out for. Older files (or ones downloaded
+    // before this header existed) won't have it.
+    function findFileTopDistance(text) {
+        const headerLines = text.split('\n', 3);
+        for (const line of headerLines) {
+            const match = line.trim().match(/^t([\d.]+)$/);
+            if (match) {
+                return parseFloat(match[1]);
+            }
+        }
+        return null;
+    }
+
     $("#uploadCommandsFile").change(async function() {
         const [file] = $("#uploadCommandsFile")[0].files;
         if (!file) {
@@ -216,16 +232,32 @@ function init() {
             return;
         }
 
-        if (currentState && currentState.safeWidth > 0) {
-            const maxX = findMaxCommandFileX(text);
-            if (maxX !== null && maxX > currentState.safeWidth) {
-                const proceed = window.confirm(
-                    `This command file was drawn up to ${maxX.toFixed(1)}mm wide, but the current setup only ` +
-                    `allows ${currentState.safeWidth}mm. Coordinates outside the drawable area will be ` +
-                    `rejected by Mural. Continue anyway?`
-                );
-                if (!proceed) {
-                    return;
+        if (currentState) {
+            const fileTopDistance = findFileTopDistance(text);
+            if (fileTopDistance !== null && typeof currentState.topDistance === 'number') {
+                if (Math.abs(fileTopDistance - currentState.topDistance) > 1) {
+                    const proceed = window.confirm(
+                        `This command file was generated for a pin distance of ${fileTopDistance}mm, but the ` +
+                        `current setup is ${currentState.topDistance}mm. Coordinates may be shifted or fall ` +
+                        `outside the drawable area. Continue anyway?`
+                    );
+                    if (!proceed) {
+                        return;
+                    }
+                }
+            } else if (currentState.safeWidth > 0) {
+                // Fallback for files without a t-header: warn if the widest
+                // recorded x-coordinate wouldn't fit the current setup.
+                const maxX = findMaxCommandFileX(text);
+                if (maxX !== null && maxX > currentState.safeWidth) {
+                    const proceed = window.confirm(
+                        `This command file was drawn up to ${maxX.toFixed(1)}mm wide, but the current setup only ` +
+                        `allows ${currentState.safeWidth}mm. Coordinates outside the drawable area will be ` +
+                        `rejected by Mural. Continue anyway?`
+                    );
+                    if (!proceed) {
+                        return;
+                    }
                 }
             }
         }
@@ -333,6 +365,7 @@ function init() {
             homeY: currentState.homeY,
             infillDensity: getInfillDensity(),
             flattenPaths: getFlattenPaths(),
+            topDistance: currentState.topDistance,
         }
 
         worker.onmessage = (e) => {

@@ -76,6 +76,7 @@ function svgToRequest(svgString: string, paper: typeof import("paper")): Request
         homeY: 0,
         infillDensity: 2,
         flattenPaths: false,
+        topDistance: Math.round(WIDTH / 0.6),
     };
 }
 
@@ -121,7 +122,7 @@ if (!paperAvailable) {
 
             // 2. All coordinates within [0,width] x [0,height].
             for (const cmd of result.commands) {
-                if (cmd === "p0" || cmd === "p1" || cmd.startsWith("d") || cmd.startsWith("h")) continue;
+                if (cmd === "p0" || cmd === "p1" || cmd.startsWith("d") || cmd.startsWith("h") || cmd.startsWith("t")) continue;
                 const [x, y] = cmd.split(" ").map(Number);
                 assert.ok(x >= 0 && x <= request.width, `x=${x} out of [0, ${request.width}] in ${svgFile}`);
                 assert.ok(y >= 0 && y <= request.height, `y=${y} out of [0, ${request.height}] in ${svgFile}`);

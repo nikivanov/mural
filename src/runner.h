@@ -28,9 +28,15 @@ class Runner {
     bool pausedForStall = false;
 #endif
     public:
+    // Set by initTaskProvider() when start()/dryRun() returns false, so the
+    // caller (BeginDrawingPhase) can surface a specific reason instead of a
+    // generic "Not ready". Empty when no specific reason was recorded.
+    String lastError;
+
     Runner(Movement *movement, Pen *pen, Display *display);
     bool start();
     void run();
     void dryRun();
+    String getLastError();
 };
 #endif
