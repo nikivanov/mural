@@ -6,10 +6,11 @@
 #include "runner.h"
 #include <ESPAsyncWebServer.h>
 class SvgSelectPhase;
+class RetractBeltsPhase;
 class PhaseManager {
     private:
     Phase* currentPhase;
-    Phase* retractBeltsPhase;
+    RetractBeltsPhase* retractBeltsPhase;
     Phase* setTopDistancePhase;
     Phase* extendToHomePhase;
     Phase* penCalibrationPhase;

@@ -80,7 +80,19 @@
       </div>
       <div id="retractBeltsSlide" class="muralSlide" style="display:none;">
         <h3 class="mb-2 fw-normal">Retract belts</h3>
-        <h6 class="mb-5"><small class="text-muted">Place the belt loops on the homing screws and retract the belts until the motors stall. Don't let the motors stall for too long.</small></h6>
+        <h6 class="mb-4"><small class="text-muted">Place the belt loops on the homing screws and retract the belts until the motors stall. Don't let the motors stall for too long.</small></h6>
+        <div class="mb-4">
+          <div class="d-flex align-items-center mb-2">
+            <div class="spinner-border spinner-border-sm me-2" id="leftRetractSpinner" role="status" style="visibility:hidden;"></div>
+            <span id="leftRetractLabel">Left belt: idle</span>
+          </div>
+          <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" id="rightRetractSpinner" role="status" style="visibility:hidden;"></div>
+            <span id="rightRetractLabel">Right belt: idle</span>
+          </div>
+        </div>
+        <button class="w-100 btn btn-lg btn-primary mb-4" id="autoRetractButton" style="display:none;">Auto-retract</button>
+        <h6 class="mb-2" id="manualRetractHint" style="display:none;"><small class="text-muted">If auto-detection fails, use the manual controls below.</small></h6>
         <div class="form-check form-switch mb-5">
           <input class="form-check-input" style="transform: scale(2);" type="checkbox" role="switch" id="leftMotorToggle">
           <label class="form-check-label" for="leftMotorToggle">Left motor</label>
