@@ -12,51 +12,59 @@ const paper = loadPaper();
 const width = 1000;
 const renderScaleFactor = 2;
 
+// Default test input lives in images/test_images at the repo root (tsc/svgs
+// never existed in this checkout). Override with MURAL_TEST_SVG_DIR to point
+// the manual harness at a different directory, and MURAL_TEST_OUT_DIR for
+// where rendered output gets written.
+const inputSvgDir = process.env.MURAL_TEST_SVG_DIR
+    ? path.resolve(process.env.MURAL_TEST_SVG_DIR)
+    : path.join(__dirname, '../../images/test_images');
+const outputDir = process.env.MURAL_TEST_OUT_DIR
+    ? path.resolve(process.env.MURAL_TEST_OUT_DIR)
+    : path.join(__dirname, '../out');
+
 function updater(status: string) {
     console.log(status);
 }
 
 async function main_vectorRasterVector() {
-    const dirPath = path.join(__dirname, '../svgs');
+    const dirPath = inputSvgDir;
     const inDir = fs.opendirSync(dirPath);
 
-    const outDirPath = path.join(__dirname, '../svgs/out/');
-    
+    const outDirPath = outputDir;
+    fs.mkdirSync(outDirPath, { recursive: true });
 
     let dirEntry = inDir.readSync();
     while (dirEntry) {
         if (dirEntry.isFile() && dirEntry.name.endsWith(".svg")) {
-            if (dirEntry.name == "finitecurve.svg") {
-                console.log(`processing ${dirEntry.name}`);
+            console.log(`processing ${dirEntry.name}`);
 
-                const file = fs.readFileSync(path.join(dirEntry.path, dirEntry.name));
-                const svgString = file.toString();
-                const [imageData, svgWidth, svgHeight] = await getImageData(svgString, renderScaleFactor);
+            const file = fs.readFileSync(path.join(dirEntry.path, dirEntry.name));
+            const svgString = file.toString();
+            const [imageData, svgWidth, svgHeight] = await getImageData(svgString, renderScaleFactor);
 
-                const vectorizedSvg = vectorizeImageData(imageData, 2);
-                const vectorizedJson = convertSvgToSvgJson(vectorizedSvg);
+            const vectorizedSvg = vectorizeImageData(imageData, 2);
+            const vectorizedJson = convertSvgToSvgJson(vectorizedSvg);
 
-                const height = Math.floor(svgHeight * (width / svgWidth));
-                
-                const request: RequestTypes.RenderSVGRequest = {
-                    svgJson: vectorizedJson,
-                    height,
-                    width,
-                    svgWidth: width * renderScaleFactor,
-                    svgHeight: height * renderScaleFactor,
-                    homeX: 0,
-                    homeY: 0,
-                    infillDensity: 4,
-                    type: 'renderSvg',
-                    flattenPaths: false,
-                };
-                const result = await renderSvgJsonToCommands(request, updater);
-                const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
-                const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
-                const fullResultPath = path.join(outDirPath, dirEntry.name);
-                fs.writeFileSync(fullResultPath, resultSvg);
-            }
-            
+            const height = Math.floor(svgHeight * (width / svgWidth));
+
+            const request: RequestTypes.RenderSVGRequest = {
+                svgJson: vectorizedJson,
+                height,
+                width,
+                svgWidth: width * renderScaleFactor,
+                svgHeight: height * renderScaleFactor,
+                homeX: 0,
+                homeY: 0,
+                infillDensity: 4,
+                type: 'renderSvg',
+                flattenPaths: false,
+            };
+            const result = await renderSvgJsonToCommands(request, updater);
+            const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
+            const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
+            const fullResultPath = path.join(outDirPath, dirEntry.name);
+            fs.writeFileSync(fullResultPath, resultSvg);
         }
         dirEntry = inDir.readSync();
     }
@@ -108,53 +116,50 @@ async function getImageData(svgString: string, renderScaleFactor: number): Promi
 }
 
 async function main_pathTracer() {
-    const dirPath = path.join(__dirname, '../svgs');
+    const dirPath = inputSvgDir;
     const inDir = fs.opendirSync(dirPath);
 
-    const outDirPath = path.join(__dirname, '../svgs/out/');
-    
+    const outDirPath = outputDir;
+    fs.mkdirSync(outDirPath, { recursive: true });
 
     let dirEntry = inDir.readSync();
     while (dirEntry) {
         if (dirEntry.isFile() && dirEntry.name.endsWith(".svg")) {
-            if (dirEntry.name == "finitecurve.svg") {
-                console.log(`processing ${dirEntry.name}`);
+            console.log(`processing ${dirEntry.name}`);
 
-                const file = fs.readFileSync(path.join(dirEntry.path, dirEntry.name));
-                const svgString = file.toString();
+            const file = fs.readFileSync(path.join(dirEntry.path, dirEntry.name));
+            const svgString = file.toString();
 
-                const jsdom = require("jsdom");
-                const window = new jsdom.JSDOM().window;
-                const parser = new window.DOMParser();
+            const jsdom = require("jsdom");
+            const window = new jsdom.JSDOM().window;
+            const parser = new window.DOMParser();
 
-                const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
-                const svgElement = svgDoc.documentElement;
-                const svgWidth = parseFloat(svgElement.getAttribute('width')!);
-                const svgHeight = parseFloat(svgElement.getAttribute('height')!);
+            const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+            const svgElement = svgDoc.documentElement;
+            const svgWidth = parseFloat(svgElement.getAttribute('width')!);
+            const svgHeight = parseFloat(svgElement.getAttribute('height')!);
 
-                const height = Math.floor(svgHeight * (width / svgWidth));
+            const height = Math.floor(svgHeight * (width / svgWidth));
 
-                const svgJson = convertSvgToSvgJson(svgString);
-                const request: RequestTypes.RenderSVGRequest = {
-                    svgJson: svgJson,
-                    height,
-                    width,
-                    svgWidth,
-                    svgHeight,
-                    homeX: 0,
-                    homeY: 0,
-                    infillDensity: 0,
-                    type: 'renderSvg',
-                    flattenPaths: false,
-                };
-                const result = await renderSvgJsonToCommands(request, updater);
-                fs.writeFileSync(path.join(__dirname, '../svgs/out/commands.txt'), result.commands.join('\n'));
-                const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
-                const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
-                const fullResultPath = path.join(outDirPath, dirEntry.name);
-                fs.writeFileSync(fullResultPath, resultSvg);
-            }
-            
+            const svgJson = convertSvgToSvgJson(svgString);
+            const request: RequestTypes.RenderSVGRequest = {
+                svgJson: svgJson,
+                height,
+                width,
+                svgWidth,
+                svgHeight,
+                homeX: 0,
+                homeY: 0,
+                infillDensity: 0,
+                type: 'renderSvg',
+                flattenPaths: false,
+            };
+            const result = await renderSvgJsonToCommands(request, updater);
+            fs.writeFileSync(path.join(outDirPath, `${dirEntry.name}.commands.txt`), result.commands.join('\n'));
+            const resultSvgJsonString = renderCommandsToSvgJson(result.commands, width, height, updater);
+            const resultSvg = convertSvgJsonToSvg(resultSvgJsonString, width, height);
+            const fullResultPath = path.join(outDirPath, dirEntry.name);
+            fs.writeFileSync(fullResultPath, resultSvg);
         }
         dirEntry = inDir.readSync();
     }
