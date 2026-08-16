@@ -41,7 +41,7 @@ function tryLoadPaper(): { paper: typeof import("paper") } | { error: Error } {
 const paperLoadResult = tryLoadPaper();
 const paperAvailable = !("error" in paperLoadResult);
 
-const testImagesDir = path.join(__dirname, "..", "..", "images", "test_images");
+const testImagesDir = path.join(__dirname, "..", "..", "..", "images", "test_images");
 const svgFiles = fs.existsSync(testImagesDir)
     ? fs.readdirSync(testImagesDir).filter((f) => f.endsWith(".svg"))
     : [];
@@ -101,7 +101,7 @@ if (!paperAvailable) {
     // sandbox (`canvas` doesn't build here -- no pkg-config), so this file
     // starts as `{}` and self-seeds the first time someone runs the suite
     // with a working `canvas`.
-    const snapshotPath = path.join(__dirname, "fixtures", "pipeline-snapshots.json");
+    const snapshotPath = path.join(__dirname, "..", "..", "test", "fixtures", "pipeline-snapshots.json");
     const snapshots: Record<string, { commandCount: number; distance: number }> = fs.existsSync(snapshotPath)
         ? JSON.parse(fs.readFileSync(snapshotPath, "utf8"))
         : {};

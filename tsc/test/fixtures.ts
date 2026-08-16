@@ -1,4 +1,3 @@
-import "./testSetup";
 import assert from "node:assert/strict";
 import { Command, CoordinateCommand } from "../src/types";
 
