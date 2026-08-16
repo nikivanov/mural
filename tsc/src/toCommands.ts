@@ -1,4 +1,4 @@
-import { Command, PaletteEntry, RequestTypes, updateStatusFn } from './types';
+import { Command, PaletteEntry, PathDensityData, RequestTypes, updateStatusFn } from './types';
 import { ColorGroup, collectExistingColorGroups, generatePaths, groupPathsByLiteralColor } from './generator';
 import { generateInfills } from './infill';
 import { optimizePaths } from './optimizer';
@@ -114,9 +114,30 @@ async function renderMultiColor(
 ) {
     const layerPathArrays = colorGroups.map(g => g.paths);
 
+    // Fidelity fix (generator.ts's fill/stroke split): a path contributed to
+    // its stroke color's layer purely to draw a boundary line (tagged
+    // `.data.density === 0` and `.data.outline === true` there) still
+    // carries its *full* underlying shape as geometry, since stroke width
+    // isn't modeled - it's the same closed shape as the fill contribution,
+    // just meant to be drawn as an outline instead of hatched. That's fine
+    // for rendering (outline drawing ignores the interior), but area-based
+    // knockout (both intra- and cross-layer, below) works purely on
+    // geometry and would otherwise treat that full shape as solid occupied
+    // ink - either wiping out the paired fill layer's identical-shaped
+    // interior entirely, or corrupting the outline's own boundary by
+    // carving into it. Exclude these line-only contributions from knockout
+    // entirely (as both mask and target) and recombine them afterward.
+    const isStrokeOnlyContribution = (path: paper.PathItem) => {
+        const data = path.data as PathDensityData | undefined;
+        return data?.density === 0 && data?.outline === true;
+    };
+
+    const areaLayerArrays = layerPathArrays.map(paths => paths.filter(p => !isStrokeOnlyContribution(p)));
+    const strokeOnlyLayerArrays = layerPathArrays.map(paths => paths.filter(isStrokeOnlyContribution));
+
     if (request.flattenPaths) {
         // Intra-layer knockout: draw order still matters within one color.
-        for (const layerPaths of layerPathArrays) {
+        for (const layerPaths of areaLayerArrays) {
             flattenPaths(layerPaths, updateStatusFn);
         }
     }
@@ -124,7 +145,11 @@ async function renderMultiColor(
     if (!request.colorOverprint) {
         // Cross-layer knockout (docs/multi-color.md section 5): darker
         // layers always win over lighter ones, regardless of z-order.
-        flattenPathsAcrossLayers(layerPathArrays, updateStatusFn);
+        flattenPathsAcrossLayers(areaLayerArrays, updateStatusFn);
+    }
+
+    for (let i = 0; i < layerPathArrays.length; i++) {
+        layerPathArrays[i] = [...areaLayerArrays[i], ...strokeOnlyLayerArrays[i]];
     }
 
     const paletteEntries = resolvePaletteNames(colorGroups, request.palette);

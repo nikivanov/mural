@@ -28,11 +28,26 @@ export function optimizePaths(infilledPaths: InfilledPath[], start_x: number, st
         return lastPath.closed ? lastPath.firstSegment.point : lastPath.lastSegment.point;
     }
 
-    const infilledPathsCopy = [...infilledPaths];
+    // Same as getLastPoint(), but falls back to the job's home position
+    // before anything has been drawn yet, instead of throwing - needed
+    // below wherever a path might be reached before any outline has been
+    // pushed (e.g. an infilled path with no outline of its own; see
+    // groupPathsByLiteralColor's fill/stroke split in generator.ts, where
+    // the fill layer's boundary belongs to a different color's stroke
+    // layer, so its outlinePaths is empty and it goes straight to infill).
+    function currentPoint() {
+        return paths.length > 0 ? getLastPoint() : new paper.Point(start_x, start_y);
+    }
+
+    // An infilled path with neither an outline nor any infill lines has
+    // nothing to draw - drop it up front so the loop below always finds a
+    // real anchor point for every remaining candidate (and so it can't get
+    // stuck never selecting an empty entry).
+    const infilledPathsCopy = infilledPaths.filter(ip => ip.outlinePaths.length > 0 || ip.infillPaths.length > 0);
 
     while (infilledPathsCopy.length > 0) {
 
-        const infilledPathToProcess = getClosestInfilledPath(infilledPathsCopy, paths.length > 0 ? getLastPoint() : new paper.Point(start_x, start_y));
+        const infilledPathToProcess = getClosestInfilledPath(infilledPathsCopy, currentPoint());
         const infilledPathIndex = infilledPathToProcess.infilledPathIndex;
         let outlinePathIndex = infilledPathToProcess.index;
         let outlineReverse = infilledPathToProcess.reverse;
@@ -61,7 +76,7 @@ export function optimizePaths(infilledPaths: InfilledPath[], start_x: number, st
 
         const infillsCopy = [...infilledPath.infillPaths];
         while (infillsCopy.length > 0) {
-            const nextInfill = getClosestPath(infillsCopy, getLastPoint(), true)!;
+            const nextInfill = getClosestPath(infillsCopy, currentPoint(), true)!;
 
             if (nextInfill.reverse) {
                 nextInfill.path.reverse();
@@ -80,11 +95,20 @@ export function optimizePaths(infilledPaths: InfilledPath[], start_x: number, st
 
 function getClosestInfilledPath(infilledPaths: InfilledPath[], lastPoint: paper.Point) {
     return infilledPaths.reduce<(PathCandidate & { infilledPath: InfilledPath, infilledPathIndex: number }) | undefined>((best, ip, index) => {
-        const closestOutlinePath = getClosestPath(ip.outlinePaths, lastPoint, false)!;
+        // Some infilled paths carry no outline of their own (see
+        // generator.ts's fill/stroke split: a fill layer's boundary
+        // belongs to a different color's stroke layer, so outlinePaths is
+        // empty) - anchor on the closest infill line's closest endpoint
+        // instead. infilledPathsCopy is pre-filtered (see optimizePaths)
+        // so every entry has at least one of outlinePaths/infillPaths.
+        const closestPath = ip.outlinePaths.length > 0
+            ? getClosestPath(ip.outlinePaths, lastPoint, false)!
+            : getClosestPath(ip.infillPaths, lastPoint, true)!;
+
         const candidate = {
             infilledPath: ip,
             infilledPathIndex: index,
-            ...closestOutlinePath,
+            ...closestPath,
         };
 
         return !best || candidate.cost < best.cost ? candidate : best;

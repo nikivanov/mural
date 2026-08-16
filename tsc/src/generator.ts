@@ -1,5 +1,6 @@
 import { loadPaper } from './paperLoader';
 import { PathDensityData } from './types';
+import { applyWhiteKnockout } from './flattener';
 
 const paper = loadPaper();
 
@@ -52,34 +53,60 @@ export type ColorGroup = {
 // already-generated paths by their own literal fill/stroke color, instead of
 // by a `colorIndex` tag (which raster color mode assigns via
 // data-paper-data, before generatePaths() ever runs - see
-// vectorizeImageDataColor). Pure white (the wall's own color, same
-// convention as generateInfills()/vectorizeImageData()) is never a group -
-// paths that are pure white with no stroke are dropped entirely, matching
-// generateInfills()'s existing "nothing to draw" treatment of white fills.
-// Mutates each path's `.data.colorIndex` in place and returns the groups
-// ordered light -> dark.
+// vectorizeImageDataColor).
+//
+// Pure white (the wall's own color, same convention as
+// generateInfills()/vectorizeImageData()) is never a group of its own - see
+// applyWhiteKnockout in flattener.ts, which both drops those paths and
+// subtracts their geometry from whatever paint order puts beneath them,
+// fixing the fidelity bug where a white shape used to simply vanish while
+// still leaving whatever was under it hatched solid.
+//
+// A path with both a visible fill AND a visible stroke in a genuinely
+// different color contributes to BOTH layers (another fidelity fix): its
+// interior/infill to the fill color's layer (with `.data.outline = false`,
+// since the boundary belongs to the stroke color, not the fill color), and
+// a second, outline-only copy (`.data.outline = true`, `.data.density = 0`)
+// to the stroke color's layer. A path whose stroke is the same color as its
+// fill (or has no visible stroke at all) is unaffected and produces exactly
+// one group entry, as before - this is what keeps single-color/no-distinct-
+// stroke output byte-identical. Stroke *width* is not modeled: a thick
+// stroke still becomes a single-nib outline in the stroke layer.
+//
+// Mutates each contributed path's `.data.colorIndex` in place and returns
+// the groups ordered light -> dark.
 export function groupPathsByLiteralColor(paths: paper.PathItem[]): ColorGroup[] {
     const buckets = new Map<string, { color: paper.Color, paths: paper.PathItem[] }>();
 
-    for (const path of paths) {
+    const knockedOutPaths = applyWhiteKnockout(paths);
+
+    for (const path of knockedOutPaths) {
         const fill = path.fillColor;
         const stroke = path.strokeColor;
-        const color = (fill && fill.alpha > 0) ? fill : (stroke && stroke.alpha > 0 ? stroke : null);
+        const fillVisible = !!(fill && fill.alpha > 0);
+        const strokeVisible = !!(stroke && stroke.alpha > 0);
+        const fillIsWhite = fillVisible && fill!.toCSS(true) === '#ffffff';
+        const strokeIsDistinct = strokeVisible && (!fillVisible || fill!.toCSS(true) !== stroke!.toCSS(true));
 
-        if (!color) {
-            continue;
-        }
-        if (color.toCSS(true) === '#ffffff') {
-            continue;
+        if (fillVisible && !fillIsWhite) {
+            // Only need a separate clone when the stroke also contributes
+            // its own layer below - otherwise this path can be reused as-is,
+            // exactly like the original single-bucket behavior.
+            const fillPath = strokeIsDistinct ? path.clone({ insert: false }) : path;
+            if (strokeIsDistinct) {
+                fillPath.data.outline = false;
+            }
+            addToBucket(buckets, fill!, fillPath);
         }
 
-        const key = color.toCSS(true);
-        let bucket = buckets.get(key);
-        if (!bucket) {
-            bucket = { color, paths: [] };
-            buckets.set(key, bucket);
+        if (strokeIsDistinct) {
+            const strokePath = fillVisible ? path.clone({ insert: false }) : path;
+            if (fillVisible) {
+                strokePath.data.outline = true;
+                strokePath.data.density = 0;
+            }
+            addToBucket(buckets, stroke!, strokePath);
         }
-        bucket.paths.push(path);
     }
 
     const ordered = [...buckets.values()].sort((a, b) => luminanceOf(b.color) - luminanceOf(a.color));
@@ -90,6 +117,20 @@ export function groupPathsByLiteralColor(paths: paper.PathItem[]): ColorGroup[] 
         }
         return { colorIndex, color: bucket.color, paths: bucket.paths };
     });
+}
+
+function addToBucket(
+    buckets: Map<string, { color: paper.Color, paths: paper.PathItem[] }>,
+    color: paper.Color,
+    path: paper.PathItem,
+) {
+    const key = color.toCSS(true);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+        bucket = { color, paths: [] };
+        buckets.set(key, bucket);
+    }
+    bucket.paths.push(path);
 }
 
 function luminanceOf(color: paper.Color): number {
