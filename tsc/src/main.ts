@@ -1,6 +1,6 @@
 import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgJsonToCommands } from "./toCommands";
-import { GrayscaleLevelResult, vectorizeImageData, vectorizeImageDataGrayscale } from './vectorizer';
+import { GrayscaleLevelResult, vectorizeImageData, vectorizeImageDataColor, vectorizeImageDataGrayscale } from './vectorizer';
 import { InfillDensities, InfillDensity, RequestTypes } from "./types";
 
 const supportedGrayscaleLevels = [3, 4];
@@ -25,10 +25,34 @@ self.onmessage = async (e: MessageEvent<any>) => {
 function vectorize(request: RequestTypes.VectorizeRequest) {
     updateStatusFn("Vectorizing");
 
-    const svgString = request.grayscaleLevels
-        ? vectorizeGrayscale(request.raster, request.turdSize, request.grayscaleLevels)
-        : vectorizeImageData(request.raster, request.turdSize);
+    // grayscaleLevels and colorCount are mutually exclusive tonal/color
+    // separation modes; grayscale wins if both are somehow set. Either
+    // absent (or colorCount < 2) preserves the original single 1-bit-mask
+    // behavior exactly.
+    if (request.grayscaleLevels) {
+        const svgString = vectorizeGrayscale(request.raster, request.turdSize, request.grayscaleLevels);
+        self.postMessage({
+            type: "vectorizer",
+            payload: {
+                svg: svgString,
+            }
+        });
+        return;
+    }
 
+    if (request.colorCount && request.colorCount >= 2) {
+        const result = vectorizeImageDataColor(request.raster, request.turdSize, request.colorCount, request.palette);
+        self.postMessage({
+            type: "vectorizer",
+            payload: {
+                svg: result.svg,
+                palette: result.palette,
+            }
+        });
+        return;
+    }
+
+    const svgString = vectorizeImageData(request.raster, request.turdSize);
     self.postMessage({
         type: "vectorizer",
         payload: {
@@ -85,8 +109,17 @@ async function render(request: RequestTypes.RenderSVGRequest) {
     const renderResult = await renderSvgJsonToCommands(
         request,
         updateStatusFn,
-    )
-    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, request.width, request.height, updateStatusFn);
+    ) as Awaited<ReturnType<typeof renderSvgJsonToCommands>> & { layers?: { color: string }[] };
+
+    // Multi-color tinted preview (docs/multi-color.md section 6): tint each
+    // layer's reconstructed paths with its own resolved color, rather than
+    // one flat stroke color, whenever this render produced more than one
+    // layer.
+    const layerColors = renderResult.layers && renderResult.layers.length > 1
+        ? renderResult.layers.map(l => l.color)
+        : undefined;
+
+    const resultSvgJson = renderCommandsToSvgJson(renderResult.commands, request.width, request.height, updateStatusFn, layerColors);
     self.postMessage({
         type: "renderer",
         payload: {
@@ -94,6 +127,7 @@ async function render(request: RequestTypes.RenderSVGRequest) {
             svgJson: resultSvgJson,
             distance: renderResult.distance,
             drawDistance: renderResult.drawDistance,
+            layers: renderResult.layers,
         }
     });
 }

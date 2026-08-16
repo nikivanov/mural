@@ -200,6 +200,12 @@ void setup()
     server.on("/confirmResume", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->confirmResume(request); });
 
+    // Confirms a multi-color pen swap (see docs/multi-color.md sections 2-4 and
+    // DrawingPhase) - only accepted while Drawing with a swap pending, 400s
+    // everywhere else via NotSupportedPhase's default.
+    server.on("/confirmPenSwap", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->confirmPenSwap(request); });
+
     server.on(
         "/uploadCommands", HTTP_POST,
         [](AsyncWebServerRequest *request) {

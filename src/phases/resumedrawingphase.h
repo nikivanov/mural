@@ -16,9 +16,20 @@ class ResumeDrawingPhase : public NotSupportedPhase {
     PhaseManager* manager;
     Movement* movement;
     Pen* pen;
+    // True once setPenDistance() has been called on this resume offer - the
+    // user may have re-inserted a different-length pen (docs/multi-color.md's
+    // checkpoint-color follow-up), so their live recalibration should win
+    // over the checkpointed angle in confirmResume() rather than being
+    // clobbered by it.
+    bool penDistanceOverridden = false;
     public:
     ResumeDrawingPhase(PhaseManager* manager, Movement* movement, Pen* pen);
     void confirmResume(AsyncWebServerRequest *request);
+    // Lets the user recalibrate before resuming (they may have swapped pens
+    // while it was powered off) - unlike PenCalibrationPhase's version, this
+    // doesn't advance the wizard; it just applies immediately and remembers
+    // that it was touched, same shape as DrawingPhase's pen-swap variant.
+    void setPenDistance(AsyncWebServerRequest *request);
     // Discard: reuses the generic "done with this phase, move on" semantics to clear
     // the checkpoint and fall through to the normal SetTopDistance start.
     void doneWithPhase(AsyncWebServerRequest *request);

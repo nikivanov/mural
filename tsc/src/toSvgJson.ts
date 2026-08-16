@@ -3,7 +3,14 @@ import {updateStatusFn} from './types';
 
 const paper = loadPaper();
 
-export function renderCommandsToSvgJson(commands: string[], width: number, height: number, updateStatusFn: updateStatusFn): string {
+// Multi-color tinted preview (docs/multi-color.md section 6): when
+// `layerColors` is supplied, each `c<index>` boundary in `commands` switches
+// the stroke color used for subsequently-reconstructed paths to
+// `layerColors[index - 1]` (1-based, matching the command file's
+// convention), so the preview shows what the finished multi-color piece will
+// actually look like. Omitted/empty for the existing single-color preview,
+// which stays solid black exactly as before.
+export function renderCommandsToSvgJson(commands: string[], width: number, height: number, updateStatusFn: updateStatusFn, layerColors?: string[]): string {
     updateStatusFn("Rendering result");
     const size = new paper.Size(width, height);
     paper.setup(size);
@@ -11,6 +18,9 @@ export function renderCommandsToSvgJson(commands: string[], width: number, heigh
     const layer = paper.project.activeLayer;
 
     let pathPoints: paper.Point[] = [];
+    // The first layer draws with whatever pen is already mounted, so no
+    // `c<index>` marker precedes it - its color (if any) is layerColors[0].
+    let currentStrokeColor = (layerColors && layerColors[0]) || 'black';
 
     let penUp = true;
     function handlePenChange(newPenUp: boolean) {
@@ -36,14 +46,14 @@ export function renderCommandsToSvgJson(commands: string[], width: number, heigh
                 const segments = pathPoints.map(p => new paper.Segment(p));
                 const path = new paper.Path(segments);
                 path.fillColor = new paper.Color('transparent');
-                path.strokeColor = new paper.Color('black');
+                path.strokeColor = new paper.Color(currentStrokeColor);
                 layer.addChild(path);
 
                 pathPoints = [pathPoints[pathPoints.length - 1]];
             }
         }
     }
-    
+
     for (const command of commands) {
         const firstChar = command.charAt(0);
         if (firstChar === 'd') {
@@ -54,6 +64,15 @@ export function renderCommandsToSvgJson(commands: string[], width: number, heigh
             continue;
         } else if (firstChar === 't') {
             console.log(`Pin distance is ${command.slice(1)}`);
+            continue;
+        } else if (firstChar === 'n' && /^n\d+ /.test(command)) {
+            // Palette metadata header - not a drawn command.
+            continue;
+        } else if (firstChar === 'c' && /^c\d+$/.test(command)) {
+            const layerIndex = parseInt(command.slice(1), 10);
+            if (layerColors && layerColors[layerIndex - 1]) {
+                currentStrokeColor = layerColors[layerIndex - 1];
+            }
             continue;
         } else if (firstChar === 'p') {
             const secondChar = command.charAt(1);

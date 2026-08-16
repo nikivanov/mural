@@ -1,5 +1,5 @@
-import { Command, RequestTypes, updateStatusFn } from './types';
-import { generatePaths } from './generator';
+import { Command, PaletteEntry, RequestTypes, updateStatusFn } from './types';
+import { ColorGroup, collectExistingColorGroups, generatePaths, groupPathsByLiteralColor } from './generator';
 import { generateInfills } from './infill';
 import { optimizePaths } from './optimizer';
 import { renderPathsToCommands } from './renderer';
@@ -7,12 +7,20 @@ import { trimCommands } from './trimmer';
 import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
-import { flattenPaths } from './flattener';
+import { flattenPaths, flattenPathsAcrossLayers } from './flattener';
 import { simplifyPaths } from './simplifier';
 
 const RDP_TOLERANCE_MM = 0.1;
 
 const paper = loadPaper();
+
+export type LayerSummary = {
+    colorIndex: number;
+    name: string;
+    color: string;
+    distance: number;
+    drawDistance: number;
+}
 
 export async function renderSvgJsonToCommands(
     request: RequestTypes.RenderSVGRequest,
@@ -38,6 +46,24 @@ export async function renderSvgJsonToCommands(
     updateStatusFn("Reducing path detail");
     simplifyPaths(paths, RDP_TOLERANCE_MM);
 
+    // Multi-color separation (docs/multi-color.md). Raster color mode
+    // (vectorizeImageDataColor) already tagged every path with a
+    // `colorIndex` before this function ever ran, via the same
+    // data-paper-data mechanism grayscale uses, so those groups just need
+    // collecting. Vector/path-tracing-origin SVGs carry no such tag and are
+    // only grouped by literal fill/stroke color when explicitly requested -
+    // so a plain single-color SVG import (colorSeparation unset/false) never
+    // takes this branch, which is what keeps N=1 output byte-identical.
+    let colorGroups = collectExistingColorGroups(paths);
+    if (!colorGroups && request.colorSeparation) {
+        colorGroups = groupPathsByLiteralColor(paths);
+    }
+
+    if (colorGroups && colorGroups.length > 1) {
+        return renderMultiColor(colorGroups, request, updateStatusFn);
+    }
+
+    // Single-color path: unchanged from before multi-color existed.
     if (request.flattenPaths) {
         flattenPaths(paths, updateStatusFn);
     }
@@ -74,6 +100,112 @@ export async function renderSvgJsonToCommands(
         distance: totalDistance,
         drawDistance: +distances.drawDistance.toFixed(1),
     };
+}
+
+// Renders each color group's paths as its own layer, sandwiched between
+// `c<index>` boundary markers, per docs/multi-color.md section 2: all of one
+// color's commands are emitted before its trailer, only N-1 markers appear
+// for N colors, and headers are `d`, `h`, `t`, then one `n<index> <name>`
+// line per palette entry.
+async function renderMultiColor(
+    colorGroups: ColorGroup[],
+    request: RequestTypes.RenderSVGRequest,
+    updateStatusFn: updateStatusFn,
+) {
+    const layerPathArrays = colorGroups.map(g => g.paths);
+
+    if (request.flattenPaths) {
+        // Intra-layer knockout: draw order still matters within one color.
+        for (const layerPaths of layerPathArrays) {
+            flattenPaths(layerPaths, updateStatusFn);
+        }
+    }
+
+    if (!request.colorOverprint) {
+        // Cross-layer knockout (docs/multi-color.md section 5): darker
+        // layers always win over lighter ones, regardless of z-order.
+        flattenPathsAcrossLayers(layerPathArrays, updateStatusFn);
+    }
+
+    const paletteEntries = resolvePaletteNames(colorGroups, request.palette);
+
+    const layerCommandLists: Command[][] = [];
+    const layerSummaries: LayerSummary[] = [];
+    let totalDistance = 0;
+    let totalDrawDistance = 0;
+
+    for (let i = 0; i < colorGroups.length; i++) {
+        updateStatusFn(`Generating infill: layer ${i + 1}/${colorGroups.length}`);
+        const infilled = generateInfills(layerPathArrays[i], request.infillDensity);
+
+        updateStatusFn(`Optimizing paths: layer ${i + 1}/${colorGroups.length}`);
+        const optimized = optimizePaths(infilled, request.homeX, request.homeY);
+
+        updateStatusFn(`Generating commands: layer ${i + 1}/${colorGroups.length}`);
+        const rawCommands = renderPathsToCommands(optimized, request.width, request.height);
+        rawCommands.push('p0');
+
+        const trimmed = trimCommands(rawCommands);
+        const deduped = dedupeCommands(trimmed);
+
+        // measureDistance skips index 0, expecting it to be a header line -
+        // prepend a throwaway non-pen command so a layer's own commands
+        // (which start with 'p0') are measured in full.
+        const distances = measureDistance(['n' as Command, ...deduped]);
+        const layerDistance = +distances.totalDistance.toFixed(1);
+        const layerDrawDistance = +distances.drawDistance.toFixed(1);
+        totalDistance += layerDistance;
+        totalDrawDistance += layerDrawDistance;
+
+        layerCommandLists.push(deduped);
+        layerSummaries.push({
+            colorIndex: colorGroups[i].colorIndex,
+            name: paletteEntries[i].name,
+            color: paletteEntries[i].color,
+            distance: layerDistance,
+            drawDistance: layerDrawDistance,
+        });
+    }
+
+    updateStatusFn("Assembling command file");
+    const assembled: Command[] = [];
+    assembled.push(`h${request.height}`);
+    assembled.push(`t${Math.round(request.topDistance)}`);
+    paletteEntries.forEach((entry, i) => assembled.push(`n${i + 1} ${entry.name}`));
+
+    layerCommandLists.forEach((layerCommands, i) => {
+        if (i > 0) {
+            assembled.push(`c${i + 1}`);
+        }
+        assembled.push(...layerCommands);
+    });
+
+    const roundedTotalDistance = +totalDistance.toFixed(1);
+    assembled.unshift(`d${roundedTotalDistance}`);
+
+    const commandStrings = assembled.map(stringifyCommand);
+    return {
+        commands: commandStrings,
+        distance: roundedTotalDistance,
+        drawDistance: +totalDrawDistance.toFixed(1),
+        layers: layerSummaries,
+    };
+}
+
+// Resolves the display name/color for each detected color group: the
+// caller-supplied palette (matched by colorIndex) when present, otherwise an
+// auto-generated "Color N" name using the group's own traced/literal color.
+function resolvePaletteNames(colorGroups: ColorGroup[], suppliedPalette?: PaletteEntry[]): PaletteEntry[] {
+    return colorGroups.map((group, i) => {
+        const supplied = suppliedPalette && suppliedPalette[group.colorIndex];
+        if (supplied) {
+            return supplied;
+        }
+        return {
+            name: `Color ${i + 1}`,
+            color: group.color.toCSS(true),
+        };
+    });
 }
 
 function stringifyCommand(cmd: Command): string {

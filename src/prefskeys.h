@@ -24,5 +24,12 @@ static const char* PREFS_CKPT_PEN_ANGLE_KEY = "penAngle";
 // Whether the pen was down (mid-stroke) at the moment this checkpoint was
 // written - see Runner::Checkpoint's doc comment.
 static const char* PREFS_CKPT_PEN_DOWN_KEY = "penDown";
+// Multi-color (docs/multi-color.md): which pen was mounted/active at the
+// moment this checkpoint was written, so a resume offer can tell the user
+// which pen must be (re-)inserted. colorIndex defaults to 1 and colorName to
+// "" for single-color files/jobs that never saw a c<index> command - see
+// Runner::writeCheckpoint().
+static const char* PREFS_CKPT_COLOR_INDEX_KEY = "colorIdx";
+static const char* PREFS_CKPT_COLOR_NAME_KEY = "colorName";
 
 #endif

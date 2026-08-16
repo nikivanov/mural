@@ -2,10 +2,30 @@ import * as svgControl from './svgControl.js';
 import * as client from './client.js';
 import { showError } from './alerts.js';
 import { crc32OfString } from './crc32.js';
+import { estimatePenUsage, loadPenCapacities, resetPenCapacities, savePenCapacities } from './inkCapacity.js';
 
 let currentState = null;
 
 let currentWorker = null;
+
+// Multi-color (docs/multi-color.md). Palette entries the user has
+// named/mapped so far, index-aligned to the light-to-dark colorIndex order
+// the render pipeline uses (see toCommands.ts's resolvePaletteNames) -
+// palette[i] = {name, color}. Populated from the render result the first
+// time a multi-color render comes back (auto names/detected colors), then
+// edited locally (renaming patches the command file's `n<index>` header
+// lines directly, without a full re-render - see patchLayerNameInCommands).
+let currentLayers = null;
+// layer index -> selected pen-type key into the ink capacity table (or
+// undefined for "no estimate").
+let layerPenTypeSelections = [];
+let penCapacities = loadPenCapacities();
+// Raster color-separation's detected/matched palette (light-to-dark,
+// index-aligned to colorIndex), returned by the vectorize worker step and
+// forwarded into the render request so resolvePaletteNames (toCommands.ts)
+// names each layer by it. Reset to null for path-tracing mode and whenever
+// a fresh vectorize starts.
+let vectorizePalette = null;
 
 window.onload = function () {
     init();
@@ -233,6 +253,8 @@ function init() {
             $("#turdSize").val(2);
             $("#grayscaleCheckbox").prop("checked", false);
             $("#grayscaleLevels").val(3);
+            $("#multiColorCheckbox").prop("checked", false).trigger('change');
+            $("#colorOverprintCheckbox").prop("checked", false);
         }
     });
 
@@ -350,12 +372,19 @@ function init() {
 
         $("#progressBar").text("Rasterizing");
         const raster = await svgControl.getCurrentSvgImageData();
+        vectorizePalette = null;
 
         const vectorizeRequest = {
             type: 'vectorize',
             raster,
             turdSize: getTurdSize(),
             grayscaleLevels: getGrayscaleLevels(),
+            // Multi-color raster separation (docs/multi-color.md section 1):
+            // colorCount>=2 triggers k-means clustering (no fixed palette -
+            // the user maps names to detected clusters afterward, in the
+            // post-render layer breakdown, rather than guessing colors
+            // in advance).
+            colorCount: getColorCount(),
         };
 
         if (currentPreviewId == thisPreviewId) {
@@ -366,12 +395,20 @@ function init() {
                     $("#progressBar").text(e.data.payload);
                 } else if (e.data.type === 'vectorizer') {
                     const vectorizedSvg = e.data.payload.svg;
+                    // Multi-color: the vectorizer already assigned each mask a
+                    // colorIndex via data-paper-data, and returns the
+                    // detected/matched palette (light-to-dark, index-aligned
+                    // to colorIndex) here - forward it as-is so
+                    // resolvePaletteNames (toCommands.ts) can name each layer
+                    // by it instead of falling back to "Color N".
+                    vectorizePalette = e.data.payload.palette || null;
                     const scale = svgControl.getRenderScale();
                     renderSvgInWorker(
                         currentWorker,
                         vectorizedSvg,
                         svgControl.getTargetWidth() * scale,
                         svgControl.getTargetHeight() * scale,
+                        false,
                     );
                 }
                 else if (e.data.type === 'log') {
@@ -407,15 +444,20 @@ function init() {
                 }
             }
 
+            vectorizePalette = null;
             const renderSvg = svgControl.getRenderSvg();
             const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
-            renderSvgInWorker(currentWorker, renderSvgString, svgControl.getTargetWidth(), svgControl.getTargetHeight());
+            // Path-tracing mode has no vectorize step to tag colors ahead of
+            // time (docs/multi-color.md section 1) - `true` here tells
+            // renderSvgInWorker to ask toCommands.ts to group by each path's
+            // own literal fill/stroke color instead.
+            renderSvgInWorker(currentWorker, renderSvgString, svgControl.getTargetWidth(), svgControl.getTargetHeight(), true);
         }
     }
 
-    function renderSvgInWorker(worker, svg, svgWidth, svgHeight) {
+    function renderSvgInWorker(worker, svg, svgWidth, svgHeight, groupByLiteralColor) {
         const svgJson = svgControl.getSvgJson(svg);
-       
+
         const renderRequest = {
             type: "renderSvg",
             svgJson,
@@ -428,6 +470,16 @@ function init() {
             infillDensity: getInfillDensity(),
             flattenPaths: getFlattenPaths(),
             topDistance: currentState.topDistance,
+            // Multi-color (docs/multi-color.md). Vector/path-tracing mode has
+            // no vectorize step to tag colors ahead of time, so it needs
+            // colorSeparation to opt in to literal-fill/stroke-color
+            // grouping; raster mode's masks are already tagged via
+            // data-paper-data regardless of this flag. Either way, an
+            // unchecked "Multiple colors" box means colorCount() is 0 and
+            // this stays false, keeping single-color output byte-identical.
+            colorSeparation: !!groupByLiteralColor && getMultiColorEnabled(),
+            palette: vectorizePalette || undefined,
+            colorOverprint: getColorOverprint(),
         }
 
         worker.onmessage = (e) => {
@@ -442,12 +494,14 @@ function init() {
 
                 const totalDistanceM = +(e.data.payload.distance / 1000).toFixed(1);
                 const drawDistanceM = +(e.data.payload.drawDistance / 1000).toFixed(1);
-                
+
                 deactivateProgressBar();
                 $("#previewSvg").attr("src", resultDataUrl);
                 $("#distances").text(`Total: ${totalDistanceM}m / Draw: ${drawDistanceM}m`);
                 $(".svg-preview").show();
                 $("#acceptSvg").removeAttr("disabled");
+
+                renderLayerBreakdown(e.data.payload.layers || null);
             }
         };
 
@@ -471,10 +525,14 @@ function init() {
     }
 
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels").on('input change', async function() {
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox").on('input change', async function() {
         activateProgressBar();
         $("#acceptSvg").attr("disabled", "disabled");
         await rendererFn();
+    });
+
+    $("#multiColorCheckbox").on('change', function() {
+        $("#multiColorOptions").toggle($(this).is(":checked"));
     });
 
     $("#preview").click(async function() {
@@ -517,6 +575,7 @@ function init() {
         $("#previewSvg").removeAttr("src");
         $(".svg-preview").hide();
         $("#acceptSvg").attr("disabled", "disabled");
+        renderLayerBreakdown(null);
 
         $("#svgUploadSlide").show();
         $("#drawingPreviewSlide").hide();
@@ -691,6 +750,67 @@ function init() {
     toolsModal.addEventListener('hidden.bs.modal', function (event) {
         client.rightRetractUp();
         client.leftRetractUp();
+    });
+
+    // Pen ink estimates (docs/multi-color.md section 5) - purely local/
+    // cosmetic, persisted in localStorage.
+    const inkModal = $("#inkModal")[0];
+    inkModal.addEventListener('show.bs.modal', function (event) {
+        renderInkCapacityTable();
+    });
+
+    $("#resetInkCapacityTable").click(function() {
+        penCapacities = resetPenCapacities();
+        renderInkCapacityTable();
+        renderLayerBreakdown(currentLayers);
+    });
+
+    // Multi-color pen swap panel (docs/multi-color.md sections 2-4): reuses
+    // the same +/- stepper pattern as the initial pen calibration slide, but
+    // hits /setPenDistance directly (DrawingPhase overrides it to only
+    // accept this while a swap is pending) instead of doneWithPhase-ing to a
+    // new wizard phase - the server stays in Drawing for the whole job.
+    $("#penSwapServoRange").on('input', $.throttle(250, function (e) {
+        $.post("/setPenDistance", { angle: getPenSwapServoValueFromInputValue() });
+    }));
+
+    $("#penSwapMinus").click(function() {
+        $("#penSwapServoRange")[0].stepDown(5);
+        $("#penSwapServoRange").trigger('input');
+    });
+
+    $("#penSwapPlus").click(function() {
+        $("#penSwapServoRange")[0].stepUp(5);
+        $("#penSwapServoRange").trigger('input');
+    });
+
+    $("#confirmPenSwapBtn").click(function() {
+        $(this).prop("disabled", true);
+        $.post("/confirmPenSwap", {}).fail(function() {
+            showError("Failed to confirm pen swap", null);
+        }).always(function() {
+            $("#confirmPenSwapBtn").prop("disabled", false);
+        });
+    });
+
+    // Resume-after-power-loss pen recalibration (docs/multi-color.md follow-up):
+    // the user may have re-inserted a different-length pen while it was
+    // powered off, so let them touch it to the wall here, same slider pattern
+    // and /setPenDistance path as pen calibration and the pen-swap panel.
+    // ResumeDrawingPhase::setPenDistance() applies it immediately and
+    // confirmResume() prefers this over the checkpointed angle once touched.
+    $("#resumePenRange").on('input', $.throttle(250, function (e) {
+        $.post("/setPenDistance", { angle: getResumePenServoValueFromInputValue() });
+    }));
+
+    $("#resumePenMinus").click(function() {
+        $("#resumePenRange")[0].stepDown(5);
+        $("#resumePenRange").trigger('input');
+    });
+
+    $("#resumePenPlus").click(function() {
+        $("#resumePenRange")[0].stepUp(5);
+        $("#resumePenRange").trigger('input');
     });
 
     svgControl.initSvgControl();
@@ -868,6 +988,23 @@ function adaptToState(state) {
                     : "A previous drawing was interrupted, likely by a power loss. The belts may have moved " +
                       "since then, so you'll need to re-retract them before resuming."
             );
+
+            // Multi-color (docs/multi-color.md): resumeColorName is "" for a
+            // single-color job/checkpoint (see Runner::writeCheckpoint()) -
+            // omit the pen-check line and recalibration controls entirely in
+            // that case, exactly as before this feature existed.
+            if (state.resumeColorName) {
+                const percentText = percent !== null ? `Resuming at ${percent}%` : 'Resuming';
+                $("#resumeDrawingPenText").text(`${percentText} — pen ${state.resumeColorIndex} (${state.resumeColorName}) must be inserted`);
+                $("#resumeDrawingPenLine").show();
+                $("#resumeDrawingPenAdjust").show();
+                if (state.storedPenAngle && state.storedPenAngle !== -1) {
+                    $("#resumePenRange").val(90 - state.storedPenAngle);
+                }
+            } else {
+                $("#resumeDrawingPenLine").hide();
+                $("#resumeDrawingPenAdjust").hide();
+            }
             break;
         default:
             showError("Unrecognized phase: " + state.phase, null);
@@ -890,6 +1027,7 @@ function startLiveDrawingView() {
     liveProgressHistory = [];
     $("#pauseDrawingBtn").show().prop('disabled', false).text('Pause');
     $("#resumeDrawingBtn").hide().prop('disabled', false);
+    $("#penSwapPanel").hide();
     $("#liveConnectionNotice").hide();
     $("#liveProgressBar").css('width', '0%').text('0%');
     $("#liveStatsText").text('');
@@ -962,6 +1100,7 @@ function updateLiveProgress(data) {
         running: 'Drawing',
         paused: 'Paused',
         stalled: 'Stalled (motor stall detected)',
+        penSwap: 'Waiting for pen swap',
         finished: 'Finished',
     };
     const stateLabel = stateLabels[data.state] || data.state;
@@ -971,12 +1110,25 @@ function updateLiveProgress(data) {
         `(${Math.round(data.x)}, ${Math.round(data.y)})mm${etaText}`
     );
 
-    if (data.state === 'paused' || data.state === 'stalled') {
+    // Multi-color pen swap (docs/multi-color.md sections 2-4): the swap
+    // panel takes over from the ordinary pause/resume buttons while the
+    // firmware is blocked on /confirmPenSwap (Runner::awaitingSwap, surfaced
+    // here as state "penSwap").
+    if (data.state === 'penSwap') {
         $("#pauseDrawingBtn").hide();
-        $("#resumeDrawingBtn").show().prop('disabled', data.state === 'stalled');
-    } else {
-        $("#pauseDrawingBtn").show().prop('disabled', false);
         $("#resumeDrawingBtn").hide();
+        $("#penSwapPanel").show();
+        const penLabel = data.penSwapName ? `${data.penSwapIndex} (${data.penSwapName})` : String(data.penSwapIndex);
+        $("#penSwapTitle").text(`Insert pen ${penLabel}`);
+    } else {
+        $("#penSwapPanel").hide();
+        if (data.state === 'paused' || data.state === 'stalled') {
+            $("#pauseDrawingBtn").hide();
+            $("#resumeDrawingBtn").show().prop('disabled', data.state === 'stalled');
+        } else {
+            $("#pauseDrawingBtn").show().prop('disabled', false);
+            $("#resumeDrawingBtn").hide();
+        }
     }
 
     if (data.state === 'finished') {
@@ -1016,4 +1168,144 @@ function getGrayscaleLevels() {
 
 function getFlattenPaths() {
     return $("#flattenPathsCheckbox").is(":checked");
+}
+
+function getMultiColorEnabled() {
+    return $("#multiColorCheckbox").is(":checked");
+}
+
+function getColorCount() {
+    if (!getMultiColorEnabled()) {
+        return 0;
+    }
+    const count = parseInt($("#colorCount").val());
+    return [2, 3, 4, 5, 6].includes(count) ? count : 0;
+}
+
+function getColorOverprint() {
+    return $("#colorOverprintCheckbox").is(":checked");
+}
+
+// Multi-color per-layer breakdown/palette mapper (docs/multi-color.md
+// section 6): shown after a multi-color render, listing each layer's
+// (auto-detected or auto-named) color swatch, an editable name field
+// (renaming just patches the command file's `n<index> <name>` header line
+// locally - see patchLayerNameInCommands - no re-render needed), a pen-type
+// picker for the ink estimate, and the layer's distance/ink usage.
+function renderLayerBreakdown(layers) {
+    currentLayers = (layers && layers.length > 1) ? layers : null;
+
+    const container = $("#layerBreakdown");
+    if (!currentLayers) {
+        container.hide().empty();
+        return;
+    }
+
+    layerPenTypeSelections = currentLayers.map((_l, i) => layerPenTypeSelections[i] || "");
+
+    const penTypeOptions = ['<option value="">(no ink estimate)</option>']
+        .concat(Object.keys(penCapacities).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`))
+        .join('');
+
+    const rows = currentLayers.map((layer, i) => {
+        const distanceM = layer.distance / 1000;
+        const selectedType = layerPenTypeSelections[i];
+        const usage = selectedType ? estimatePenUsage(distanceM, penCapacities[selectedType]) : null;
+        const usageText = usage ? usage.text : `${distanceM.toFixed(1)} m`;
+        const warningClass = usage && usage.fraction > 0.7 ? 'text-danger fw-bold' : '';
+
+        return `
+            <div class="d-flex align-items-center mb-1 layer-breakdown-row" data-layer-index="${i}">
+                <span class="me-2" style="display:inline-block;width:1rem;height:1rem;border:1px solid #999;background:${escapeHtml(layer.color)};"></span>
+                <input type="text" class="form-control form-control-sm me-2 layer-name-input" style="max-width:9rem;" value="${escapeHtml(layer.name)}">
+                <select class="form-select form-select-sm me-2 layer-pen-type-select" style="max-width:11rem;">${penTypeOptions}</select>
+                <small class="${warningClass} layer-usage-text">${usageText}</small>
+            </div>
+        `;
+    }).join('');
+
+    container.html(rows).show();
+
+    container.find('.layer-pen-type-select').each(function(i) {
+        $(this).val(layerPenTypeSelections[i] || "");
+    });
+
+    container.off('input change', '.layer-name-input').on('input change', '.layer-name-input', function() {
+        const row = $(this).closest('.layer-breakdown-row');
+        const index = parseInt(row.data('layer-index'));
+        const newName = $(this).val().trim() || `Color ${index + 1}`;
+        currentLayers[index].name = newName;
+        patchLayerNameInCommands(index, newName);
+    });
+
+    container.off('change', '.layer-pen-type-select').on('change', '.layer-pen-type-select', function() {
+        const row = $(this).closest('.layer-breakdown-row');
+        const index = parseInt(row.data('layer-index'));
+        layerPenTypeSelections[index] = $(this).val();
+        renderLayerBreakdown(currentLayers);
+    });
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Renaming a layer only changes display/OLED text, not geometry - so instead
+// of a full pipeline re-render, patch the already-rendered command file's
+// `n<index> <name>` header line in place (see docs/multi-color.md section 2
+// for the header format).
+function patchLayerNameInCommands(zeroBasedIndex, newName) {
+    if (!uploadConvertedCommands) {
+        return;
+    }
+    const oneBasedIndex = zeroBasedIndex + 1;
+    const pattern = new RegExp(`^n${oneBasedIndex} .*$`, 'm');
+    uploadConvertedCommands = uploadConvertedCommands.replace(pattern, `n${oneBasedIndex} ${newName}`);
+}
+
+function renderInkCapacityTable() {
+    const body = $("#inkCapacityTableBody");
+    const rows = Object.keys(penCapacities).map(name => `
+        <tr>
+            <td><input type="text" class="form-control form-control-sm ink-name-input" value="${escapeHtml(name)}"></td>
+            <td><input type="number" min="1" class="form-control form-control-sm ink-capacity-input" value="${penCapacities[name]}"></td>
+        </tr>
+    `).join('');
+    body.html(rows);
+
+    body.off('change', 'input').on('change', 'input', function() {
+        const updated = {};
+        body.find('tr').each(function() {
+            const name = $(this).find('.ink-name-input').val().trim();
+            const capacity = parseFloat($(this).find('.ink-capacity-input').val());
+            if (name && capacity > 0) {
+                updated[name] = capacity;
+            }
+        });
+        penCapacities = updated;
+        savePenCapacities(penCapacities);
+        renderLayerBreakdown(currentLayers);
+    });
+}
+
+function getPenSwapServoValueFromInputValue() {
+    const inputValue = parseInt($("#penSwapServoRange").val());
+    const value = 90 - inputValue;
+    if (value < 0) {
+        return 0;
+    } else if (value > 90) {
+        return 90;
+    }
+    return value;
+}
+
+function getResumePenServoValueFromInputValue() {
+    const inputValue = parseInt($("#resumePenRange").val());
+    const value = 90 - inputValue;
+    if (value < 0) {
+        return 0;
+    } else if (value > 90) {
+        return 90;
+    }
+    return value;
 }
