@@ -69,7 +69,17 @@ def find_partition(partitions, names):
 
 def get_littlefs_used_bytes(image_path, fs_size):
     """Mount the built littlefs image and sum up the size of all files in it."""
-    from littlefs import LittleFS
+    try:
+        from littlefs import LittleFS
+    except ImportError:
+        print(
+            "ERROR: the 'littlefs-python' package is required to inspect the "
+            "LittleFS image but is not installed.\n"
+            "  Install it with: pip install littlefs-python\n"
+            "  (CI installs this automatically in the 'firmware' job before "
+            "this script runs.)"
+        )
+        sys.exit(2)
 
     block_count = fs_size // FS_BLOCK_SIZE
     fs = LittleFS(
