@@ -172,6 +172,13 @@
         <input type="range" class="form-range mb-2 text-center" min="0" max="4" step="1" id="infillDensity" value="0">
         <label for="turdSize" class="form-label mb-0">Despeckle</label>
         <input type="range" class="form-range mb-2 text-center" min="2" max="200" step="11" id="turdSize" value="2">
+        <input class="form-check-input mb-2" type="checkbox" id="grayscaleCheckbox">
+        <label class="form-check-label" for="grayscaleCheckbox">Grayscale (tonal)</label>
+        <label for="grayscaleLevels" class="form-label mb-0">Grayscale Levels</label>
+        <select class="form-select mb-2" id="grayscaleLevels">
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
         <input class="form-check-input mb-2" type="checkbox" id="flattenPathsCheckbox">
         <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths</label>
         <button class="w-100 btn btn-lg btn-primary mb-2" id="acceptSvg" disabled>Accept</button>

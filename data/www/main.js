@@ -169,6 +169,8 @@ function init() {
             $(".svg-control").hide();
             $("#infillDensity").val(0);
             $("#turdSize").val(2);
+            $("#grayscaleCheckbox").prop("checked", false);
+            $("#grayscaleLevels").val(3);
         }
     });
 
@@ -259,6 +261,7 @@ function init() {
             type: 'vectorize',
             raster,
             turdSize: getTurdSize(),
+            grayscaleLevels: getGrayscaleLevels(),
         };
 
         if (currentPreviewId == thisPreviewId) {
@@ -373,7 +376,7 @@ function init() {
     }
 
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox").on('input change', async function() {
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels").on('input change', async function() {
         activateProgressBar();
         $("#acceptSvg").attr("disabled", "disabled");
         await rendererFn();
@@ -386,6 +389,8 @@ function init() {
 
     $("#pathTracing").click(async function() {
         $("label[for='turdSize'],#turdSize").hide();
+        $("label[for='grayscaleCheckbox'],#grayscaleCheckbox").hide();
+        $("label[for='grayscaleLevels'],#grayscaleLevels").hide();
         $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").show();
 
         $("#chooseRendererSlide").hide();
@@ -396,7 +401,11 @@ function init() {
 
     $("#vectorRasterVector").click(async function() {
         $("#flattenPathsCheckbox").prop("checked", false);
+        $("#grayscaleCheckbox").prop("checked", false);
+        $("#grayscaleLevels").val(3);
         $("label[for='turdSize'],#turdSize").show();
+        $("label[for='grayscaleCheckbox'],#grayscaleCheckbox").show();
+        $("label[for='grayscaleLevels'],#grayscaleLevels").show();
         $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").hide();
 
         $("#chooseRendererSlide").hide();
@@ -702,6 +711,19 @@ function getInfillDensity() {
 
 function getTurdSize() {
     return parseInt($("#turdSize").val());
+}
+
+function getGrayscaleLevels() {
+    if (!$("#grayscaleCheckbox").is(":checked")) {
+        return 0;
+    }
+
+    const levels = parseInt($("#grayscaleLevels").val());
+    if (![3, 4].includes(levels)) {
+        throw new Error('Invalid grayscale levels');
+    }
+
+    return levels;
 }
 
 function getFlattenPaths() {

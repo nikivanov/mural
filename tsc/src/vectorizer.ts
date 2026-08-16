@@ -1,5 +1,6 @@
 import { loadPaper } from './paperLoader';
 import {Potrace} from './tracer';
+import { buildGrayscaleBitmap, computeGrayscaleThreshold } from './grayscale';
 
 
 const paper = loadPaper();
@@ -57,5 +58,39 @@ function createPathsFromColorMatrix(colorMatrix: paper.Color[][], turdSize: numb
 
 function colorDistance(color1: paper.Color, color2: paper.Color) {
     return (color2.red - color1.red) ** 2 + (color2.green - color1.green) ** 2 + (color2.blue - color1.blue) ** 2;
+}
+
+export type GrayscaleLevelResult = {
+    // 1-indexed; higher levels are darker and nest inside lighter (lower)
+    // levels, i.e. level L's bitmap is a subset of level (L-1)'s bitmap.
+    level: number,
+    svg: string,
+}
+
+// Traces `levels` nested bitmaps of `imageData`, one per luminance band. Level
+// 1's bitmap includes every non-transparent pixel at or darker than a light
+// threshold; each subsequent level uses a darker threshold, so its bitmap is
+// a subset of the previous level's. Used for tonal/grayscale rendering, where
+// each level is later given its own infill density. Fully independent of
+// vectorizeImageData/createPathsFromColorMatrix above, which remain untouched
+// so the default 1-bit path stays byte-identical.
+export function vectorizeImageDataGrayscale(imageData: ImageData, turdSize: number, levels: number): GrayscaleLevelResult[] {
+    const results: GrayscaleLevelResult[] = [];
+    for (let level = 1; level <= levels; level++) {
+        const threshold = computeGrayscaleThreshold(level, levels);
+        const data = buildGrayscaleBitmap(imageData, threshold);
+        const svg = traceBitmap(imageData.width, imageData.height, data, turdSize);
+        results.push({ level, svg });
+    }
+
+    return results;
+}
+
+function traceBitmap(width: number, height: number, data: (1|0)[], turdSize: number): string {
+    const tracer = Potrace();
+    tracer.setParameter({"turdsize": turdSize});
+    tracer.setBitmap(width, height, data);
+
+    return tracer.getSVG(1);
 }
 
