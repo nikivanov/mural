@@ -1,7 +1,9 @@
 #include "runner.h"
 #include <stdexcept>
+#include <cstring>
 #include "tasks/interpolatingmovementtask.h"
 #include "tasks/pentask.h"
+#include "tasks/penswaptask.h"
 #include "pen.h"
 #include "display.h"
 #include "LittleFS.h"
@@ -48,14 +50,17 @@ String Runner::getLastError() {
     return lastError;
 }
 
-// Reads the mandatory d/h header and the optional t<mm> pin-distance header from an
-// open command file, leaving the file positioned at the first command line. Shared
-// by initTaskProvider() and beginResume() so the two don't duplicate header parsing
-// (and so a fix like the t-header support here automatically benefits both, rather
-// than needing to be re-applied to whichever one gets updated). Static/pen-and-
-// movement-independent so countTotalCommandLines() can use it too, from a File it
-// opened itself, without needing a Runner instance.
-bool Runner::parseCommandFileHeader(File& file, double& totalDistanceOut, bool& hasTopDistanceOut, double& topDistanceOut) {
+// Reads the mandatory d/h header, the optional t<mm> pin-distance header, and the
+// optional multi-color `n<index> <name>` palette headers from an open command file,
+// leaving the file positioned at the first command line. Shared by initTaskProvider()
+// and beginResume() so the two don't duplicate header parsing (and so a fix like the
+// t-header support here automatically benefits both, rather than needing to be
+// re-applied to whichever one gets updated). Static/pen-and-movement-independent so
+// countTotalCommandLines() can use it too, from a File it opened itself, without
+// needing a Runner instance.
+bool Runner::parseCommandFileHeader(File& file, double& totalDistanceOut, bool& hasTopDistanceOut, double& topDistanceOut, String* paletteNamesOut, int& paletteCountOut) {
+    paletteCountOut = 0;
+
     auto line = file.readStringUntil('\n');
     if (line.charAt(0) != 'd') {
         Serial.println("Bad file - no distance");
@@ -84,6 +89,35 @@ bool Runner::parseCommandFileHeader(File& file, double& totalDistanceOut, bool& 
         file.seek(beforeTopDistanceLine);
     }
 
+    // Optional multi-color palette headers, `n<index> <name>` (see
+    // docs/multi-color.md section 2), one per palette color, immediately
+    // after d/h/t and before the first command line. Consumed in a loop
+    // since there can be more than one; stops (seeking back) as soon as a
+    // line doesn't start with 'n'.
+    while (true) {
+        auto beforePaletteLine = file.position();
+        auto paletteLine = file.readStringUntil('\n');
+        if (paletteLine.charAt(0) != 'n') {
+            file.seek(beforePaletteLine);
+            break;
+        }
+
+        auto spaceIx = paletteLine.indexOf(' ');
+        if (spaceIx < 0) {
+            file.seek(beforePaletteLine);
+            break;
+        }
+
+        int index = paletteLine.substring(1, spaceIx).toInt();
+        String name = paletteLine.substring(spaceIx + 1);
+        name.trim();
+
+        if (paletteNamesOut != nullptr && index >= 1 && index <= Runner::maxPaletteColors) {
+            paletteNamesOut[index - 1] = name;
+        }
+        paletteCountOut++;
+    }
+
     return true;
 }
 
@@ -98,7 +132,8 @@ bool Runner::initTaskProvider() {
 
     bool hasTopDistance;
     double fileTopDistance;
-    if (!parseCommandFileHeader(openedFile, totalDistance, hasTopDistance, fileTopDistance)) {
+    paletteCount = 0;
+    if (!parseCommandFileHeader(openedFile, totalDistance, hasTopDistance, fileTopDistance, palette, paletteCount)) {
         return false;
     }
 
@@ -158,10 +193,12 @@ Task *Runner::getNextTask()
         auto line = openedFile.readStringUntil('\n');
         executedLines++;
         bool isPenLine = line.charAt(0) == 'p';
+        bool isColorLine = line.charAt(0) == 'c';
 
         // Checkpoint every N lines (to limit NVS wear) and additionally on every
-        // pen up/down, since those are the moments a redraw would be most visible.
-        if (isPenLine || (executedLines % checkpointIntervalLines == 0)) {
+        // pen up/down or color swap, since those are the moments a redraw would be
+        // most visible.
+        if (isPenLine || isColorLine || (executedLines % checkpointIntervalLines == 0)) {
             writeCheckpoint(bookmark);
         }
 
@@ -177,6 +214,18 @@ Task *Runner::getNextTask()
                 //Serial.println("Pen up");
                 return new PenTask(true, pen);
             }
+        }
+        else if (isColorLine)
+        {
+            // Multi-color pen swap (docs/multi-color.md sections 2-3):
+            // `c<index>` (1-based, matching the `n<index> <name>` palette
+            // headers parsed into `palette` above).
+            int colorIndex = line.substring(1).toInt();
+            String name = (colorIndex >= 1 && colorIndex <= paletteCount && colorIndex <= maxPaletteColors)
+                ? palette[colorIndex - 1]
+                : ("pen " + String(colorIndex));
+            Serial.println("Pen swap requested: color " + String(colorIndex) + " (" + name + ")");
+            return new PenSwapTask(pen, movement, this, colorIndex, name);
         }
         else
         {
@@ -198,7 +247,7 @@ Task *Runner::getNextTask()
             while (haveCoordinates && openedFile.available()) {
                 auto bookmark = openedFile.position();
                 auto peekLine = openedFile.readStringUntil('\n');
-                if (peekLine.length() == 0 || peekLine.charAt(0) == 'p') {
+                if (peekLine.length() == 0 || peekLine.charAt(0) == 'p' || peekLine.charAt(0) == 'c') {
                     openedFile.seek(bookmark);
                     break;
                 }
@@ -353,6 +402,52 @@ void Runner::resumeRun() {
     pushProgressEvent(true);
 }
 
+// Multi-color pen swap (docs/multi-color.md sections 2-3). Called by
+// PenSwapTask once it's lifted the pen and arrived at the swap station.
+void Runner::notifyPenSwapWaiting(int colorIndex, String name) {
+    awaitingSwap = true;
+    awaitingSwapColorIndex = colorIndex;
+    awaitingSwapName = name;
+    display->displayText("Insert pen " + String(colorIndex) + " (" + name + ")");
+    pushProgressEvent(true);
+}
+
+bool Runner::isAwaitingPenSwap() {
+    return awaitingSwap;
+}
+
+bool Runner::applyPenDistanceDuringSwap(int angle) {
+    if (!awaitingSwap) {
+        return false;
+    }
+
+    pen->setPenDistance(angle);
+    if (!pen->slowUp()) {
+        return false;
+    }
+
+    // Persist so the value survives a firmware restart, same as
+    // PenCalibrationPhase::setPenDistance().
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, false);
+    prefs.putInt(PREFS_PEN_ANGLE_KEY, angle);
+    prefs.end();
+
+    return true;
+}
+
+bool Runner::confirmPenSwap() {
+    if (!awaitingSwap || currentTask == NULL || strcmp(currentTask->name(), "PenSwapTask") != 0) {
+        return false;
+    }
+
+    static_cast<PenSwapTask*>(currentTask)->confirm();
+    awaitingSwap = false;
+    display->displayText(String(progress) + "%");
+    pushProgressEvent(true);
+    return true;
+}
+
 void Runner::dryRun() {
     if (!initTaskProvider()) {
         Serial.println("Failed to initialize task provider");
@@ -385,6 +480,9 @@ const char* Runner::getStateName() {
     if (paused) {
         return "paused";
     }
+    if (awaitingSwap) {
+        return "penSwap";
+    }
     if (executedLines == 0) {
         return "started";
     }
@@ -408,6 +506,14 @@ void Runner::buildProgressJson(char* buffer, size_t bufferSize, const char* stat
     root["totalLines"] = totalLines;
     root["x"] = targetPosition.x;
     root["y"] = targetPosition.y;
+    // Multi-color pen swap (docs/multi-color.md sections 2-3): while
+    // awaitingSwap is true, tell the UI which pen to prompt for so it can
+    // show "Insert pen <penSwapIndex> (<penSwapName>)" alongside the
+    // recalibration controls.
+    if (awaitingSwap) {
+        root["penSwapIndex"] = awaitingSwapColorIndex;
+        root["penSwapName"] = awaitingSwapName;
+    }
     root.printTo(buffer, bufferSize);
 }
 
@@ -490,7 +596,8 @@ int Runner::countTotalCommandLines() {
     double totalDistanceUnused;
     bool hasTopDistanceUnused;
     double topDistanceUnused;
-    if (!parseCommandFileHeader(f, totalDistanceUnused, hasTopDistanceUnused, topDistanceUnused)) {
+    int paletteCountUnused;
+    if (!parseCommandFileHeader(f, totalDistanceUnused, hasTopDistanceUnused, topDistanceUnused, nullptr, paletteCountUnused)) {
         f.close();
         return 0;
     }
@@ -518,7 +625,8 @@ bool Runner::beginResume(const Checkpoint& cp) {
 
     bool hasTopDistance;
     double fileTopDistance;
-    if (!parseCommandFileHeader(openedFile, totalDistance, hasTopDistance, fileTopDistance)) {
+    paletteCount = 0;
+    if (!parseCommandFileHeader(openedFile, totalDistance, hasTopDistance, fileTopDistance, palette, paletteCount)) {
         Serial.println("Resume failed: bad command file header");
         return false;
     }

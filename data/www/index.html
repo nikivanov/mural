@@ -188,8 +188,24 @@
           <option value="3">3</option>
           <option value="4">4</option>
         </select>
+        <input class="form-check-input mb-2" type="checkbox" id="multiColorCheckbox">
+        <label class="form-check-label" for="multiColorCheckbox">Multiple colors (pen swaps)</label>
+        <div id="multiColorOptions" style="display:none;">
+          <label for="colorCount" class="form-label mb-0">Number of colors</label>
+          <select class="form-select mb-2" id="colorCount">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+          <input class="form-check-input mb-2" type="checkbox" id="colorOverprintCheckbox">
+          <label class="form-check-label" for="colorOverprintCheckbox">Overprint (skip knockout)</label>
+        </div>
         <input class="form-check-input mb-2" type="checkbox" id="flattenPathsCheckbox">
         <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths</label>
+        <div id="layerBreakdown" class="mb-2 text-start" style="display:none;"></div>
+        <button class="w-100 btn btn-lg btn-outline-secondary mb-2" type="button" data-bs-toggle="modal" data-bs-target="#inkModal">Pen ink estimates</button>
         <button class="w-100 btn btn-lg btn-primary mb-2" id="acceptSvg" disabled>Accept</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5 backToSvgSelect">Back</button>
       </div>
@@ -215,6 +231,22 @@
         </div>
         <h6 class="mb-2 fw-normal"><small class="text-muted" id="liveStatsText"></small></h6>
         <div class="alert alert-warning" id="liveConnectionNotice" style="display:none;">Connection lost, reconnecting&hellip;</div>
+        <div class="card mb-2" id="penSwapPanel" style="display:none;">
+          <div class="card-body">
+            <h5 class="card-title" id="penSwapTitle">Insert pen</h5>
+            <h6 class="card-subtitle mb-3 text-muted">Swap the pen, then optionally re-touch it to the wall below before confirming.</h6>
+            <input type="range" class="form-range mb-3 text-center" min="0" max="90" id="penSwapServoRange" value="0">
+            <div class="btn-group mb-3 btn-group-lg" role="group">
+              <div class="btn-group me-3" role="group">
+                <button type="button" class="btn btn-primary fs-4" id="penSwapMinus">-</button>
+              </div>
+              <div class="btn-group me-3" role="group">
+                <button type="button" class="btn btn-primary fs-4" id="penSwapPlus">+</button>
+              </div>
+            </div>
+            <button class="w-100 btn btn-lg btn-success" id="confirmPenSwapBtn">Pen inserted, continue</button>
+          </div>
+        </div>
         <button class="w-100 btn btn-lg btn-warning mb-2" id="pauseDrawingBtn">Pause</button>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="resumeDrawingBtn" style="display:none;">Resume</button>
       </div>
@@ -226,6 +258,29 @@
       </div>
       <div class="mt-5"><a href="https://github.com/nikivanov/mural" class="link-primary">Mural</a></div>
   </main>
+  <div class="modal fade" id="inkModal" tabindex="-1" role="dialog" aria-labelledby="inkModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="inkModalLabel">Pen ink estimates</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-start">
+          <h6><small class="text-muted">Rough estimates only - actual ink capacity varies a lot by pen brand, paper, and line width. Figures below are for drawing on paper; adjust them for your own pens.</small></h6>
+          <table class="table table-sm" id="inkCapacityTable">
+            <thead>
+              <tr><th>Pen type</th><th>Capacity (m)</th></tr>
+            </thead>
+            <tbody id="inkCapacityTableBody"></tbody>
+          </table>
+          <button class="w-100 btn btn-outline-secondary mb-2" id="resetInkCapacityTable">Reset to defaults</button>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="modal fade" id="toolsModal" tabindex="-1" role="dialog" aria-labelledby="toolsModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
       <div class="modal-content">

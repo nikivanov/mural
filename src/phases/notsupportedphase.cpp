@@ -56,6 +56,10 @@ void NotSupportedPhase::confirmResume(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 
+void NotSupportedPhase::confirmPenSwap(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
 const char* NotSupportedPhase::getName() {
     throw std::invalid_argument("should be overridden");
 }

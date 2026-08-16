@@ -16,6 +16,13 @@ class DrawingPhase : public NotSupportedPhase {
     DrawingPhase(PhaseManager* manager, Runner* runner);
     void pauseDrawing(AsyncWebServerRequest *request);
     void resumeDrawing(AsyncWebServerRequest *request);
+    // Multi-color (docs/multi-color.md sections 2-4). setPenDistance() only
+    // applies while a pen swap is pending (Runner::isAwaitingPenSwap()) -
+    // recalibrating the newly-inserted pen, without switching phases (the
+    // server stays in Drawing for the whole job). confirmPenSwap() unblocks
+    // the pending PenSwapTask so drawing resumes with the new layer.
+    void setPenDistance(AsyncWebServerRequest *request);
+    void confirmPenSwap(AsyncWebServerRequest *request);
     const char* getName();
 };
 #endif

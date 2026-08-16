@@ -19,6 +19,7 @@ class NotSupportedPhase : public Phase {
     void pauseDrawing(AsyncWebServerRequest *request);
     void resumeDrawing(AsyncWebServerRequest *request);
     void confirmResume(AsyncWebServerRequest *request);
+    void confirmPenSwap(AsyncWebServerRequest *request);
     const char* getName();
     void loopPhase();
 };

@@ -6,6 +6,7 @@
 #include "display.h"
 #include "LittleFS.h"
 #include <ESPAsyncWebServer.h>
+class PenSwapTask;
 class Runner {
     public:
     // Snapshot of everything needed to resume a drawing after a power loss.
@@ -71,17 +72,36 @@ class Runner {
     const char* getStateName();
     void pushProgressEvent(bool force, const char* stateOverride = nullptr);
 
-    // Reads the mandatory d/h header and the optional t<mm> pin-distance header
-    // (added by toCommands.ts after d/h; older command files won't have it) from
-    // an open command file, leaving the file positioned at the first command
-    // line. Sets totalDistanceOut from the d line. If a t line is present,
-    // hasTopDistanceOut is set true and topDistanceOut holds its value, so
-    // instance callers (which have a Movement pointer) can validate it against
-    // the current setup; static callers that don't care about validation (see
-    // countTotalCommandLines()) can just ignore the out-params. Returns false
-    // only if d or h is missing/malformed. Shared by initTaskProvider() and
-    // beginResume() so the two don't duplicate header parsing.
-    static bool parseCommandFileHeader(File& file, double& totalDistanceOut, bool& hasTopDistanceOut, double& topDistanceOut);
+    // Multi-color palette metadata, parsed from the command file's optional
+    // `n<index> <name>` headers (see docs/multi-color.md section 2) by
+    // parseCommandFileHeader(). Index 0 holds palette color 1, etc.
+    // paletteCount is how many entries were actually parsed (0 for a
+    // single-color file with no `n` headers at all).
+    static const int maxPaletteColors = 8;
+    String palette[maxPaletteColors];
+    int paletteCount = 0;
+
+    // True whenever the current task is a PenSwapTask blocked waiting for
+    // /confirmPenSwap (see notifyPenSwapWaiting()/confirmPenSwap() below).
+    bool awaitingSwap = false;
+    int awaitingSwapColorIndex = 0;
+    String awaitingSwapName;
+
+    // Reads the mandatory d/h header, the optional t<mm> pin-distance header,
+    // and the optional `n<index> <name>` palette headers (added by
+    // toCommands.ts, in that order, after d/h; older command files won't have
+    // t or n) from an open command file, leaving the file positioned at the
+    // first command line. Sets totalDistanceOut from the d line. If a t line
+    // is present, hasTopDistanceOut is set true and topDistanceOut holds its
+    // value, so instance callers (which have a Movement pointer) can validate
+    // it against the current setup; static callers that don't care about
+    // validation (see countTotalCommandLines()) can just ignore the
+    // out-params. paletteNamesOut (size maxPaletteColors) and paletteCountOut
+    // receive any parsed `n<index> <name>` lines; pass paletteNamesOut as
+    // nullptr to skip storing them (paletteCountOut is still set). Returns
+    // false only if d or h is missing/malformed. Shared by initTaskProvider()
+    // and beginResume() so the two don't duplicate header parsing.
+    static bool parseCommandFileHeader(File& file, double& totalDistanceOut, bool& hasTopDistanceOut, double& topDistanceOut, String* paletteNamesOut, int& paletteCountOut);
 
     public:
     // Set by initTaskProvider() when start()/dryRun() returns false, so the
@@ -105,6 +125,28 @@ class Runner {
     void pause();
     void resumeRun();
     bool isPaused();
+
+    // Multi-color pen swap (docs/multi-color.md sections 2-3). Called by
+    // PenSwapTask once it finishes lifting the pen and travelling to the swap
+    // station, to record which pen to prompt for and push the OLED/SSE
+    // notification - built on the same live-status infrastructure as ordinary
+    // drawing progress (buildProgressJson()/pushProgressEvent()), rather than
+    // a parallel notification channel.
+    void notifyPenSwapWaiting(int colorIndex, String name);
+    // True whenever a PenSwapTask is blocked awaiting /confirmPenSwap - gates
+    // DrawingPhase::setPenDistance() (recalibrating the newly-inserted pen)
+    // and is what confirmPenSwap()/applyPenDistanceDuringSwap() require.
+    bool isAwaitingPenSwap();
+    // Applies a new pen-down angle while a swap is pending, mirroring
+    // PenCalibrationPhase::setPenDistance()'s persistence, without switching
+    // phases (the server stays in DrawingPhase for the whole job - see
+    // docs/multi-color.md section 4 and drawingphase.h). Returns false (and
+    // does nothing) if no swap is pending or the pen isn't ready.
+    bool applyPenDistanceDuringSwap(int angle);
+    // Unblocks the pending PenSwapTask so Runner::run() advances to the next
+    // command file line on its next tick. Returns false if no swap is
+    // pending.
+    bool confirmPenSwap();
 
     // Resume-after-power-loss: reopens /commands, seeks to the checkpointed offset,
     // restores executedLines/totalLines so progress reporting is correct, and starts
