@@ -28,6 +28,14 @@ class Runner {
         // of that stroke (up to checkpointIntervalLines worth of it) until the
         // next p1. See beginResume()'s hand-off ordering.
         bool penDown;
+        // Multi-color (docs/multi-color.md): which pen was mounted at the moment
+        // this checkpoint was written - 1-based, matching `c<index>`/`n<index>`.
+        // Defaults to 1/"" for single-color files (see writeCheckpoint()), so old
+        // checkpoints (written before this field existed - loadCheckpoint() reads
+        // them back as 1/"" too) and single-color jobs behave exactly as before:
+        // the resume offer only mentions a pen at all when colorName is non-empty.
+        int colorIndex;
+        String colorName;
     };
 
     private:
@@ -86,6 +94,15 @@ class Runner {
     bool awaitingSwap = false;
     int awaitingSwapColorIndex = 0;
     String awaitingSwapName;
+
+    // Multi-color (docs/multi-color.md): which pen is currently mounted, i.e.
+    // active as of the most recently *completed* swap (or 1, the pen the job
+    // started with, if none yet) - not the pen a pending-but-unconfirmed swap
+    // is asking for, since the old pen is still physically mounted until
+    // confirmPenSwap() runs. Checkpointed by writeCheckpoint() so a resume
+    // offer can tell the user which pen must be inserted (see
+    // PhaseManager::respondWithState()).
+    int currentColorIndex = 1;
 
     // Reads the mandatory d/h header, the optional t<mm> pin-distance header,
     // and the optional `n<index> <name>` palette headers (added by

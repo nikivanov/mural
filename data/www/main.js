@@ -793,6 +793,26 @@ function init() {
         });
     });
 
+    // Resume-after-power-loss pen recalibration (docs/multi-color.md follow-up):
+    // the user may have re-inserted a different-length pen while it was
+    // powered off, so let them touch it to the wall here, same slider pattern
+    // and /setPenDistance path as pen calibration and the pen-swap panel.
+    // ResumeDrawingPhase::setPenDistance() applies it immediately and
+    // confirmResume() prefers this over the checkpointed angle once touched.
+    $("#resumePenRange").on('input', $.throttle(250, function (e) {
+        $.post("/setPenDistance", { angle: getResumePenServoValueFromInputValue() });
+    }));
+
+    $("#resumePenMinus").click(function() {
+        $("#resumePenRange")[0].stepDown(5);
+        $("#resumePenRange").trigger('input');
+    });
+
+    $("#resumePenPlus").click(function() {
+        $("#resumePenRange")[0].stepUp(5);
+        $("#resumePenRange").trigger('input');
+    });
+
     svgControl.initSvgControl();
 
     $("#loadingSlide").show();
@@ -968,6 +988,23 @@ function adaptToState(state) {
                     : "A previous drawing was interrupted, likely by a power loss. The belts may have moved " +
                       "since then, so you'll need to re-retract them before resuming."
             );
+
+            // Multi-color (docs/multi-color.md): resumeColorName is "" for a
+            // single-color job/checkpoint (see Runner::writeCheckpoint()) -
+            // omit the pen-check line and recalibration controls entirely in
+            // that case, exactly as before this feature existed.
+            if (state.resumeColorName) {
+                const percentText = percent !== null ? `Resuming at ${percent}%` : 'Resuming';
+                $("#resumeDrawingPenText").text(`${percentText} — pen ${state.resumeColorIndex} (${state.resumeColorName}) must be inserted`);
+                $("#resumeDrawingPenLine").show();
+                $("#resumeDrawingPenAdjust").show();
+                if (state.storedPenAngle && state.storedPenAngle !== -1) {
+                    $("#resumePenRange").val(90 - state.storedPenAngle);
+                }
+            } else {
+                $("#resumeDrawingPenLine").hide();
+                $("#resumeDrawingPenAdjust").hide();
+            }
             break;
         default:
             showError("Unrecognized phase: " + state.phase, null);
@@ -1253,6 +1290,17 @@ function renderInkCapacityTable() {
 
 function getPenSwapServoValueFromInputValue() {
     const inputValue = parseInt($("#penSwapServoRange").val());
+    const value = 90 - inputValue;
+    if (value < 0) {
+        return 0;
+    } else if (value > 90) {
+        return 90;
+    }
+    return value;
+}
+
+function getResumePenServoValueFromInputValue() {
+    const inputValue = parseInt($("#resumePenRange").val());
     const value = 90 - inputValue;
     if (value < 0) {
         return 0;

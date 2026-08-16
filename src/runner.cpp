@@ -133,6 +133,7 @@ bool Runner::initTaskProvider() {
     bool hasTopDistance;
     double fileTopDistance;
     paletteCount = 0;
+    currentColorIndex = 1;
     if (!parseCommandFileHeader(openedFile, totalDistance, hasTopDistance, fileTopDistance, palette, paletteCount)) {
         return false;
     }
@@ -442,6 +443,9 @@ bool Runner::confirmPenSwap() {
     }
 
     static_cast<PenSwapTask*>(currentTask)->confirm();
+    // The new pen is only physically mounted from this confirmation onward -
+    // see currentColorIndex's doc comment in runner.h.
+    currentColorIndex = awaitingSwapColorIndex;
     awaitingSwap = false;
     display->displayText(String(progress) + "%");
     pushProgressEvent(true);
@@ -560,6 +564,14 @@ void Runner::writeCheckpoint(uint32_t offset) {
     // see beginResume()'s hand-off ordering for why this has to be restored before
     // any resumed command line is fed.
     prefs.putBool(PREFS_CKPT_PEN_DOWN_KEY, pen->isDown());
+    // Multi-color (docs/multi-color.md): which pen is mounted right now.
+    // currentColorIndex defaults to 1 and palette is empty for single-color
+    // files, so this writes 1/"" for them - see Checkpoint's doc comment.
+    prefs.putInt(PREFS_CKPT_COLOR_INDEX_KEY, currentColorIndex);
+    String colorName = (currentColorIndex >= 1 && currentColorIndex <= paletteCount && currentColorIndex <= maxPaletteColors)
+        ? palette[currentColorIndex - 1]
+        : String("");
+    prefs.putString(PREFS_CKPT_COLOR_NAME_KEY, colorName);
     prefs.end();
 }
 
@@ -575,6 +587,10 @@ bool Runner::loadCheckpoint(Checkpoint& out) {
         out.topDistance = prefs.getInt(PREFS_CKPT_TOP_DIST_KEY, -1);
         out.penAngle = prefs.getInt(PREFS_CKPT_PEN_ANGLE_KEY, -1);
         out.penDown = prefs.getBool(PREFS_CKPT_PEN_DOWN_KEY, false);
+        // Defaults (1/"") match writeCheckpoint()'s single-color behavior, so a
+        // checkpoint written before this field existed resumes exactly as before.
+        out.colorIndex = prefs.getInt(PREFS_CKPT_COLOR_INDEX_KEY, 1);
+        out.colorName = prefs.getString(PREFS_CKPT_COLOR_NAME_KEY, "");
     }
     prefs.end();
     return valid;
@@ -630,6 +646,11 @@ bool Runner::beginResume(const Checkpoint& cp) {
         Serial.println("Resume failed: bad command file header");
         return false;
     }
+    // Multi-color (docs/multi-color.md): restore which pen was active at the
+    // checkpoint, rather than resetting to 1 (which initTaskProvider() does
+    // for a *fresh* /run) - we're continuing a job that may already be
+    // several colors in.
+    currentColorIndex = cp.colorIndex;
 
     if (hasTopDistance) {
         // ResumeDrawingPhase::confirmResume() already restored movement's

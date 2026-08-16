@@ -15,14 +15,35 @@ void ResumeDrawingPhase::confirmResume(AsyncWebServerRequest *request) {
     // a topDistance to compute against, and so the pen-down angle is correct once
     // the file resumes past the next pen-down command.
     movement->setTopDistance(cp.topDistance);
-    pen->setPenDistance(cp.penAngle);
+
+    // The pen may be a different length than when the checkpoint was written -
+    // e.g. it was removed/swapped while powered off (docs/multi-color.md). If
+    // the user already recalibrated via setPenDistance() below, that live
+    // value wins; otherwise fall back to the checkpointed angle exactly as
+    // before.
+    if (!penDistanceOverridden) {
+        pen->setPenDistance(cp.penAngle);
+    }
 
     manager->setPhase(PhaseManager::RetractBelts);
     manager->respondWithState(request);
 }
 
+void ResumeDrawingPhase::setPenDistance(AsyncWebServerRequest *request) {
+    const AsyncWebParameter* p = request->getParam(0);
+    int angle = p->value().toInt();
+    pen->setPenDistance(angle);
+    if (!pen->slowUp()) {
+        request->send(400, "text/plain", "Pen not ready");
+        return;
+    }
+    penDistanceOverridden = true;
+    request->send(200, "text/plain", "OK");
+}
+
 void ResumeDrawingPhase::doneWithPhase(AsyncWebServerRequest *request) {
     Runner::clearCheckpoint();
+    penDistanceOverridden = false;
     manager->reset();
     manager->respondWithState(request);
 }

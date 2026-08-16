@@ -252,7 +252,20 @@
       </div>
       <div id="resumeDrawingSlide" class="muralSlide" style="display: none;">
         <h3 class="mb-2 fw-normal">Resume interrupted drawing?</h3>
-        <h6 class="mb-5"><small class="text-muted" id="resumeDrawingText">A previous drawing was interrupted, likely by a power loss.</small></h6>
+        <h6 class="mb-2"><small class="text-muted" id="resumeDrawingText">A previous drawing was interrupted, likely by a power loss.</small></h6>
+        <h6 class="mb-4" id="resumeDrawingPenLine" style="display:none;"><strong>Pen check:</strong> <span id="resumeDrawingPenText"></span></h6>
+        <div id="resumeDrawingPenAdjust" style="display:none;">
+          <h6 class="mb-2"><small class="text-muted">If you re-inserted a different (or the same) pen, touch it to the wall here to recalibrate before resuming. Otherwise the last known pen-down position is used.</small></h6>
+          <input type="range" class="form-range mb-3 text-center" min="0" max="90" id="resumePenRange" value="0">
+          <div class="btn-group mb-4 btn-group-lg" role="group">
+            <div class="btn-group me-3" role="group">
+              <button type="button" class="btn btn-primary fs-4" id="resumePenMinus">-</button>
+            </div>
+            <div class="btn-group me-3" role="group">
+              <button type="button" class="btn btn-primary fs-4" id="resumePenPlus">+</button>
+            </div>
+          </div>
+        </div>
         <button class="w-100 btn btn-lg btn-primary mb-2" id="resumeDrawingConfirmBtn">Resume drawing</button>
         <button class="w-100 btn btn-lg btn-outline-secondary mb-5" id="discardResumeDrawingBtn">Discard and start over</button>
       </div>

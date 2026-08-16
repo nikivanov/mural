@@ -119,6 +119,15 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["uploadCrc32"] = svgSelectPhase->getUploadCrc32();
     root["resuming"] = resuming;
     root["resumePercent"] = resumePercent;
+    // Multi-color (docs/multi-color.md): which pen was mounted when the
+    // checkpointed job was interrupted, so the resume offer can warn the user
+    // which pen must be (re-)inserted. resumeColorName is "" for a
+    // single-color job/checkpoint (see Runner::writeCheckpoint()) - the UI
+    // omits the "pen must be inserted" line entirely in that case.
+    if (resuming) {
+        root["resumeColorIndex"] = pendingCheckpoint.colorIndex;
+        root["resumeColorName"] = pendingCheckpoint.colorName;
+    }
 
 #ifdef MURAL_TMC_UART
     root["autoRetract"] = true;
