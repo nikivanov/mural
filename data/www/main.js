@@ -173,16 +173,31 @@ function init() {
     });
 
     // A previously downloaded command file (see #downloadCommands) starts
-    // with a "d<total distance>" line, followed by an "h<height>" line.
+    // with a "d<total distance>" line.
     function isCommandFile(text) {
         const firstLine = (text.split('\n', 1)[0] || '').trim();
         return /^d[\d.]+$/.test(firstLine);
     }
 
-    function parseCommandFileHeight(text) {
-        const secondLine = (text.split('\n', 2)[1] || '').trim();
-        const match = secondLine.match(/^h([\d.]+)$/);
-        return match ? parseFloat(match[1]) : null;
+    // Movement coordinate lines look like "x y" (see runner.cpp's
+    // getNextTask, which parses everything that isn't a "p0"/"p1" pen
+    // command this way). The firmware only bounds x against the drawable
+    // width (movement.cpp beginLinearTravel: x < 0 || (x - 1) > width; y is
+    // only checked to be >= 0), so that's the dimension worth warning about
+    // when re-uploading a file that may have been generated for a different
+    // pin distance.
+    function findMaxCommandFileX(text) {
+        let maxX = null;
+        for (const line of text.split('\n')) {
+            const match = line.match(/^([\d.]+) ([\d.]+)$/);
+            if (match) {
+                const x = parseFloat(match[1]);
+                if (maxX === null || x > maxX) {
+                    maxX = x;
+                }
+            }
+        }
+        return maxX;
     }
 
     $("#uploadCommandsFile").change(async function() {
@@ -200,12 +215,12 @@ function init() {
         }
 
         if (currentState && currentState.safeWidth > 0) {
-            const fileHeight = parseCommandFileHeight(text);
-            if (fileHeight !== null && fileHeight > currentState.safeWidth) {
+            const maxX = findMaxCommandFileX(text);
+            if (maxX !== null && maxX > currentState.safeWidth) {
                 const proceed = window.confirm(
-                    `This command file was generated for a drawing area taller (${fileHeight}mm) than the ` +
-                    `current pin distance allows (~${currentState.safeWidth}mm). Coordinates outside the ` +
-                    `drawable area will be rejected by Mural. Continue anyway?`
+                    `This command file was drawn up to ${maxX.toFixed(1)}mm wide, but the current setup only ` +
+                    `allows ${currentState.safeWidth}mm. Coordinates outside the drawable area will be ` +
+                    `rejected by Mural. Continue anyway?`
                 );
                 if (!proceed) {
                     return;
