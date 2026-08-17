@@ -65,6 +65,13 @@ export type PathDensityData = {
     // paths that never set it keep using `density`/the request's
     // `infillDensity` exactly as before - this is purely additive.
     spacingMm?: number;
+    // Optional per-path fill-strategy selector (see fillStrategies/registry.ts).
+    // Not yet set by any generator/UI code - reserved for follow-up branches
+    // (single-direction hatch, spiral fill, contour fill, ...) that need to
+    // pick a non-default strategy per path. Unset paths resolve to the
+    // default strategy (crossHatch45), so this is purely additive and does
+    // not change behavior until something starts setting it.
+    fillMethod?: string;
 }
 
 // One entry of a color palette: a physical pen's display name plus a

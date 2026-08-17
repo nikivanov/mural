@@ -1,6 +1,8 @@
 import { loadPaper } from './paperLoader';
 import { InfillDensity, InfilledPath, PathDensityData } from './types';
 import { applyWhiteKnockout } from './flattener';
+import { FillContext } from './fillStrategies/types';
+import { defaultFillStrategyName, fillStrategies } from './fillStrategies/registry';
 
 const paper = loadPaper();
 
@@ -35,43 +37,15 @@ const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
     [7, 2.5],
 ]);
 
-const infillAngle = Math.PI / 4;
-
-// Builds the diagonal infill line grid for a given spacing (mm). Kept as its
-// own function (rather than the single shared `lines` array the
-// pre-grayscale code computed once) so paths tagged with a per-path density
-// or spacingMm override (see generator.ts) can each get their own grid,
-// while paths without an override keep sharing a single grid for the
-// request's default density, matching the original behavior exactly.
-// spacingMm === 0 (the "no infill" density-0 case) produces no lines.
-function buildInfillLines(view: paper.View, xOffset: number, spacingMm: number): paper.Path.Line[] {
-    const lines: paper.Path.Line[] = [];
-    if (spacingMm !== 0) {
-        const infillXSpacing = spacingMm * Math.sqrt(2);
-        for (let currentX = -xOffset; currentX < view.size.width; currentX = currentX + infillXSpacing) {
-            lines.push(new paper.Path.Line({x: currentX, y: 0}, {x: currentX + xOffset, y: view.size.height}));
-            lines.push(new paper.Path.Line({x: currentX, y: view.size.height}, {x: currentX + xOffset, y: 0}));
-        }
-    }
-
-    return lines;
-}
-
 export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: InfillDensity): InfilledPath[] {
     const view = paper.project.view;
-    const xOffset = view.size.height * Math.tan(infillAngle);
-
-    const linesBySpacing = new Map<number, paper.Path.Line[]>();
-    function getLines(spacingMm: number): paper.Path.Line[] {
-        let lines = linesBySpacing.get(spacingMm);
-        if (!lines) {
-            lines = buildInfillLines(view, xOffset, spacingMm);
-            linesBySpacing.set(spacingMm, lines);
-        }
-        return lines;
-    }
-
     const boundsPath = new paper.Path.Rectangle(view.bounds);
+
+    // Shared across every path filled in this call. Strategies may use
+    // `cache` to memoize expensive per-spacing precomputation (e.g. a line
+    // grid) across paths; it's fresh per generateInfills() call, matching
+    // the original code's per-call `linesBySpacing` map.
+    const ctx: FillContext = {view, boundsPath, cache: new Map()};
 
     // White-as-knockout (see flattener.ts's applyWhiteKnockout): a pure
     // white fill with no stroke of its own is dropped entirely (matching
@@ -97,7 +71,6 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
             ? pathData.spacingMm
             : (density === 0 ? 0 : infillDensityToSpacingMap.get(density)!);
         const minInfillLength = spacingMm === 0 ? 1000 : Math.floor(spacingMm);
-        const lines = getLines(spacingMm);
 
         if (!(path instanceof paper.Path) && !(path instanceof paper.CompoundPath)) {
             throw new Error("Path item is neither a Path or CompoundPath");
@@ -117,41 +90,16 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
             }
         }
 
-        const infillPaths: paper.Path[] = [];
+        let infillPaths: paper.Path[] = [];
 
         if (!path.fillColor || path.fillColor.toCSS(true) !== '#ffffff') {
-            for (const line of lines) {
-                const intersections = [...path.getIntersections(line), ...boundsPath.getIntersections(line)].filter(i => i.point.isInside(boundsPath.bounds));
-
-                intersections.sort((a, b) => a.point.x - b.point.x);
-
-                let currentLineGroup: paper.Point[] = [];
-                function saveCurrentLineAsPath() {
-                    if (currentLineGroup.length > 1) {
-                        const infillLine = new paper.Path.Line(currentLineGroup[0], currentLineGroup[currentLineGroup.length - 1]);
-                        if (infillLine.length > minInfillLength) {
-                            infillPaths.push(infillLine);
-                        }
-                    }
-                }
-
-                for (const intersection of intersections) {
-                    if (currentLineGroup.length === 0) {
-                        currentLineGroup.push(intersection.point);
-                    } else {
-                        const previousPoint = currentLineGroup[currentLineGroup.length - 1];
-                        const thisPoint = intersection.point;
-                        const midPoint = getMidPoint(previousPoint, thisPoint);
-                        if (path.contains(midPoint)) {
-                            currentLineGroup.push(thisPoint);
-                        } else {
-                            saveCurrentLineAsPath();
-                            currentLineGroup = [thisPoint];
-                        }
-                    }
-                }
-                saveCurrentLineAsPath();
-            }
+            // `fillMethod` is an optional per-path strategy selector (not yet
+            // wired to any UI/generator input) that follow-up branches can
+            // set to pick a non-default fill strategy; unset paths keep
+            // using crossHatch45 exactly as before.
+            const strategyName = pathData?.fillMethod !== undefined ? pathData.fillMethod : defaultFillStrategyName;
+            const strategy = fillStrategies[strategyName] !== undefined ? fillStrategies[strategyName] : fillStrategies[defaultFillStrategyName];
+            infillPaths = strategy.generateFill(path, {spacingMm, minInfillLength}, ctx);
         }
 
         const infilledPath: InfilledPath = {
@@ -164,13 +112,6 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
     });
 
     return infilledPaths;
-}
-
-function getMidPoint(point1: paper.Point, point2: paper.Point): paper.Point {
-    return new paper.Point(
-        point1.x + (point2.x - point1.x) / 2,
-        point1.y + (point2.y - point1.y) / 2,
-    );
 }
 
 function unwrapCompoundPath(path: paper.CompoundPath) {
