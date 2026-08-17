@@ -240,4 +240,74 @@ if (!paperAvailable) {
         // eslint-disable-next-line no-console
         console.log(`    [perf] 1.4M-pixel continuous-tone classification (bypassed): ${elapsedMs.toFixed(1)}ms, fringeFraction=${result.fringeFraction.toFixed(4)}`);
     });
+
+    test("kMeansQuantize: a near-white backdrop is dropped as background, but pale real ink colors are kept", () => {
+        // Regression test for a real bug: kMeansQuantize's background
+        // pre-filter used to be derived as a fraction of palette
+        // separation (colorDistance(WHITE, BLACK) / 8), which is a huge
+        // absolute distance (~156 RGB units around white) since
+        // white-to-black is the maximum possible color separation. Against
+        // a real cartoon fixture that swallowed real ink as background - a
+        // cream fill (#fcf8d7) and a pale blue (#d6ebf5) both fell inside
+        // that radius and were excluded from k-means clustering entirely,
+        // so the returned palette came back dark/muddy with those regions
+        // left undrawn. This pins the fix: a small, fixed neighborhood
+        // around paper white (not a fraction of palette separation).
+        const { vectorizeImageDataColor } = require("../src/vectorizer") as typeof import("../src/vectorizer");
+
+        const width = 10;
+        const height = 30;
+        // Sample gathering in kMeansQuantize walks pixels in row-major
+        // order (y outer, x inner), and its deterministic centroid seeding
+        // picks evenly-spaced *samples*, not evenly-spaced screen
+        // positions - so the three colors are laid out as full-width row
+        // bands (varying by y) rather than column bands (varying by x),
+        // keeping each color's samples contiguous in iteration order for
+        // well-separated seeding. This is a test-construction detail, not
+        // a product requirement.
+        //
+        // Top third: near-white backdrop (not pure #ffffff, like a
+        // gradient/scan background would be). Middle third: cream ink.
+        // Bottom third: pale blue ink.
+        const BACKDROP: [number, number, number] = [0xf7, 0xfb, 0xfc];
+        const CREAM: [number, number, number] = [0xfc, 0xf8, 0xd7];
+        const PALE_BLUE: [number, number, number] = [0xd6, 0xeb, 0xf5];
+
+        const imageData = makeImageData(width, height, (_x, y) => {
+            const [r, g, b] = y < height / 3 ? BACKDROP : y < (2 * height) / 3 ? CREAM : PALE_BLUE;
+            return [r, g, b, 255];
+        });
+
+        // No supplied palette -> kMeansQuantize path, k=2 (cream, pale blue).
+        const result = vectorizeImageDataColor(imageData, 0, 2);
+
+        assert.strictEqual(result.palette.length, 2, "expected both pale ink colors to survive as real clusters, not be dropped as background");
+
+        const hexToRgb = (hex: string): [number, number, number] => {
+            const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+            if (!m) throw new Error(`unparseable hex color: ${hex}`);
+            return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+        };
+        const rgbDistance = (a: [number, number, number], b: [number, number, number]) =>
+            Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
+
+        const paletteRgb = result.palette.map((p) => hexToRgb(p.color));
+
+        // Both pale ink colors must be present, close to their source
+        // values (a generous tolerance for k-means centroid convergence,
+        // but nowhere near the ~156-unit miss the bug produced).
+        const tolerance = 20;
+        for (const expected of [CREAM, PALE_BLUE]) {
+            const closest = Math.min(...paletteRgb.map((c) => rgbDistance(c, expected)));
+            assert.ok(closest < tolerance, `expected a palette entry near rgb(${expected.join(",")}), closest was ${closest.toFixed(1)} units away (palette: ${result.palette.map((p) => p.color).join(", ")})`);
+        }
+
+        // And the backdrop itself must not have become its own palette
+        // entry (i.e. it was correctly excluded from clustering as
+        // background), and no palette entry drifted to a near-white color.
+        for (const [r, g, b] of paletteRgb) {
+            const distFromBackdrop = rgbDistance([r, g, b], BACKDROP);
+            assert.ok(distFromBackdrop > tolerance, `palette entry rgb(${r},${g},${b}) is suspiciously close to the backdrop - background leaked into the palette`);
+        }
+    });
 }

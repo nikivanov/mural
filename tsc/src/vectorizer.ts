@@ -112,23 +112,35 @@ function computeConfidentThreshold(colors: paper.Color[]): number {
     return isFinite(minPairwiseDistSq) ? minPairwiseDistSq / 8 : 0;
 }
 
-const BLACK_COLOR = new paper.Color("#000000");
-
-// Coarse, palette-independent background tolerance used only to pre-filter
-// which pixels feed kMeansQuantize's centroid fitting (see below) - at that
-// point no real palette exists yet (that's what's being computed), so
-// computeConfidentThreshold has nothing to work from. It uses the same 1/8
-// fraction, anchored to the full extent of the representable color space
-// (white to black, the maximum possible separation between any two colors)
-// since that's the only "palette" available before clustering runs. This
-// is deliberately coarse - it only needs to keep anti-aliased/near-white
-// background pixels (a gradient backdrop, JPEG compression noise, an off-
-// white paper scan) out of the k-means sample set, so all `k` requested
-// clusters get spent on real ink rather than one describing the paper.
-// Final per-pixel labels (including background) are still produced by
-// classifyWithFringeResolution against the real fitted centroids, which is
-// authoritative and precise; this only affects what feeds clustering.
-const BACKGROUND_TOLERANCE = colorDistance(WHITE_COLOR, BLACK_COLOR) / 8;
+// Background tolerance used only to pre-filter which pixels feed
+// kMeansQuantize's centroid fitting (see below) - at that point no real
+// palette exists yet (that's what's being computed), so
+// computeConfidentThreshold has nothing to work from.
+//
+// This is deliberately NOT derived as a fraction of palette separation
+// (e.g. of colorDistance(WHITE, BLACK)): palette separation measures how
+// far apart two *colors* are, which has nothing to do with how far a pixel
+// can drift from white and still plausibly be paper. White-to-black is the
+// maximum possible separation between any two colors, so even a small
+// fraction of it (1/8, tried first) is a huge absolute distance - a radius
+// of ~156 RGB units around white, 61% of the way across the whole color
+// space. Measured against a real multi-color cartoon fixture, that
+// swallowed real ink as background: a cream character fill (#fcf8d7, dist
+// 0.0255), a pale blue (#d6ebf5, dist 0.0335), even a solid mid-tone blue
+// (#89b6d6, dist 0.3219) all fell under that threshold and were dropped
+// from the k-means sample set entirely - so clustering fit its centroids
+// on only the dark saturated remnant, and the returned palette came back
+// muddy with the pale regions left as bare paper.
+//
+// What "background" actually needs is a small, fixed neighborhood around
+// paper white: JPEG compression noise and a gradient backdrop, nothing
+// more. Measured against the same fixture, the true backdrop (#f7fbfc)
+// sits at distance 0.0014, while the closest real ink color (the cream
+// fill) sits at 0.0255 - a ~20x gap. 0.003 sits in between with margin on
+// both sides (>2x above the backdrop, >8x below the nearest ink), so it
+// isn't a delicate choice, and comfortably covers antialiasing/compression
+// noise (a handful of RGB units of drift) without reaching real content.
+const BACKGROUND_TOLERANCE = 0.003;
 
 function isBackgroundPixel(color: paper.Color): boolean {
     return color.alpha === 0 || colorDistance(color, WHITE_COLOR) < BACKGROUND_TOLERANCE;
