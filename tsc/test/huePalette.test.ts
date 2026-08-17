@@ -1,18 +1,21 @@
 /**
  * Pure-logic tests for hue-grouped shading (src/huePalette.ts): clustering
  * a detected color-separation palette by hue, the neutral-grouping guard,
- * and the density-ladder assignment/SVG-tag remap. Deliberately paper.js/DOM
- * -free (see huePalette.ts's file header), so - unlike pipeline.test.ts/
- * multicolor.test.ts - these never need to skip for lack of a compiled
- * `canvas` addon.
+ * and the tone-derived spacing assignment/SVG-tag remap. Deliberately
+ * paper.js/DOM-free (see huePalette.ts's file header), so - unlike
+ * pipeline.test.ts/multicolor.test.ts - these never need to skip for lack
+ * of a compiled `canvas` addon.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     applyHueGrouping,
     applyHueGroupingWithOverrides,
-    assignDensityLadder,
+    assignToneSpacings,
     computeAutoHueGroups,
+    computeToneSpacingMm,
+    DEFAULT_NIB_WIDTH_MM,
+    MAX_SPACING_MM,
     hexToHsl,
     isNeutralHsl,
 } from "../src/huePalette";
@@ -77,18 +80,70 @@ test("huePalette: near-greys group as neutral rather than by their (unstable) hu
     assert.notStrictEqual(bucketIds[0], bucketIds[2], "the saturated green must not join the neutral bucket");
 });
 
-test("huePalette: assignDensityLadder - darkest gets the densest level, strictly decreasing, single member gets no override", () => {
-    assert.deepStrictEqual(assignDensityLadder(1), [undefined]);
+test("huePalette: assignToneSpacings - single member gets no override, darkest (pen) member gets the tightest spacing", () => {
+    assert.deepStrictEqual(assignToneSpacings([0.5]), [undefined]);
 
-    const two = assignDensityLadder(2);
+    const two = assignToneSpacings([0.665, 0.736]); // pen, lighter member
     assert.strictEqual(two.length, 2);
-    assert.ok(two[0]! > two[1]!, `darker member's density (${two[0]}) should exceed lighter member's (${two[1]})`);
-    assert.strictEqual(two[0], 7, "darkest member should get the densest level (7)");
+    assert.ok(two[0]! < two[1]!, `pen's own spacing (${two[0]}) should be tighter than the lighter member's (${two[1]})`);
+    assert.ok(Math.abs(two[0]! - 2 * DEFAULT_NIB_WIDTH_MM) < 1e-6, "the pen (target == pen luminance, coverage 1) should get spacing == strokesPerCell * nibWidth");
+});
 
-    const four = assignDensityLadder(4);
-    for (let i = 1; i < four.length; i++) {
-        assert.ok(four[i - 1]! >= four[i]!, "density ladder must be non-increasing from darkest to lightest");
+test("huePalette: computeToneSpacingMm - the measured Bluey blue pair (#83b4d9 pen / #9dc5dd pale member) lands near 3mm, not the old ladder's 20mm", () => {
+    const penLuminance = 0.665; // #83b4d9
+    const memberLuminance = 0.736; // #9dc5dd, 7% lighter than the pen
+    const spacing = computeToneSpacingMm(memberLuminance, penLuminance);
+
+    assert.ok(Math.abs(spacing - 3.0) < 0.3, `expected spacing near 3.0mm for the measured pair, got ${spacing.toFixed(2)}mm`);
+});
+
+test("huePalette: computeToneSpacingMm - tone gap, not member count, drives the spacing ratio", () => {
+    const penLuminance = 0.3;
+    const closeSpacing = computeToneSpacingMm(0.35, penLuminance); // small tone gap
+    const farSpacing = computeToneSpacingMm(0.9, penLuminance); // large tone gap
+
+    assert.ok(farSpacing > closeSpacing * 3, `a much larger tone gap (${farSpacing.toFixed(2)}mm) should produce a correspondingly wider spacing than a small one (${closeSpacing.toFixed(2)}mm), not just a fixed ladder step apart`);
+});
+
+test("huePalette: assignToneSpacings - near-identical tones produce near-identical spacings regardless of member count", () => {
+    const spacings = assignToneSpacings([0.4, 0.41, 0.42]);
+    assert.strictEqual(spacings.length, 3);
+    for (let i = 1; i < spacings.length; i++) {
+        const delta = Math.abs(spacings[i]! - spacings[i - 1]!);
+        assert.ok(delta < 0.5, `near-identical tones should produce near-identical spacings, got a ${delta.toFixed(2)}mm jump between adjacent members`);
     }
+});
+
+test("huePalette: computeToneSpacingMm - clamped at a nib-width floor for an absurdly dark/high-coverage target, and at MAX_SPACING_MM for an absurdly light one", () => {
+    const penLuminance = 0.2;
+
+    // Un-clamped, coverage == inkMultiplier at target == pen luminance
+    // (rawCoverage 1) - a high multiplier would imply spacing well below
+    // one nib width (2 * 1.2 / 3 = 0.8mm) if left unclamped; the floor must
+    // hold it at 1 * nibWidth instead.
+    const denseSpacing = computeToneSpacingMm(penLuminance, penLuminance, { nibWidthMm: 1.2, inkMultiplier: 3 });
+    assert.ok(denseSpacing >= 1.2 - 1e-9, `spacing (${denseSpacing}) must never go below the nib-width floor`);
+    assert.ok(Math.abs(denseSpacing - 1.2) < 1e-9, `expected the floor (1.2mm) to bind exactly, got ${denseSpacing}`);
+
+    // A target essentially indistinguishable from paper implies coverage
+    // near zero - spacing must cap at MAX_SPACING_MM rather than blowing up.
+    const sparseSpacing = computeToneSpacingMm(0.999999, penLuminance);
+    assert.strictEqual(sparseSpacing, MAX_SPACING_MM, "an extremely light target must cap at MAX_SPACING_MM rather than approach infinity");
+});
+
+test("huePalette: computeToneSpacingMm - nib width and ink multiplier both move spacing in the expected direction", () => {
+    const targetLuminance = 0.7;
+    const penLuminance = 0.4;
+
+    const baseline = computeToneSpacingMm(targetLuminance, penLuminance, { nibWidthMm: 1.2, inkMultiplier: 1.0 });
+    const widerNib = computeToneSpacingMm(targetLuminance, penLuminance, { nibWidthMm: 2.4, inkMultiplier: 1.0 });
+    assert.ok(widerNib > baseline, "a wider nib should produce a larger (sparser-looking, but proportionally scaled) spacing for the same tone");
+
+    const strongerInk = computeToneSpacingMm(targetLuminance, penLuminance, { nibWidthMm: 1.2, inkMultiplier: 2.0 });
+    assert.ok(strongerInk < baseline, "a higher ink multiplier (more perceived coverage per pass) should tighten the spacing needed to hit the same apparent tone");
+
+    const weakerInk = computeToneSpacingMm(targetLuminance, penLuminance, { nibWidthMm: 1.2, inkMultiplier: 0.5 });
+    assert.ok(weakerInk > baseline, "a lower ink multiplier (weaker/thinner ink) should widen the spacing needed, since each pass covers less");
 });
 
 test("huePalette: applyHueGrouping - two shades of blue plus orange produce 2 pens, darker shade denser", () => {
@@ -106,17 +161,17 @@ test("huePalette: applyHueGrouping - two shades of blue plus orange produce 2 pe
     const [darker, lighter] = blueGroup!.members;
     assert.strictEqual(darker.color, darkBlue.color);
     assert.strictEqual(lighter.color, lightBlue.color);
-    assert.ok(darker.density! > lighter.density!, "darker shade must get a denser level than the lighter shade");
+    assert.ok(darker.spacingMm! < lighter.spacingMm!, "darker shade must get a tighter (denser) spacing than the lighter shade");
 
     // The pen for the group must be its darkest member (KEY INSIGHT: a
     // physical pen can only draw ink at least as dark as itself).
     assert.strictEqual(blueGroup!.pen.color, darkBlue.color);
 
-    // The orange group is a singleton - no density override, falls back to
+    // The orange group is a singleton - no spacing override, falls back to
     // the request's ordinary infillDensity.
     const orangeGroup = result.groups.find(g => g.members.length === 1);
     assert.ok(orangeGroup);
-    assert.strictEqual(orangeGroup!.members[0].density, undefined);
+    assert.strictEqual(orangeGroup!.members[0].spacingMm, undefined);
     assert.strictEqual(orangeGroup!.pen.color, orange.color);
 });
 
@@ -130,7 +185,7 @@ test("huePalette: applyHueGrouping - light-to-dark pen order matches the multi-c
     assert.strictEqual(result.groups[1].pen.color, darkBlue.color);
 });
 
-test("huePalette: applyHueGrouping - remapped SVG tags carry the group's colorIndex and per-member density", () => {
+test("huePalette: applyHueGrouping - remapped SVG tags carry the group's colorIndex and per-member spacingMm", () => {
     const raw = { svg: rawSvgFor([lightBlue, orange, darkBlue]), palette: [lightBlue, orange, darkBlue] };
     const result = applyHueGrouping(raw);
 
@@ -138,19 +193,19 @@ test("huePalette: applyHueGrouping - remapped SVG tags carry the group's colorIn
     assert.strictEqual(tags.length, 3, "expected one tag per original mask, order preserved");
 
     // Original order was [lightBlue, orange, darkBlue]; orange -> pen 0
-    // (singleton, no density), lightBlue/darkBlue -> pen 1 with distinct
-    // densities.
+    // (singleton, no spacing override), lightBlue/darkBlue -> pen 1 with
+    // distinct tone-derived spacings.
     assert.strictEqual(tags[1].colorIndex, 0);
-    assert.strictEqual(tags[1].density, undefined);
+    assert.strictEqual(tags[1].spacingMm, undefined);
 
     assert.strictEqual(tags[0].colorIndex, 1);
     assert.strictEqual(tags[2].colorIndex, 1);
-    assert.ok(tags[2].density > tags[0].density, "dark blue's mask must carry a denser density tag than light blue's");
+    assert.ok(tags[2].spacingMm < tags[0].spacingMm, "dark blue's mask must carry a tighter spacing tag than light blue's");
 });
 
 test("huePalette: a group with only distinct, well-separated hues leaves every entry its own singleton pen (no accidental merging)", () => {
     // Three widely-separated saturated hues: none should merge, and with
-    // every group a singleton, no density overrides should appear at all.
+    // every group a singleton, no spacing overrides should appear at all.
     const red: PaletteEntry = { name: "Red", color: "#dd2222" };
     const green: PaletteEntry = { name: "Green", color: "#22aa33" };
     const violet: PaletteEntry = { name: "Violet", color: "#7722cc" };
@@ -161,7 +216,7 @@ test("huePalette: a group with only distinct, well-separated hues leaves every e
     assert.strictEqual(result.groups.length, 3);
     for (const group of result.groups) {
         assert.strictEqual(group.members.length, 1);
-        assert.strictEqual(group.members[0].density, undefined);
+        assert.strictEqual(group.members[0].spacingMm, undefined);
     }
 });
 

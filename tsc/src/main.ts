@@ -50,9 +50,13 @@ function vectorize(request: RequestTypes.VectorizeRequest) {
         // untouched, so existing colorCount/palette behavior (and its
         // byte-identical-at-N=1 guarantee) is unaffected.
         if (request.hueGrouping) {
+            // Per-image physical controls (huePalette.ts's tone-derived
+            // spacing model): omitted/falsy falls back to that module's
+            // defaults (DEFAULT_NIB_WIDTH_MM / DEFAULT_INK_MULTIPLIER).
+            const toneOptions = { nibWidthMm: request.nibWidthMm, inkMultiplier: request.inkMultiplier };
             const grouped = request.hueOverrides
-                ? applyHueGroupingWithOverrides(rawResult, request.hueOverrides)
-                : applyHueGrouping(rawResult);
+                ? applyHueGroupingWithOverrides(rawResult, request.hueOverrides, toneOptions)
+                : applyHueGrouping(rawResult, toneOptions);
 
             self.postMessage({
                 type: "vectorizer",
@@ -176,6 +180,14 @@ function isVectorizeRequest(obj: any): obj is RequestTypes.VectorizeRequest {
     }
 
     if ('hueGrouping' in obj && obj.hueGrouping !== undefined && typeof obj.hueGrouping !== 'boolean') {
+        return false;
+    }
+
+    if ('nibWidthMm' in obj && obj.nibWidthMm !== undefined && typeof obj.nibWidthMm !== 'number') {
+        return false;
+    }
+
+    if ('inkMultiplier' in obj && obj.inkMultiplier !== undefined && typeof obj.inkMultiplier !== 'number') {
         return false;
     }
 
