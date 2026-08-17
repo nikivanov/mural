@@ -72,6 +72,17 @@ export type PathDensityData = {
     // default strategy (crossHatch45), so this is purely additive and does
     // not change behavior until something starts setting it.
     fillMethod?: string;
+    // Optional per-path hatch angle in degrees, honored by every hatch-based
+    // fill strategy except crossHatch45 itself (which stays hardcoded at 45
+    // degrees - see fillStrategies/crossHatch45.ts). singleDirectionHatch,
+    // crossHatchAngled, and jitteredHatch (fillStrategies/registry.ts) all
+    // default to 45 (matching crossHatch45's own angle) when this is unset.
+    // Multi-color rendering (toCommands.ts's renderMultiColor) assigns each
+    // color layer's paths a distinct angle via
+    // generator.ts's assignHatchAnglesPerColorGroup, so overlapping layers
+    // read as distinct hatch textures instead of visual mud - see that
+    // function's header and docs/multi-color.md.
+    hatchAngleDegrees?: number;
 }
 
 // One entry of a color palette: a physical pen's display name plus a

@@ -1,5 +1,5 @@
 import { Command, PaletteEntry, PathDensityData, RequestTypes, updateStatusFn } from './types';
-import { ColorGroup, collectExistingColorGroups, generatePaths, groupPathsByLiteralColor } from './generator';
+import { assignHatchAnglesPerColorGroup, ColorGroup, collectExistingColorGroups, generatePaths, groupPathsByLiteralColor } from './generator';
 import { generateInfills } from './infill';
 import { optimizePaths } from './optimizer';
 import { renderPathsToCommands } from './renderer';
@@ -112,6 +112,13 @@ async function renderMultiColor(
     request: RequestTypes.RenderSVGRequest,
     updateStatusFn: updateStatusFn,
 ) {
+    // Per-layer hatch angle (docs/multi-color.md; see that function's
+    // header comment in generator.ts) - purely additive: it only sets
+    // PathDensityData fields that default to the pre-existing behavior
+    // (crossHatch45 at 45 degrees) when unset, and this only runs once
+    // colorGroups.length > 1 is already established above.
+    assignHatchAnglesPerColorGroup(colorGroups);
+
     const layerPathArrays = colorGroups.map(g => g.paths);
 
     // Fidelity fix (generator.ts's fill/stroke split): a path contributed to
