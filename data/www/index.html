@@ -205,6 +205,15 @@
           </select>
           <input class="form-check-input mb-2" type="checkbox" id="colorOverprintCheckbox">
           <label class="form-check-label" for="colorOverprintCheckbox">Overprint (skip knockout)</label>
+          <!-- Trapping gap (docs/multi-color.md section 5 addendum): with
+               knockout on, a lighter layer's geometry is trimmed back this
+               many mm from every darker layer that knocks it out, leaving a
+               hairline of bare paper so the two colors' pens can't touch
+               along the knockout edge. 0 restores plain touching knockout.
+               Default matches the tsc/src/huePalette.ts nib-width default
+               (roughly one nib width). -->
+          <label for="knockoutGapMm" class="form-label mb-0">Trapping gap (mm)</label>
+          <input type="range" class="form-range mb-2 text-center" min="0" max="5" step="0.1" id="knockoutGapMm" value="1.2">
           <input class="form-check-input mb-2" type="checkbox" id="hueGroupingCheckbox">
           <label class="form-check-label" for="hueGroupingCheckbox">Group shades by hue (fewer pens)</label>
           <div id="hueGroupingOptions" style="display:none;">

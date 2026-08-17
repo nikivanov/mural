@@ -1,7 +1,25 @@
 import {loadPaper} from './paperLoader';
 import { updateStatusFn } from './types';
+import { offsetPathItem } from './geometry/offset';
 
 const paper = loadPaper();
+
+// Below this area (mm^2) a subtraction result is treated as "annihilated"
+// for the thin-feature protection in flattenPathsAcrossLayers (point 3,
+// docs/multi-color.md section 5's trapping addendum): a genuinely tiny sliver
+// that still has *some* area is left alone (thinned but present), only a
+// shape reduced to (numerically) nothing trips the fallback. 1e-6 mm^2 is a
+// 1 micron x 1 micron square - far below anything a pen can draw, so it only
+// catches true "empty except for float noise" results, not real geometry.
+const ANNIHILATION_AREA_MM2 = 1e-6;
+
+function isNegligible(path: paper.PathItem): boolean {
+    // `.area` is declared on Path/CompoundPath, not the abstract PathItem
+    // base type, even though both concrete classes (the only two PathItem
+    // can actually be) implement it - hence the cast.
+    const area = (path as unknown as { area: number }).area;
+    return path.isEmpty() || Math.abs(area) < ANNIHILATION_AREA_MM2;
+}
 
 export function flattenPaths(paths: paper.PathItem[], updateStatusFn: updateStatusFn) {
     updateStatusFn("Sorting paths");
@@ -94,7 +112,32 @@ export function applyWhiteKnockout(paths: paper.PathItem[]): paper.PathItem[] {
 // request.flattenPaths is set) should be applied per-layer, separately,
 // before this - draw order still matters within one color, but darker
 // colors always win regardless of z-order.
-export function flattenPathsAcrossLayers(layersLightToDark: paper.PathItem[][], updateStatusFn: updateStatusFn) {
+//
+// Trapping (docs/multi-color.md section 5 addendum): plain subtraction
+// leaves the lighter layer's remaining geometry sharing its exact boundary
+// with the darker layer that knocked it out, so the two colors' pens still
+// touch along that line - with felt-tips/whiteboard markers a nib crossing
+// another color's wet ink picks up pigment. `gapMm` (0 restores the exact
+// prior touching behavior byte-for-byte, since the subtractor is then
+// `darkerPath` itself with no offset step at all) grows the darker path by
+// that many mm (via geometry/offset.ts's Clipper-backed offset, the same
+// primitive fillStrategies/contour.ts uses to inset) before subtracting it,
+// so a `gapMm`-wide strip of bare paper is left between the two layers'
+// remaining ink instead.
+//
+// Thin-feature protection: growing the subtractor can, on a lighter shape
+// no wider than ~2x the gap, consume the shape entirely where plain
+// (ungapped) subtraction would have left a sliver. Detected here per
+// darker-path step by comparing the grown-subtraction result against the
+// ungapped one: if the grown subtraction annihilates the shape (see
+// isNegligible) but the ungapped subtraction would not have, this falls
+// back to the ungapped result for that step - the feature survives
+// (thinned, and touching along that one edge) rather than vanishing.
+export function flattenPathsAcrossLayers(
+    layersLightToDark: paper.PathItem[][],
+    updateStatusFn: updateStatusFn,
+    gapMm: number = 0,
+) {
     const layerCount = layersLightToDark.length;
     for (let layerIx = 0; layerIx < layerCount - 1; layerIx++) {
         updateStatusFn(`Cross-layer knockout: ${layerIx + 1} / ${layerCount}`);
@@ -105,7 +148,29 @@ export function flattenPathsAcrossLayers(layersLightToDark: paper.PathItem[][], 
             let modified = currentLayer[pathIx];
             for (const darkerLayer of darkerLayers) {
                 for (const darkerPath of darkerLayer) {
-                    modified = modified.subtract(darkerPath, { insert: false });
+                    if (gapMm <= 0) {
+                        modified = modified.subtract(darkerPath, { insert: false });
+                        continue;
+                    }
+
+                    const grown = offsetPathItem(darkerPath, gapMm);
+                    const candidate = grown
+                        ? modified.subtract(grown, { insert: false })
+                        : modified.subtract(darkerPath, { insert: false });
+
+                    if (isNegligible(candidate) && !isNegligible(modified)) {
+                        const ungapped = modified.subtract(darkerPath, { insert: false });
+                        if (!isNegligible(ungapped)) {
+                            candidate.remove();
+                            grown?.remove();
+                            modified = ungapped;
+                            continue;
+                        }
+                        ungapped.remove();
+                    }
+
+                    grown?.remove();
+                    modified = candidate;
                 }
             }
             currentLayer[pathIx] = modified;

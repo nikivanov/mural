@@ -128,6 +128,19 @@ export namespace RequestTypes {
         // Default (false/omitted) applies knockout: each lighter layer is
         // subtracted by every darker layer drawn after it.
         colorOverprint?: boolean,
+        // Trapping gap (mm, see docs/multi-color.md section 5's trapping
+        // addendum and flattener.ts's flattenPathsAcrossLayers): when
+        // cross-layer knockout is active (colorOverprint is not set), the
+        // darker layer's geometry is grown by this many mm before being
+        // subtracted from the lighter layer, leaving a hairline strip of
+        // bare paper between two colors' ink instead of a shared edge two
+        // pens both touch. 0 restores the exact prior touching behavior.
+        // Omitted defaults to huePalette.ts's DEFAULT_NIB_WIDTH_MM (1.2mm) -
+        // roughly one nib width, so the two inked regions genuinely cannot
+        // touch given a typical felt-tip/whiteboard-marker nib. Ignored
+        // when colorOverprint is set (no cross-layer knockout happens at
+        // all in that case, so there's no shared edge to trap).
+        knockoutGapMm?: number,
     };
 
     export type VectorizeRequest = {

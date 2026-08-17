@@ -268,6 +268,38 @@ already treat pure white (`#ffffff` fill, `vectorizer.ts:7,41` and
 ink. That convention carries over unchanged: a "white" palette entry, if a user adds
 one, still means "leave the wall showing," not "draw with a white pen."
 
+**Trapping: a gap, not a shared edge.** Plain cross-layer knockout (above) still
+leaves a problem: the boundary it subtracts along is *exactly* the darker layer's own
+outline, so the lighter layer's remaining geometry and the darker layer's geometry
+share that line pixel-for-pixel. On paper that means the two pens draw the same line
+twice, from opposite sides — with felt-tips or whiteboard markers, a nib crossing
+another color's still-wet ink picks up pigment (measured on the W3C SVG logo: 692
+cross-colour contact points, all exactly on the shared silhouette edge). The fix,
+borrowed from print production, is **trapping**: instead of subtracting the darker
+layer's geometry as-is, subtract it *grown* by a small gap (`flattenPathsAcrossLayers`'s
+`gapMm` parameter, `tsc/src/flattener.ts`, driven by `RenderSVGRequest.knockoutGapMm`,
+`tsc/src/types.ts`), so the lighter layer's edge stops a hairline short of the darker
+layer's edge. The grow itself reuses the Clipper-based offset primitive
+`fillStrategies/contour.ts` already established for insetting fill rings
+(`tsc/src/geometry/offset.ts`'s `offsetPathItem`, built on the same `clipper-lib`
+dependency) — paper.js has no robust polygon-offset primitive of its own, and a
+hand-rolled one breaks on concave shapes and holes.
+
+The default gap is `huePalette.ts`'s `DEFAULT_NIB_WIDTH_MM` (1.2mm): roughly one nib
+width, so the two inked regions genuinely cannot touch given a typical felt-tip or
+whiteboard-marker nib. Setting the gap to 0 restores today's exact touching behavior
+byte-for-byte — the growth step is skipped entirely rather than run with a zero
+delta, so N=1/no-multi-color output is provably unaffected.
+
+Growing the subtractor can, on a lighter shape no wider than roughly twice the gap,
+consume that shape's geometry entirely where plain (ungapped) subtraction would have
+left a sliver — a 1mm-wide detail sitting next to a darker region must not simply
+vanish because the gap happened to be wider than it. `flattenPathsAcrossLayers`
+detects this per knockout step (grown-subtraction result reduced to ~nothing while
+the ungapped subtraction would not have been) and falls back to the ungapped
+subtraction for that one step, so the feature survives — thinned, and touching along
+that particular edge — rather than disappearing.
+
 ## 6. UI
 
 The frontend (built into `data/www/`, driving the `tsc` worker via `main.ts`'s
