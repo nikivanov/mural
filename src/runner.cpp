@@ -169,7 +169,7 @@ bool Runner::initTaskProvider() {
     }
 
     auto homeCoordinates = movement->getHomeCoordinates();
-    finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
+    finishingSequence[0] = new InterpolatingMovementTask(movement, pen, homeCoordinates);
     return true;
 }
 
@@ -265,7 +265,7 @@ Task *Runner::getNextTask()
             targetPosition = mergedTarget;
 #endif
 
-            return new InterpolatingMovementTask(movement, targetPosition);
+            return new InterpolatingMovementTask(movement, pen, targetPosition);
         }
     }
     else
@@ -683,7 +683,7 @@ bool Runner::beginResume(const Checkpoint& cp) {
     targetPosition = Movement::Point(cp.x, cp.y);
 
     auto homeCoordinates = movement->getHomeCoordinates();
-    finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
+    finishingSequence[0] = new InterpolatingMovementTask(movement, pen, homeCoordinates);
     sequenceIx = 0;
 
     // Safety-critical ordering: the belt-extend travel back to (cp.x, cp.y) that the
