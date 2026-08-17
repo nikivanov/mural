@@ -506,4 +506,103 @@ if (!paperAvailable) {
         const { layer1 } = splitTwoLayers(result.commands as Command[]);
         assert.ok(coordsOf(layer1).length > 0, "expected drawn coordinates for the surviving sliver");
     });
+
+    // --- Per-layer enable/disable (disabledColorIndexes, types.ts) ---
+    //
+    // Three well-separated rects, one per pen, in strict light-to-dark
+    // luminance order (yellow > green > blue) so colorIndex 0/1/2 map
+    // predictably to left/middle/right. colorOverprint is set on every
+    // request in this block so cross-layer knockout can't make one layer's
+    // geometry depend on another's presence - isolating exactly what
+    // disabledColorIndexes itself does.
+    const threeColorSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="5" width="20" height="20" fill="#ffff00"/>
+        <rect x="90" y="5" width="20" height="20" fill="#00ff00"/>
+        <rect x="175" y="5" width="20" height="20" fill="#0000ff"/>
+    </svg>`;
+    const threeColorOverrides = { colorSeparation: true, colorOverprint: true };
+
+    test("disabledColorIndexes: disabling the middle layer drops exactly its geometry and one pen-swap, leaving the other two layers byte-identical", async () => {
+        const fullRequest = svgToRequest(threeColorSvg, paper, threeColorOverrides);
+        const disabledRequest = svgToRequest(threeColorSvg, paper, { ...threeColorOverrides, disabledColorIndexes: [1] });
+
+        const fullResult = await renderSvgJsonToCommands(fullRequest, noopStatus);
+        const disabledResult = await renderSvgJsonToCommands(disabledRequest, noopStatus);
+
+        const fullLayers = (fullResult as any).layers;
+        const disabledLayers = (disabledResult as any).layers;
+        assert.strictEqual(fullLayers.length, 3);
+        assert.strictEqual(disabledLayers.length, 2, "expected the disabled (green) layer to be dropped entirely");
+        assert.strictEqual(disabledLayers[0].color, "#ffff00");
+        assert.strictEqual(disabledLayers[1].color, "#0000ff");
+
+        // Two pen-swaps (c2, c3) become one (c2) - both the raw command
+        // stream and the plotting estimate's penSwapCount must agree.
+        assert.strictEqual(fullResult.commands.filter((c) => /^c\d+$/.test(c)).length, 2);
+        assert.strictEqual(disabledResult.commands.filter((c) => /^c\d+$/.test(c)).length, 1);
+        assert.strictEqual((fullResult as any).plotting.penSwapCount, 2);
+        assert.strictEqual((disabledResult as any).plotting.penSwapCount, 1);
+
+        // The surviving yellow/blue layers' own drawn geometry is untouched
+        // by the green layer's removal (colorOverprint means no knockout
+        // interaction could make it depend on green's presence anyway) -
+        // extract each layer's command block by its n<index> header and
+        // compare byte-for-byte.
+        function layerBlock(commands: string[], name: string): string[] {
+            const nIndex = commands.findIndex((c) => c.startsWith(`n`) && c.endsWith(` ${name}`));
+            assert.ok(nIndex >= 0, `expected an n<index> header for ${name}`);
+            // Layer commands run from just after the last n<index> header to
+            // the next c<index>/end-of-array boundary. Since header order is
+            // d,h,t,n1,n2,[n3], and this test only cares about content
+            // between boundaries, locate this layer's own start/end by its
+            // position among all c<index> boundaries instead of re-deriving
+            // header count.
+            const cIndexes = commands.reduce<number[]>((acc, c, i) => {
+                if (/^c\d+$/.test(c)) acc.push(i);
+                return acc;
+            }, []);
+            const nHeaderCount = commands.filter((c) => /^n\d+ /.test(c)).length;
+            const layerStartsAt = [commands.findIndex((c) => /^n\d+ /.test(c)) + nHeaderCount, ...cIndexes.map((i) => i + 1)];
+            const layerEndsAt = [...cIndexes, commands.length];
+            const layerNumber = parseInt(commands[nIndex].match(/^n(\d+) /)![1], 10);
+            return commands.slice(layerStartsAt[layerNumber - 1], layerEndsAt[layerNumber - 1]);
+        }
+
+        const fullYellow = layerBlock(fullResult.commands, "Color 1");
+        const disabledYellow = layerBlock(disabledResult.commands, "Color 1");
+        assert.deepStrictEqual(disabledYellow, fullYellow, "yellow layer's geometry must be unaffected by disabling green");
+
+        const fullBlue = layerBlock(fullResult.commands, "Color 3");
+        const disabledBlue = layerBlock(disabledResult.commands, "Color 2");
+        assert.deepStrictEqual(disabledBlue, fullBlue, "blue layer's geometry must be unaffected by disabling green");
+    });
+
+    test("disabledColorIndexes: disabling every detected layer degrades gracefully to an empty, well-formed command file", async () => {
+        const request = svgToRequest(threeColorSvg, paper, { ...threeColorOverrides, disabledColorIndexes: [0, 1, 2] });
+        const result = await renderSvgJsonToCommands(request, noopStatus);
+
+        // No corrupt multi-color shape (no dangling c<index>/n<index> lines,
+        // no crash) - just a valid, empty single-color-shaped job.
+        assert.ok(!result.commands.some((c) => /^c\d+$/.test(c)));
+        assert.ok(!result.commands.some((c) => /^n\d+ /.test(c)));
+        assert.strictEqual((result as any).layers, undefined);
+        assert.strictEqual(result.distance, 0);
+        assert.strictEqual(result.drawDistance, 0);
+        assert.match(result.commands[0], /^d0(\.0)?$/);
+
+        const plotting = (result as any).plotting;
+        assert.strictEqual(plotting.penSwapCount, 0);
+        assert.strictEqual(plotting.drawDistanceMm, 0);
+    });
+
+    test("disabledColorIndexes: disabling down to exactly one surviving layer renders it as a plain single-color job (no palette headers, no swaps)", async () => {
+        const request = svgToRequest(threeColorSvg, paper, { ...threeColorOverrides, disabledColorIndexes: [0, 2] });
+        const result = await renderSvgJsonToCommands(request, noopStatus);
+
+        assert.ok(!result.commands.some((c) => /^c\d+$/.test(c)), "a single surviving layer needs no pen-swap boundary");
+        assert.ok(!result.commands.some((c) => /^n\d+ /.test(c)), "a single surviving layer needs no palette header");
+        assert.strictEqual((result as any).layers, undefined);
+        assert.ok(result.distance > 0, "expected the surviving (green) layer's geometry to still be drawn");
+        assert.strictEqual((result as any).plotting.penSwapCount, 0);
+    });
 }

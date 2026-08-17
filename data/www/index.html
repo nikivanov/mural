@@ -177,14 +177,39 @@
           <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="progressBar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
         </div>
         <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
+        <!-- Cost estimator (tsc/src/costEstimator.ts): projected PROCESSING
+             time on THIS device, shown before every (re-)render, and the
+             fuller draw/travel/pen-lift PLOTTING estimate shown after a
+             render actually completes. Both re-populate on settings changes
+             (debounced - see main.js's re-estimate throttle). -->
+        <div id="processingEstimateText" class="mb-1 text-start" style="display:none;"><small class="text-muted"></small></div>
+        <div id="processingWarning" class="alert alert-warning text-start py-2 mb-2" style="display:none;"></div>
+        <div id="plottingEstimateSummary" class="mb-2 text-start" style="display:none;"></div>
+        <label for="fillMethod" class="form-label mb-0">Fill style</label>
+        <!-- Descriptions ground truth: each strategy's own header comment
+             (tsc/src/fillStrategies/*.ts) - see costEstimator.ts's
+             INFILL_US_PER_SEGMENT_AT_BASE_SPACING for the relative cost
+             ordering these summarize. -->
+        <select class="form-select mb-1" id="fillMethod">
+          <option value="crossHatch45">Cross-hatch (default) &mdash; even diagonal grid, balanced look, cheapest to compute</option>
+          <option value="singleDirectionHatch">Single-direction hatch &mdash; one diagonal pass only, lighter coverage, fast</option>
+          <option value="crossHatchAngled">Cross-hatch (angled) &mdash; the default grid rotated to a chosen angle, similar cost</option>
+          <option value="jitteredHatch">Jittered cross-hatch &mdash; hand-drawn, slightly irregular grid; a bit slower</option>
+          <option value="spiral">Spiral &mdash; one continuous spiral stroke, fewest pen-lifts, best on rounded shapes</option>
+          <option value="gradientHatch">Gradient hatch &mdash; hatching follows the image's own shading, like an engraving; most expensive</option>
+          <option value="contour">Contour &mdash; concentric outline rings, topographic-map look; fairly expensive</option>
+        </select>
+        <div id="fillMethodRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
         <label for="infillDensity" class="form-label mb-0">Infill Density</label>
         <!-- Extended ladder (tsc/src/infill.ts): 1-4 are the original
              levels (20/15/10/7mm spacing), 5-7 are denser levels
              (5/3.5/2.5mm) added for hue-grouped shading below, so a single
              pen can hatch several believable shades of its darkest color. -->
         <input type="range" class="form-range mb-2 text-center" min="0" max="7" step="1" id="infillDensity" value="0">
+        <div id="infillDensityRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
         <label for="turdSize" class="form-label mb-0">Despeckle</label>
         <input type="range" class="form-range mb-2 text-center" min="2" max="200" step="11" id="turdSize" value="2">
+        <div id="turdSizeRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
         <input class="form-check-input mb-2" type="checkbox" id="grayscaleCheckbox">
         <label class="form-check-label" for="grayscaleCheckbox">Grayscale (tonal)</label>
         <label for="grayscaleLevels" class="form-label mb-0">Grayscale Levels</label>
@@ -203,6 +228,7 @@
             <option value="5">5</option>
             <option value="6">6</option>
           </select>
+          <div id="colorCountRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
           <input class="form-check-input mb-2" type="checkbox" id="colorOverprintCheckbox">
           <label class="form-check-label" for="colorOverprintCheckbox">Overprint (skip knockout)</label>
           <!-- Trapping gap (docs/multi-color.md section 5 addendum): with
@@ -216,6 +242,7 @@
           <input type="range" class="form-range mb-2 text-center" min="0" max="5" step="0.1" id="knockoutGapMm" value="1.2">
           <input class="form-check-input mb-2" type="checkbox" id="hueGroupingCheckbox">
           <label class="form-check-label" for="hueGroupingCheckbox">Group shades by hue (fewer pens)</label>
+          <div id="hueGroupingRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
           <div id="hueGroupingOptions" style="display:none;">
             <!-- Per-image physical controls for the tone-derived spacing
                  model (tsc/src/huePalette.ts): the model can't know these,

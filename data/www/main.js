@@ -35,6 +35,37 @@ let vectorizePalette = null;
 let vectorizeHueGroups = null;
 let hueOverrides = {};
 
+// Cost estimator (tsc/src/costEstimator.ts) plumbing. `currentRaster` is a
+// rasterized snapshot of whatever's currently loaded (used purely to feed
+// analyzeImageCharacteristics - independent of which renderer the user
+// eventually picks), refreshed once per image/transform via
+// runPreRenderEstimateIfNeeded(). `smartDefaultsApplied` guards against
+// re-applying (and silently clobbering user overrides of) the recommended
+// defaults more than once per loaded image; `userOverriddenControls` tracks
+// which smart-defaulted controls the user has since touched directly, so a
+// later re-estimate never resets them back. `lastEstimate` is the most
+// recent full estimateAndRecommend() result (recommendations + processing
+// projection); `lastPlottingEstimate` is the exact post-render plotting
+// breakdown from the most recent successful render.
+let currentRaster = null;
+let smartDefaultsApplied = false;
+let userOverriddenControls = {};
+let lastEstimate = null;
+let lastPlottingEstimate = null;
+// Multi-color per-layer enable/disable (types.ts's disabledColorIndexes):
+// 0-based colorIndex values the user has toggled off in the layer
+// breakdown. Reset whenever the detected color layout could have changed
+// (fresh image, or any control that invalidates hueOverrides below).
+let disabledColorIndexes = [];
+// The FULL detected layer set (color/name/last-known distance), independent
+// of disabledColorIndexes - refreshed from every render that returns a
+// clean (nothing-disabled) `layers` array, and otherwise just has its
+// still-surviving entries' stats patched in. Kept separately from whatever
+// a given render's `layers` field contains (which only lists layers that
+// actually survived filtering) so a fully-disabled layer's row - and its
+// re-enable checkbox - never disappears from the breakdown UI.
+let allDetectedLayers = null;
+
 window.onload = function () {
     init();
 };
@@ -249,6 +280,20 @@ function init() {
 
     $("#uploadSvg").change(async function() {
         const svgString = await getUploadedSvgString();
+
+        // A new (or cleared) image invalidates every previous estimate,
+        // smart-default application, and per-layer/hue override - they all
+        // refer to a source that's about to change.
+        currentRaster = null;
+        smartDefaultsApplied = false;
+        userOverriddenControls = {};
+        lastEstimate = null;
+        lastPlottingEstimate = null;
+        disabledColorIndexes = [];
+        allDetectedLayers = null;
+        $("#processingEstimateText,#processingWarning,#plottingEstimateSummary").hide().empty();
+        $("#fillMethodRationale,#infillDensityRationale,#turdSizeRationale,#colorCountRationale,#hueGroupingRationale").hide();
+
         if (svgString) {
             svgControl.setSvgString(svgString, currentState);
 
@@ -259,6 +304,7 @@ function init() {
             $(".svg-control").hide();
             $("#infillDensity").val(0);
             $("#turdSize").val(2);
+            $("#fillMethod").val("crossHatch45");
             $("#grayscaleCheckbox").prop("checked", false);
             $("#grayscaleLevels").val(3);
             $("#multiColorCheckbox").prop("checked", false).trigger('change');
@@ -515,6 +561,14 @@ function init() {
             palette: vectorizePalette || undefined,
             colorOverprint: getColorOverprint(),
             knockoutGapMm: getKnockoutGapMm(),
+            // Request-level default fill strategy (fillStrategies/registry.ts) -
+            // per-path selection (multi-color's per-layer angle assignment)
+            // still wins over this, see infill.ts.
+            fillMethod: getFillMethod(),
+            // Per-layer enable/disable (types.ts's disabledColorIndexes) -
+            // empty/none sends undefined so single-color behavior stays
+            // untouched.
+            disabledColorIndexes: disabledColorIndexes.length ? disabledColorIndexes.slice() : undefined,
         }
 
         worker.onmessage = (e) => {
@@ -536,7 +590,27 @@ function init() {
                 $(".svg-preview").show();
                 $("#acceptSvg").removeAttr("disabled");
 
-                renderLayerBreakdown(e.data.payload.layers || null);
+                // Post-render plotting estimate (plottingEstimator.ts, via
+                // toCommands.ts): exact draw/travel/pen-lift breakdown for
+                // the job that was actually just rendered, including any
+                // effect of disabledColorIndexes on pen count/swaps.
+                const returnedLayers = e.data.payload.layers || null;
+                lastPlottingEstimate = e.data.payload.plotting || null;
+                renderPlottingEstimate(lastPlottingEstimate, returnedLayers);
+
+                if (disabledColorIndexes.length === 0) {
+                    // Clean detection pass (nothing disabled this render) -
+                    // the authoritative full layer set to offer toggles for.
+                    allDetectedLayers = returnedLayers ? returnedLayers.map(l => ({...l})) : null;
+                } else if (allDetectedLayers) {
+                    // Patch surviving layers' latest stats into the cached
+                    // full set by colorIndex; disabled entries keep their
+                    // last-known stats (no geometry was generated for them
+                    // this render, so there's nothing fresher to show).
+                    const byColorIndex = new Map((returnedLayers || []).map(l => [l.colorIndex, l]));
+                    allDetectedLayers = allDetectedLayers.map(l => byColorIndex.has(l.colorIndex) ? {...l, ...byColorIndex.get(l.colorIndex)} : l);
+                }
+                renderLayerBreakdown(allDetectedLayers);
             }
         };
 
@@ -560,19 +634,44 @@ function init() {
     }
 
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#knockoutGapMm,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier").on('input change', async function() {
+    const SMART_DEFAULT_CONTROL_IDS = ['fillMethod', 'infillDensity', 'turdSize', 'colorCount', 'hueGroupingCheckbox'];
+
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#knockoutGapMm,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier,#fillMethod").on('input change', function() {
+        // A control the smart defaults may have pre-set was just changed by
+        // the user directly (this handler only ever fires from a real
+        // input/change event - applySmartDefaults() below sets values
+        // without triggering one) - remember that, so a later re-estimate
+        // never silently resets it back to the recommendation.
+        if (SMART_DEFAULT_CONTROL_IDS.includes(this.id)) {
+            userOverriddenControls[this.id] = true;
+        }
+    });
+
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#knockoutGapMm,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier,#fillMethod").on('input change', async function() {
         // Any change to the number/set of detected colors (colorCount) or
         // to whether/how hue grouping applies (multiColorCheckbox,
         // hueGroupingCheckbox) invalidates previously chosen manual
         // reassignments - they refer to detected-color indices from a
-        // vectorize run that's about to be superseded.
+        // vectorize run that's about to be superseded. The same is true of
+        // which layers are disabled (per-layer enable/disable).
         if (this.id === 'colorCount' || this.id === 'multiColorCheckbox' || this.id === 'hueGroupingCheckbox') {
             hueOverrides = {};
+            disabledColorIndexes = [];
+            allDetectedLayers = null;
         }
         activateProgressBar();
         $("#acceptSvg").attr("disabled", "disabled");
         await rendererFn();
     });
+
+    // Processing-time re-estimate (costEstimator.ts's ProcessingEstimate):
+    // depends on the same settings above, but is purely advisory (doesn't
+    // gate the render itself), so it's debounced separately - following the
+    // existing $.throttle pattern (see servoRange below) - so dragging a
+    // slider doesn't fire a worker round-trip per tick.
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#hueGroupingCheckbox,#fillMethod").on('input change', $.throttle(600, function() {
+        runProcessingEstimate();
+    }));
 
     $("#multiColorCheckbox").on('change', function() {
         $("#multiColorOptions").toggle($(this).is(":checked"));
@@ -596,6 +695,7 @@ function init() {
         $("#chooseRendererSlide").hide();
         $("#drawingPreviewSlide").show();
         rendererFn = render_PathTracing;
+        await runPreRenderEstimateIfNeeded();
         await rendererFn();
     });
 
@@ -611,6 +711,7 @@ function init() {
         $("#chooseRendererSlide").hide();
         $("#drawingPreviewSlide").show();
         rendererFn = render_VectorRasterVector;
+        await runPreRenderEstimateIfNeeded();
         await rendererFn();
     });
 
@@ -1202,6 +1303,16 @@ function getTurdSize() {
     return parseInt($("#turdSize").val());
 }
 
+// Request-level default fill strategy (RenderSVGRequest.fillMethod,
+// tsc/src/types.ts) - see the #fillMethod <select>'s options for the
+// registered strategy names (fillStrategies/registry.ts). The worker's
+// infill.ts already falls back to the built-in default (crossHatch45) for
+// any unrecognized name, so no client-side validation is needed here.
+function getFillMethod() {
+    const value = $("#fillMethod").val();
+    return value || undefined;
+}
+
 function getGrayscaleLevels() {
     if (!$("#grayscaleCheckbox").is(":checked")) {
         return 0;
@@ -1266,12 +1377,183 @@ function getInkMultiplier() {
     return Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
+// --- Cost estimator (tsc/src/costEstimator.ts) plumbing ------------------
+//
+// Runs estimateAndRecommend() in a short-lived dedicated worker (the same
+// worker.js bundle the vectorize/render requests use - see worker/worker.js
+// and its 'estimate' message type in tsc/src/main.ts), rather than reusing
+// `currentWorker`, so an in-flight vectorize/render is never interrupted or
+// raced by an estimate call.
+function estimateInWorker(raster, options) {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker(`./worker/worker.js?v=${Date.now()}`);
+        worker.onmessage = function(e) {
+            if (e.data.type === 'estimate') {
+                worker.terminate();
+                resolve(e.data.payload);
+            }
+        };
+        worker.onerror = function(err) {
+            worker.terminate();
+            reject(err);
+        };
+        worker.postMessage({type: 'estimate', raster, options: options || {}});
+    });
+}
+
+// colorCount's <select> only offers 2-6 (the range that's ever meaningful
+// as an explicit "Multiple colors" choice); smartDefaults.ts's recommended
+// colorCount can run higher for strongly continuous-tone/photographic
+// content (up to 8), so clamp it into the control's actual range rather
+// than silently failing to apply.
+function clampColorCountOption(value) {
+    return Math.min(6, Math.max(2, Math.round(value)));
+}
+
+function showRationale(selector, text) {
+    $(selector).find('small').text(text);
+    $(selector).show();
+}
+
+// Pre-sets every smart-defaulted control to its recommendation (per-image,
+// see smartDefaults.ts) and shows each one's rationale alongside it. Sets
+// values directly (.val()/.prop(), no .trigger()) so this never fires the
+// re-render/re-estimate listeners itself - the caller does exactly one
+// explicit render right after calling this. Only ever called once per
+// loaded image (see smartDefaultsApplied), so it can never clobber a value
+// the user has since chosen themselves.
+function applySmartDefaults(recommendations) {
+    $("#fillMethod").val(recommendations.fillStrategy.value);
+    showRationale('#fillMethodRationale', recommendations.fillStrategy.rationale);
+
+    $("#infillDensity").val(recommendations.infillDensity.value);
+    showRationale('#infillDensityRationale', recommendations.infillDensity.rationale);
+
+    $("#turdSize").val(recommendations.turdSize.value);
+    showRationale('#turdSizeRationale', recommendations.turdSize.rationale);
+
+    $("#colorCount").val(clampColorCountOption(recommendations.colorCount.value));
+    showRationale('#colorCountRationale', recommendations.colorCount.rationale);
+
+    $("#hueGroupingCheckbox").prop("checked", recommendations.hueGrouping.value);
+    $("#hueGroupingOptions").toggle(recommendations.hueGrouping.value);
+    showRationale('#hueGroupingRationale', recommendations.hueGrouping.rationale);
+}
+
+// Processing-time warning thresholds (seconds), applied to
+// ProcessingEstimate.totalSeconds (already scaled by THIS device's
+// measured calibration factor - deviceCalibration.ts). Justification:
+// Nielsen's classic response-time guidance treats ~10s as the point where a
+// user's attention starts to wander from a blocking operation without
+// explicit feedback - PROCESSING_WARNING_SECONDS (15s) sits just past that
+// with a small buffer so routine, fast renders don't get flagged.
+// PROCESSING_SEVERE_WARNING_SECONDS (60s) is the point where an unexplained
+// spinner starts reading as "the page is stuck" rather than "still
+// working", especially likely on the slower end of the phone-vs-desktop
+// speed gap this estimator exists to surface - past it, the warning is
+// explicit about the device being the reason and suggests a cheaper choice.
+const PROCESSING_WARNING_SECONDS = 15;
+const PROCESSING_SEVERE_WARNING_SECONDS = 60;
+
+function renderProcessingEstimate(processing) {
+    const textContainer = $("#processingEstimateText");
+    const warningContainer = $("#processingWarning");
+    const seconds = processing.totalSeconds;
+
+    textContainer.find('small').text(`Estimated processing time on this device: ~${formatDuration(seconds)}.`);
+    textContainer.show();
+
+    if (seconds >= PROCESSING_SEVERE_WARNING_SECONDS) {
+        warningContainer.text(
+            `This could take a while on this device (~${formatDuration(seconds)}) - the page may look ` +
+            `unresponsive while it works. A lower infill density, a cheaper fill style, or fewer colors ` +
+            `will speed it up, or you can just wait it out.`
+        ).show();
+    } else if (seconds >= PROCESSING_WARNING_SECONDS) {
+        warningContainer.text(`Processing may take ~${formatDuration(seconds)} on this device.`).show();
+    } else {
+        warningContainer.hide();
+    }
+}
+
+// Re-runs just the processing-time projection (not the recommendations -
+// those are only computed once per image, see runPreRenderEstimateIfNeeded)
+// against the CURRENT control values, so the warning stays accurate as the
+// user changes settings. Debounced by its caller (see the $.throttle
+// binding above). Purely advisory - a failure here never blocks the actual
+// render.
+async function runProcessingEstimate() {
+    if (!currentRaster) {
+        return;
+    }
+    try {
+        const options = {
+            // Reflect the ACTUAL current settings, not the recommendation -
+            // this is the whole point of a re-estimate after the user
+            // changes something. 1 (not the recommended colorCount) when
+            // "Multiple colors" isn't even checked, since that's what will
+            // really render.
+            colorCount: getMultiColorEnabled() ? getColorCount() : 1,
+            fillStrategy: getFillMethod(),
+            infillDensity: getInfillDensity(),
+            hueGrouping: getHueGroupingEnabled(),
+            flattenPaths: getFlattenPaths(),
+            grayscaleLevels: getGrayscaleLevels() || undefined,
+        };
+        const result = await estimateInWorker(currentRaster, options);
+        lastEstimate = result;
+        renderProcessingEstimate(result.processing);
+    } catch (err) {
+        console.log(`Processing estimate failed: ${err}`);
+    }
+}
+
+// Called once per entry into drawingPreviewSlide, before the first real
+// vectorize/render request for a given image (see the #pathTracing/
+// #vectorRasterVector click handlers) - rasterizes the current image,
+// then either applies smart defaults + shows the baseline processing-time
+// estimate (first time for this image) or just refreshes the processing
+// estimate against whatever settings are already in place (subsequent
+// times, e.g. after going Back and picking a renderer again - never
+// re-applies defaults, so it can't clobber a manual override).
+async function runPreRenderEstimateIfNeeded() {
+    try {
+        currentRaster = await svgControl.getCurrentSvgImageData();
+    } catch (err) {
+        currentRaster = null;
+        return;
+    }
+
+    if (smartDefaultsApplied) {
+        await runProcessingEstimate();
+        return;
+    }
+
+    try {
+        const result = await estimateInWorker(currentRaster, {});
+        lastEstimate = result;
+        applySmartDefaults(result.recommendations);
+        renderProcessingEstimate(result.processing);
+        smartDefaultsApplied = true;
+    } catch (err) {
+        showError("Failed to compute a cost/recommendation estimate: " + err, null);
+    }
+}
+
 // Multi-color per-layer breakdown/palette mapper (docs/multi-color.md
-// section 6): shown after a multi-color render, listing each layer's
-// (auto-detected or auto-named) color swatch, an editable name field
-// (renaming just patches the command file's `n<index> <name>` header line
-// locally - see patchLayerNameInCommands - no re-render needed), a pen-type
-// picker for the ink estimate, and the layer's distance/ink usage.
+// section 6), extended with per-layer enable/disable (types.ts's
+// disabledColorIndexes): shown after a multi-color render, listing each
+// detected layer's color swatch, an editable name field (renaming just
+// patches the command file's `n<index> <name>` header line locally - see
+// patchLayerNameInCommands - no re-render needed), a pen-type picker for
+// the ink estimate, the layer's distance/ink usage, and a toggle to drop it
+// from the job entirely (both its geometry and its pen-swap).
+//
+// `layers` here is the FULL detected set (see allDetectedLayers, kept
+// stable across toggles by the caller) - not just whatever survived the
+// current disabledColorIndexes filter - so a fully-disabled layer's row (and
+// its re-enable checkbox) doesn't disappear just because the backend no
+// longer returns geometry for it.
 function renderLayerBreakdown(layers) {
     currentLayers = (layers && layers.length > 1) ? layers : null;
 
@@ -1287,24 +1569,51 @@ function renderLayerBreakdown(layers) {
         .concat(Object.keys(penCapacities).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`))
         .join('');
 
+    const survivingCount = currentLayers.filter(l => !disabledColorIndexes.includes(l.colorIndex)).length;
+    const swapCount = Math.max(0, survivingCount - 1);
+    const summaryHtml = `
+        <div class="mb-2">
+            <strong>${survivingCount} pen${survivingCount === 1 ? '' : 's'}, ${swapCount} swap${swapCount === 1 ? '' : 's'}</strong>
+            ${survivingCount < currentLayers.length ? `<small class="text-muted"> (${currentLayers.length - survivingCount} layer${currentLayers.length - survivingCount === 1 ? '' : 's'} disabled)</small>` : ''}
+        </div>
+    `;
+
     const rows = currentLayers.map((layer, i) => {
+        const disabled = disabledColorIndexes.includes(layer.colorIndex);
         const distanceM = layer.distance / 1000;
         const selectedType = layerPenTypeSelections[i];
-        const usage = selectedType ? estimatePenUsage(distanceM, penCapacities[selectedType]) : null;
-        const usageText = usage ? usage.text : `${distanceM.toFixed(1)} m`;
+        const usage = !disabled && selectedType ? estimatePenUsage(distanceM, penCapacities[selectedType]) : null;
+        const usageText = disabled ? 'disabled' : (usage ? usage.text : `${distanceM.toFixed(1)} m`);
         const warningClass = usage && usage.fraction > 0.7 ? 'text-danger fw-bold' : '';
 
+        // Approximate per-layer draw time: this layer's own measured draw
+        // distance as a fraction of the whole job's, applied to the last
+        // full render's overall draw time (plottingEstimator.ts's
+        // drawSeconds - a constant mm/s draw speed, so this ratio is exact
+        // for draw time; it doesn't attempt to split travel/pen-lift time
+        // per layer). Only meaningful right after a render that actually
+        // produced per-layer distances for a surviving layer.
+        let timeText = '';
+        if (!disabled && lastPlottingEstimate && currentLayers.some(l => l.drawDistance > 0)) {
+            const totalDraw = currentLayers.reduce((sum, l) => sum + (disabledColorIndexes.includes(l.colorIndex) ? 0 : l.drawDistance), 0);
+            if (totalDraw > 0) {
+                const layerSeconds = (layer.drawDistance / totalDraw) * lastPlottingEstimate.drawSeconds;
+                timeText = ` (~${formatDuration(layerSeconds)})`;
+            }
+        }
+
         return `
-            <div class="d-flex align-items-center mb-1 layer-breakdown-row" data-layer-index="${i}">
+            <div class="d-flex align-items-center mb-1 layer-breakdown-row${disabled ? ' text-muted' : ''}" data-layer-index="${i}" data-color-index="${layer.colorIndex}">
+                <input type="checkbox" class="form-check-input me-2 layer-enabled-checkbox" ${disabled ? '' : 'checked'} title="Draw this layer">
                 <span class="me-2" style="display:inline-block;width:1rem;height:1rem;border:1px solid #999;background:${escapeHtml(layer.color)};"></span>
-                <input type="text" class="form-control form-control-sm me-2 layer-name-input" style="max-width:9rem;" value="${escapeHtml(layer.name)}">
-                <select class="form-select form-select-sm me-2 layer-pen-type-select" style="max-width:11rem;">${penTypeOptions}</select>
-                <small class="${warningClass} layer-usage-text">${usageText}</small>
+                <input type="text" class="form-control form-control-sm me-2 layer-name-input" style="max-width:9rem;" value="${escapeHtml(layer.name)}" ${disabled ? 'disabled' : ''}>
+                <select class="form-select form-select-sm me-2 layer-pen-type-select" style="max-width:11rem;" ${disabled ? 'disabled' : ''}>${penTypeOptions}</select>
+                <small class="${warningClass} layer-usage-text">${usageText}${timeText}</small>
             </div>
         `;
     }).join('');
 
-    container.html(rows).show();
+    container.html(summaryHtml + rows).show();
 
     container.find('.layer-pen-type-select').each(function(i) {
         $(this).val(layerPenTypeSelections[i] || "");
@@ -1315,7 +1624,17 @@ function renderLayerBreakdown(layers) {
         const index = parseInt(row.data('layer-index'));
         const newName = $(this).val().trim() || `Color ${index + 1}`;
         currentLayers[index].name = newName;
-        patchLayerNameInCommands(index, newName);
+        // The command file only carries n<index> headers for layers that
+        // actually survived disabledColorIndexes, renumbered 1..N in
+        // surviving order - not this row's position in the full detected
+        // list - so translate to that before patching.
+        if (!disabledColorIndexes.includes(currentLayers[index].colorIndex)) {
+            const survivingPosition = currentLayers
+                .slice(0, index + 1)
+                .filter(l => !disabledColorIndexes.includes(l.colorIndex))
+                .length;
+            patchLayerNameInCommands(survivingPosition - 1, newName);
+        }
     });
 
     container.off('change', '.layer-pen-type-select').on('change', '.layer-pen-type-select', function() {
@@ -1324,6 +1643,48 @@ function renderLayerBreakdown(layers) {
         layerPenTypeSelections[index] = $(this).val();
         renderLayerBreakdown(currentLayers);
     });
+
+    container.off('change', '.layer-enabled-checkbox').on('change', '.layer-enabled-checkbox', async function() {
+        const row = $(this).closest('.layer-breakdown-row');
+        const colorIndex = parseInt(row.data('color-index'));
+        if ($(this).is(':checked')) {
+            disabledColorIndexes = disabledColorIndexes.filter(idx => idx !== colorIndex);
+        } else {
+            if (!disabledColorIndexes.includes(colorIndex)) {
+                disabledColorIndexes.push(colorIndex);
+            }
+        }
+        activateProgressBar();
+        $("#acceptSvg").attr("disabled", "disabled");
+        await rendererFn();
+    });
+}
+
+// Post-render plotting time estimate (plottingEstimator.ts's
+// PlottingTimeEstimate, attached to the render result by toCommands.ts) -
+// draw/travel/pen-lift breakdown plus pen count/swaps, so pen-lift time
+// (~2s each, previously invisible) and pen-swap pauses are visible before
+// the user commits to actually drawing this.
+function renderPlottingEstimate(plotting, layers) {
+    const container = $("#plottingEstimateSummary");
+    if (!plotting) {
+        container.hide().empty();
+        return;
+    }
+
+    const penCount = layers && layers.length > 1 ? layers.length : 1;
+    const swapCount = plotting.penSwapCount;
+    const swapLine = swapCount > 0
+        ? `<div><strong>${penCount} pens, ${swapCount} swap${swapCount === 1 ? '' : 's'}</strong></div>`
+        : '';
+    const automatedLine = `Draw ${formatDuration(plotting.drawSeconds)} &middot; Travel ${formatDuration(plotting.travelSeconds)} ` +
+        `&middot; Pen-lifts ${formatDuration(plotting.penLiftSeconds)} (${plotting.penTransitionCount}&times;, ~2s each) ` +
+        `&middot; Automated total ${formatDuration(plotting.automatedSeconds)}`;
+    const swapPauseLine = swapCount > 0
+        ? `<div><small class="text-muted">+ ~${formatDuration(plotting.estimatedPenSwapPauseSeconds)} for ${swapCount} pen swap${swapCount === 1 ? '' : 's'} (rough guess, human-paced) &rarr; ~${formatDuration(plotting.totalSeconds)} total</small></div>`
+        : '';
+
+    container.html(`${swapLine}<div>${automatedLine}</div>${swapPauseLine}`).show();
 }
 
 // Hue-grouped shading (tsc/src/huePalette.ts) breakdown: shown after a

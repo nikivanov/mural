@@ -141,6 +141,28 @@ export namespace RequestTypes {
         // when colorOverprint is set (no cross-layer knockout happens at
         // all in that case, so there's no shared edge to trap).
         knockoutGapMm?: number,
+        // Request-level default fill strategy (fillStrategies/registry.ts),
+        // applied to every path that doesn't carry its own
+        // PathDensityData.fillMethod - per-path selection (already wired
+        // through generator.ts/infill.ts) still wins over this. Omitted, or
+        // a name that isn't a registered strategy, falls back to the
+        // module's own default (crossHatch45) exactly as before - see
+        // infill.ts's generateInfills, which already resolves an unknown
+        // strategy name defensively - so this is purely additive.
+        fillMethod?: string,
+        // Multi-color (see docs/multi-color.md): 0-based colorIndex values
+        // (matching PathDensityData.colorIndex/ColorGroup.colorIndex) to
+        // drop from this render entirely - both the layer's geometry and
+        // its `c<index>` pen-swap boundary. Motivating case: a near-white
+        // background layer that's invisible on white paper but still costs
+        // a full draw pass and pen swap, or simply owning fewer physical
+        // pens than the image wants. Ignored for single-color requests
+        // (no detected/requested color separation). Disabling every
+        // detected layer degrades gracefully to an empty single-color job
+        // rather than producing a corrupt/undersized multi-color command
+        // file - see toCommands.ts. Omitted/empty preserves existing
+        // behavior exactly.
+        disabledColorIndexes?: number[],
     };
 
     export type VectorizeRequest = {
