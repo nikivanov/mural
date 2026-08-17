@@ -10,6 +10,7 @@ import { loadPaper } from './paperLoader';
 import { flattenPaths, flattenPathsAcrossLayers } from './flattener';
 import { simplifyPaths } from './simplifier';
 import { DEFAULT_NIB_WIDTH_MM } from './huePalette';
+import { estimatePlottingSecondsFromCommands, PlottingTimeEstimate } from './plottingEstimator';
 
 const RDP_TOLERANCE_MM = 0.1;
 
@@ -60,17 +61,45 @@ export async function renderSvgJsonToCommands(
         colorGroups = groupPathsByLiteralColor(paths);
     }
 
-    if (colorGroups && colorGroups.length > 1) {
+    // Per-layer enable/disable (types.ts's disabledColorIndexes): computed
+    // here only to decide which branch to take (multi-color vs. single-
+    // color-or-empty) - the actual filtering happens inside renderMultiColor,
+    // AFTER assignHatchAnglesPerColorGroup runs on the full original set.
+    // Filtering before angle assignment would shift a surviving layer's
+    // index in the (now-shorter) array and, with it, its per-layer hatch
+    // angle/fillMethod (generator.ts's golden-angle spread is purely
+    // positional) - so a layer's own rendering would visibly change
+    // depending on which *other* layers the user toggled off, which is
+    // both surprising and breaks the "leaving other layers untouched"
+    // guarantee this feature is meant to have.
+    const disabledColorIndexSet = new Set(request.disabledColorIndexes || []);
+    const survivingGroupCount = colorGroups
+        ? colorGroups.filter(g => !disabledColorIndexSet.has(g.colorIndex)).length
+        : 0;
+
+    if (colorGroups && survivingGroupCount > 1) {
         return renderMultiColor(colorGroups, request, updateStatusFn);
+    }
+
+    // Fewer than 2 layers survive (0 or 1, whether because the source was
+    // always single-color or because disabling brought a multi-color job
+    // down to this) - draw whatever's left on the plain single-color path
+    // below rather than forcing a >=2-layer command-file shape. When
+    // colorGroups is null/undefined this is exactly the pre-existing
+    // behavior (pathsToRender === paths).
+    let pathsToRender = paths;
+    if (colorGroups) {
+        const survivors = colorGroups.filter(g => !disabledColorIndexSet.has(g.colorIndex));
+        pathsToRender = survivors.length === 1 ? survivors[0].paths : [];
     }
 
     // Single-color path: unchanged from before multi-color existed.
     if (request.flattenPaths) {
-        flattenPaths(paths, updateStatusFn);
+        flattenPaths(pathsToRender, updateStatusFn);
     }
 
     updateStatusFn("Generating infill");
-    const pathsWithInfills = generateInfills(paths, request.infillDensity);
+    const pathsWithInfills = generateInfills(pathsToRender, request.infillDensity, request.fillMethod);
 
     updateStatusFn("Optimizing paths");
     const optimizedPaths = optimizePaths(pathsWithInfills, request.homeX, request.homeY);
@@ -95,11 +124,20 @@ export async function renderSvgJsonToCommands(
     // keep doing that and simply peek for an optional third header line.
     dedupedCommands.splice(2, 0, `t${Math.round(request.topDistance)}`);
 
+    // Post-render plotting estimate (plottingEstimator.ts), computed from
+    // the exact command list about to be shipped (not a pre-render
+    // projection) - draw/travel/pen-lift breakdown for the UI to show
+    // before the user commits to actually drawing this. Header lines
+    // ('d'/'h'/'t') are plain strings that match neither the pen-transition
+    // nor pen-swap regexes, so including them here is harmless.
+    const plotting = estimatePlottingSecondsFromCommands(dedupedCommands);
+
     const commandStrings = dedupedCommands.map(stringifyCommand);
     return {
         commands: commandStrings,
         distance: totalDistance,
         drawDistance: +distances.drawDistance.toFixed(1),
+        plotting,
     };
 }
 
@@ -116,9 +154,23 @@ async function renderMultiColor(
     // Per-layer hatch angle (docs/multi-color.md; see that function's
     // header comment in generator.ts) - purely additive: it only sets
     // PathDensityData fields that default to the pre-existing behavior
-    // (crossHatch45 at 45 degrees) when unset, and this only runs once
-    // colorGroups.length > 1 is already established above.
+    // (crossHatch45 at 45 degrees) when unset. Deliberately runs on the
+    // FULL, still-unfiltered colorGroups (before disabledColorIndexes below)
+    // so a layer's assigned angle depends only on its own position among
+    // every *detected* color, never on which other layers the user happens
+    // to have toggled off - see toCommands.ts's dispatcher above for the
+    // full rationale.
     assignHatchAnglesPerColorGroup(colorGroups);
+
+    // Per-layer enable/disable (types.ts's disabledColorIndexes): drop the
+    // excluded layers' color groups now that every surviving group has its
+    // final, stable hatch angle - so a disabled layer's geometry is never
+    // generated and its `c<index>` boundary is never emitted, without
+    // perturbing any other layer's rendering.
+    if (request.disabledColorIndexes && request.disabledColorIndexes.length > 0) {
+        const disabled = new Set(request.disabledColorIndexes);
+        colorGroups = colorGroups.filter(g => !disabled.has(g.colorIndex));
+    }
 
     const layerPathArrays = colorGroups.map(g => g.paths);
 
@@ -176,7 +228,7 @@ async function renderMultiColor(
 
     for (let i = 0; i < colorGroups.length; i++) {
         updateStatusFn(`Generating infill: layer ${i + 1}/${colorGroups.length}`);
-        const infilled = generateInfills(layerPathArrays[i], request.infillDensity);
+        const infilled = generateInfills(layerPathArrays[i], request.infillDensity, request.fillMethod);
 
         updateStatusFn(`Optimizing paths: layer ${i + 1}/${colorGroups.length}`);
         const optimized = optimizePaths(infilled, request.homeX, request.homeY);
@@ -223,12 +275,20 @@ async function renderMultiColor(
     const roundedTotalDistance = +totalDistance.toFixed(1);
     assembled.unshift(`d${roundedTotalDistance}`);
 
+    // Post-render plotting estimate (see the single-color path's identical
+    // comment above): computed from the fully assembled command list, so
+    // penSwapCount here naturally reflects however many layers actually
+    // survived disabledColorIndexes filtering (N-1 `c<index>` markers for N
+    // remaining layers), not the originally detected color count.
+    const plotting = estimatePlottingSecondsFromCommands(assembled);
+
     const commandStrings = assembled.map(stringifyCommand);
     return {
         commands: commandStrings,
         distance: roundedTotalDistance,
         drawDistance: +totalDrawDistance.toFixed(1),
         layers: layerSummaries,
+        plotting,
     };
 }
 

@@ -97,7 +97,13 @@ const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
     [7, 2.5],
 ]);
 
-export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: InfillDensity): InfilledPath[] {
+// `defaultFillMethod` is the request-level fallback (RenderSVGRequest.fillMethod,
+// types.ts) applied to any path that doesn't carry its own
+// PathDensityData.fillMethod override - per-path selection still wins.
+// Omitted (the pre-existing call shape, used by every caller before this
+// parameter existed) falls back to defaultFillStrategyName exactly as
+// before, so this is purely additive.
+export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: InfillDensity, defaultFillMethod?: string): InfilledPath[] {
     const view = paper.project.view;
     const boundsPath = new paper.Path.Rectangle(view.bounds);
 
@@ -153,11 +159,14 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
         let infillPaths: paper.Path[] = [];
 
         if (!path.fillColor || path.fillColor.toCSS(true) !== '#ffffff') {
-            // `fillMethod` is an optional per-path strategy selector (not yet
-            // wired to any UI/generator input) that follow-up branches can
-            // set to pick a non-default fill strategy; unset paths keep
-            // using crossHatch45 exactly as before.
-            const strategyName = pathData?.fillMethod !== undefined ? pathData.fillMethod : defaultFillStrategyName;
+            // `fillMethod` is an optional per-path strategy selector; unset
+            // paths fall back to the request-level default (defaultFillMethod,
+            // e.g. from RenderSVGRequest.fillMethod), and unset both fall
+            // back to crossHatch45 - exactly as before this parameter
+            // existed.
+            const strategyName = pathData?.fillMethod !== undefined
+                ? pathData.fillMethod
+                : (defaultFillMethod !== undefined ? defaultFillMethod : defaultFillStrategyName);
             const strategy = fillStrategies[strategyName] !== undefined ? fillStrategies[strategyName] : fillStrategies[defaultFillStrategyName];
             infillPaths = strategy.generateFill(path, {spacingMm, minInfillLength}, ctx);
         }

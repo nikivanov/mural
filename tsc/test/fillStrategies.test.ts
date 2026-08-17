@@ -76,6 +76,57 @@ if (!paperAvailable) {
         assert.ok(infilled.infillPaths.length > 0, "expected the default strategy to still produce infill");
     });
 
+    test("infill.ts generateInfills: a request-level default fillMethod is applied to paths without their own override", () => {
+        paper.setup(new paper.Size(100, 100));
+        const square = makeSquare(); // no .data at all
+        const [infilled] = generateInfills([square], 2, "singleDirectionHatch");
+
+        // singleDirectionHatch produces roughly half crossHatch45's ink at
+        // the same spacing (see the ratio test above) - a cheap, distinct
+        // signal that the request-level default actually took effect
+        // instead of silently staying on crossHatch45.
+        const viaDefaultParam = infilled.infillPaths.reduce((sum, p) => sum + p.length, 0);
+
+        paper.setup(new paper.Size(100, 100));
+        const plainSquare = makeSquare();
+        const [plainInfilled] = generateInfills([plainSquare], 2);
+        const viaNoDefault = plainInfilled.infillPaths.reduce((sum, p) => sum + p.length, 0);
+
+        assert.ok(viaDefaultParam > 0 && viaNoDefault > 0);
+        const ratio = viaDefaultParam / viaNoDefault;
+        assert.ok(ratio > 0.3 && ratio < 0.7, `expected the request-level default to behave like singleDirectionHatch (~half crossHatch45), got ratio ${ratio.toFixed(2)}`);
+    });
+
+    test("infill.ts generateInfills: a path's own PathDensityData.fillMethod still wins over the request-level default", () => {
+        paper.setup(new paper.Size(100, 100));
+        const square = makeSquare();
+        // Path explicitly asks for crossHatchAngled; the request-level
+        // default (singleDirectionHatch) must not override it.
+        square.data = { fillMethod: "crossHatchAngled" };
+        const [infilled] = generateInfills([square], 2, "singleDirectionHatch");
+        const viaPathOverride = infilled.infillPaths.reduce((sum, p) => sum + p.length, 0);
+
+        paper.setup(new paper.Size(100, 100));
+        const plainAngled = makeSquare();
+        plainAngled.data = { fillMethod: "crossHatchAngled" };
+        const [angledInfilled] = generateInfills([plainAngled], 2);
+        const viaDirectAngled = angledInfilled.infillPaths.reduce((sum, p) => sum + p.length, 0);
+
+        // Both runs should land on crossHatchAngled's own coverage (close
+        // to crossHatch45's, i.e. NOT close to singleDirectionHatch's ~half),
+        // regardless of the request-level default supplied in the first run.
+        assert.ok(viaPathOverride > 0 && viaDirectAngled > 0);
+        const ratio = viaPathOverride / viaDirectAngled;
+        assert.ok(ratio > 0.7 && ratio < 1.3, `expected the per-path override to win over the request-level default, got ratio ${ratio.toFixed(2)}`);
+    });
+
+    test("infill.ts generateInfills: an unknown request-level default fillMethod falls back to the default strategy instead of throwing", () => {
+        paper.setup(new paper.Size(100, 100));
+        const square = makeSquare();
+        const [infilled] = generateInfills([square], 2, "notARealStrategyEither");
+        assert.ok(infilled.infillPaths.length > 0, "expected the default strategy to still produce infill");
+    });
+
     test("singleDirectionHatch: produces infill entirely inside the target region", () => {
         const { infilled, total } = totalInfillLength("singleDirectionHatch");
         assert.ok(total > 0, "expected nonzero infill");

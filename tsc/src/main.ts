@@ -3,6 +3,7 @@ import { renderSvgJsonToCommands } from "./toCommands";
 import { GrayscaleLevelResult, vectorizeImageData, vectorizeImageDataColor, vectorizeImageDataGrayscale, withGradientField } from './vectorizer';
 import { InfillDensities, InfillDensity, RequestTypes } from "./types";
 import { applyHueGrouping, applyHueGroupingWithOverrides } from './huePalette';
+import { estimateAndRecommend, CostEstimatorOptions } from './costEstimator';
 
 const supportedGrayscaleLevels = [3, 4];
 
@@ -13,15 +14,43 @@ const updateStatusFn = (status: string) => {
     });
 };
 
+// Pre-render cost estimate (costEstimator.ts's public entry point). Kept as
+// its own tiny worker message type (not part of RequestTypes in types.ts,
+// which is reserved for requests the actual render pipeline consumes) - the
+// UI branch calls this right after an image loads, before the first real
+// vectorize/render request, to show projected processing time and smart
+// defaults. `raster` is whatever ImageData the UI can produce at that point
+// (e.g. svgControl.getCurrentSvgImageData()) - same input costEstimator.ts's
+// analyzeImageCharacteristics expects.
+type EstimateRequest = {
+    type: 'estimate';
+    raster: ImageData;
+    options?: CostEstimatorOptions;
+};
+
 self.onmessage = async (e: MessageEvent<any>) => {
     if (isVectorizeRequest(e.data)) {
         vectorize(e.data);
     } else if (isRenderSvgRequest(e.data)) {
         await render(e.data);
+    } else if (isEstimateRequest(e.data)) {
+        estimate(e.data);
     } else {
         throw new Error("Bad request");
     }
 };
+
+function estimate(request: EstimateRequest) {
+    const result = estimateAndRecommend(request.raster, request.options || {});
+    self.postMessage({
+        type: "estimate",
+        payload: result,
+    });
+}
+
+function isEstimateRequest(obj: any): obj is EstimateRequest {
+    return 'type' in obj && obj.type === 'estimate' && 'raster' in obj && typeof obj.raster === 'object';
+}
 
 function vectorize(request: RequestTypes.VectorizeRequest) {
     updateStatusFn("Vectorizing");
@@ -169,6 +198,10 @@ async function render(request: RequestTypes.RenderSVGRequest) {
             distance: renderResult.distance,
             drawDistance: renderResult.drawDistance,
             layers: renderResult.layers,
+            // Post-render plotting time estimate (draw/travel/pen-lift
+            // breakdown, plus pen-swap count for multi-color) - see
+            // toCommands.ts's use of plottingEstimator.ts.
+            plotting: renderResult.plotting,
         }
     });
 }
