@@ -2,6 +2,7 @@ import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgJsonToCommands } from "./toCommands";
 import { GrayscaleLevelResult, vectorizeImageData, vectorizeImageDataColor, vectorizeImageDataGrayscale } from './vectorizer';
 import { InfillDensities, InfillDensity, RequestTypes } from "./types";
+import { applyHueGrouping, applyHueGroupingWithOverrides } from './huePalette';
 
 const supportedGrayscaleLevels = [3, 4];
 
@@ -41,12 +42,37 @@ function vectorize(request: RequestTypes.VectorizeRequest) {
     }
 
     if (request.colorCount && request.colorCount >= 2) {
-        const result = vectorizeImageDataColor(request.raster, request.turdSize, request.colorCount, request.palette);
+        const rawResult = vectorizeImageDataColor(request.raster, request.turdSize, request.colorCount, request.palette);
+
+        // Hue grouping (huePalette.ts): collapses the detected/matched
+        // palette into fewer pens by hue proximity, re-tagging each mask's
+        // colorIndex/density accordingly. Omitted/false leaves rawResult
+        // untouched, so existing colorCount/palette behavior (and its
+        // byte-identical-at-N=1 guarantee) is unaffected.
+        if (request.hueGrouping) {
+            const grouped = request.hueOverrides
+                ? applyHueGroupingWithOverrides(rawResult, request.hueOverrides)
+                : applyHueGrouping(rawResult);
+
+            self.postMessage({
+                type: "vectorizer",
+                payload: {
+                    svg: grouped.svg,
+                    palette: grouped.palette,
+                    // Per-pen shade breakdown the UI needs to show pen
+                    // count/tint ladder and let the user override the
+                    // automatic grouping.
+                    hueGroups: grouped.groups,
+                }
+            });
+            return;
+        }
+
         self.postMessage({
             type: "vectorizer",
             payload: {
-                svg: result.svg,
-                palette: result.palette,
+                svg: rawResult.svg,
+                palette: rawResult.palette,
             }
         });
         return;
@@ -146,6 +172,10 @@ function isVectorizeRequest(obj: any): obj is RequestTypes.VectorizeRequest {
     }
 
     if ('grayscaleLevels' in obj && obj.grayscaleLevels !== undefined && typeof obj.grayscaleLevels !== 'number') {
+        return false;
+    }
+
+    if ('hueGrouping' in obj && obj.hueGrouping !== undefined && typeof obj.hueGrouping !== 'boolean') {
         return false;
     }
 

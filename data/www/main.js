@@ -26,6 +26,14 @@ let penCapacities = loadPenCapacities();
 // names each layer by it. Reset to null for path-tracing mode and whenever
 // a fresh vectorize starts.
 let vectorizePalette = null;
+// Hue-grouped shading (tsc/src/huePalette.ts): per-pen shade breakdown
+// returned alongside vectorizePalette whenever hueGrouping is on, and the
+// user's manual reassignments (detected color index -> shared bucket id,
+// forwarded as VectorizeRequest.hueOverrides). Both reset in lockstep with
+// vectorizePalette, since a fresh vectorize invalidates any previous
+// detected-color indices they refer to.
+let vectorizeHueGroups = null;
+let hueOverrides = {};
 
 window.onload = function () {
     init();
@@ -255,6 +263,10 @@ function init() {
             $("#grayscaleLevels").val(3);
             $("#multiColorCheckbox").prop("checked", false).trigger('change');
             $("#colorOverprintCheckbox").prop("checked", false);
+            $("#hueGroupingCheckbox").prop("checked", false);
+            hueOverrides = {};
+            vectorizeHueGroups = null;
+            renderHueGroupingSummary(null);
         }
     });
 
@@ -373,6 +385,7 @@ function init() {
         $("#progressBar").text("Rasterizing");
         const raster = await svgControl.getCurrentSvgImageData();
         vectorizePalette = null;
+        vectorizeHueGroups = null;
 
         const vectorizeRequest = {
             type: 'vectorize',
@@ -385,6 +398,13 @@ function init() {
             // post-render layer breakdown, rather than guessing colors
             // in advance).
             colorCount: getColorCount(),
+            // Hue-grouped shading (tsc/src/huePalette.ts): collapses the
+            // detected colors above into fewer pens by hue proximity, with
+            // lighter shades of a hue drawn by the same (darkest) pen at a
+            // sparser density instead of getting their own pen. Off by
+            // default - see getHueGroupingEnabled().
+            hueGrouping: getHueGroupingEnabled(),
+            hueOverrides: getHueGroupingEnabled() ? hueOverrides : undefined,
         };
 
         if (currentPreviewId == thisPreviewId) {
@@ -402,6 +422,10 @@ function init() {
                     // resolvePaletteNames (toCommands.ts) can name each layer
                     // by it instead of falling back to "Color N".
                     vectorizePalette = e.data.payload.palette || null;
+                    // Hue grouping's per-pen shade breakdown, when on - see
+                    // renderHueGroupingSummary.
+                    vectorizeHueGroups = e.data.payload.hueGroups || null;
+                    renderHueGroupingSummary(vectorizeHueGroups);
                     const scale = svgControl.getRenderScale();
                     renderSvgInWorker(
                         currentWorker,
@@ -445,6 +469,11 @@ function init() {
             }
 
             vectorizePalette = null;
+            // Path-tracing has no vectorize step, so hue grouping (which
+            // groups vectorizer-detected masks) never applies here.
+            vectorizeHueGroups = null;
+            hueOverrides = {};
+            renderHueGroupingSummary(null);
             const renderSvg = svgControl.getRenderSvg();
             const renderSvgString = new XMLSerializer().serializeToString(renderSvg);
             // Path-tracing mode has no vectorize step to tag colors ahead of
@@ -525,7 +554,15 @@ function init() {
     }
 
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox").on('input change', async function() {
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#hueGroupingCheckbox").on('input change', async function() {
+        // Any change to the number/set of detected colors (colorCount) or
+        // to whether/how hue grouping applies (multiColorCheckbox,
+        // hueGroupingCheckbox) invalidates previously chosen manual
+        // reassignments - they refer to detected-color indices from a
+        // vectorize run that's about to be superseded.
+        if (this.id === 'colorCount' || this.id === 'multiColorCheckbox' || this.id === 'hueGroupingCheckbox') {
+            hueOverrides = {};
+        }
         activateProgressBar();
         $("#acceptSvg").attr("disabled", "disabled");
         await rendererFn();
@@ -1142,7 +1179,9 @@ function updateLiveProgress(data) {
 
 function getInfillDensity() {
     const density = parseInt($("#infillDensity").val());
-    if ([0, 1, 2, 3, 4].includes(density)) {
+    // 5-7 are the extended (denser) levels added for hue-grouped shading -
+    // see tsc/src/infill.ts's infillDensityToSpacingMap.
+    if ([0, 1, 2, 3, 4, 5, 6, 7].includes(density)) {
         return density;
     } else {
         throw new Error('Invalid density');
@@ -1184,6 +1223,10 @@ function getColorCount() {
 
 function getColorOverprint() {
     return $("#colorOverprintCheckbox").is(":checked");
+}
+
+function getHueGroupingEnabled() {
+    return getMultiColorEnabled() && $("#hueGroupingCheckbox").is(":checked");
 }
 
 // Multi-color per-layer breakdown/palette mapper (docs/multi-color.md
@@ -1243,6 +1286,103 @@ function renderLayerBreakdown(layers) {
         const index = parseInt(row.data('layer-index'));
         layerPenTypeSelections[index] = $(this).val();
         renderLayerBreakdown(currentLayers);
+    });
+}
+
+// Hue-grouped shading (tsc/src/huePalette.ts) breakdown: shown after a
+// raster vectorize with "Group shades by hue" on. Leads with the payoff -
+// the reduced pen/swap count vs. one pen per detected color - then lists
+// each pen's shade ladder (darkest member first, its density tag matching
+// what the render actually hatches with), and lets the user override which
+// pen a detected color belongs to when the automatic hue clustering guesses
+// wrong (docs task: "automatic hue grouping will sometimes be wrong").
+function renderHueGroupingSummary(groups) {
+    const container = $("#hueGroupingSummary");
+    if (!groups || groups.length === 0) {
+        container.hide().empty();
+        return;
+    }
+
+    const totalColors = groups.reduce((sum, g) => sum + g.members.length, 0);
+    const penCount = groups.length;
+    const swapCount = Math.max(0, penCount - 1);
+    const originalSwapCount = Math.max(0, totalColors - 1);
+
+    const penOptions = groups.map((g) => {
+        const anchor = g.members[0].originalIndex;
+        return `<option value="${anchor}">${escapeHtml(g.pen.name)}</option>`;
+    }).join('');
+
+    const rows = groups.map((group) => {
+        const memberRows = group.members.map((member) => {
+            const densityText = member.density !== undefined
+                ? `density ${member.density}`
+                : (member.originalIndex === group.members[0].originalIndex ? 'pen ink' : 'default density');
+            const options = penOptions + `<option value="${member.originalIndex}">New pen (alone)</option>`;
+
+            return `
+                <div class="d-flex align-items-center mb-1 hue-member-row" data-original-index="${member.originalIndex}">
+                    <span class="me-2" style="display:inline-block;width:0.8rem;height:0.8rem;border:1px solid #999;background:${escapeHtml(member.color)};"></span>
+                    <small class="me-2" style="min-width:6rem;">${escapeHtml(member.name)}</small>
+                    <small class="text-muted me-2" style="min-width:6rem;">${densityText}</small>
+                    <select class="form-select form-select-sm hue-member-pen-select" style="max-width:10rem;"></select>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="mb-2 hue-group-block">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="me-2" style="display:inline-block;width:1rem;height:1rem;border:2px solid #333;background:${escapeHtml(group.pen.color)};"></span>
+                    <strong>${escapeHtml(group.pen.name)}</strong>
+                </div>
+                <div class="ms-3">${memberRows}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.html(`
+        <div class="mb-2">
+            <strong>${penCount} pen${penCount === 1 ? '' : 's'}, ${swapCount} swap${swapCount === 1 ? '' : 's'}</strong>
+            <small class="text-muted">(was ${totalColors} pen${totalColors === 1 ? '' : 's'}, ${originalSwapCount} swap${originalSwapCount === 1 ? '' : 's'})</small>
+        </div>
+        ${rows}
+    `).show();
+
+    // Options are rebuilt from `groups` each render, but selects are empty
+    // <select> markup above (avoids escaping/interleaving option HTML
+    // twice) - populate and select the current value per row here.
+    container.find('.hue-member-row').each(function() {
+        const originalIndex = parseInt($(this).data('original-index'));
+        const select = $(this).find('.hue-member-pen-select');
+        select.html(penOptions + `<option value="${originalIndex}">New pen (alone)</option>`);
+        const owningGroup = groups.find(g => g.members.some(m => m.originalIndex === originalIndex));
+        const currentAnchor = owningGroup.members[0].originalIndex;
+        select.val(hueOverrides[originalIndex] !== undefined ? hueOverrides[originalIndex] : currentAnchor);
+    });
+
+    container.off('change', '.hue-member-pen-select').on('change', '.hue-member-pen-select', function() {
+        const row = $(this).closest('.hue-member-row');
+        const originalIndex = parseInt(row.data('original-index'));
+        const target = parseInt($(this).val());
+
+        // First manual reassignment: seed explicit overrides for every
+        // currently detected color from the grouping in effect right now
+        // (automatic, or a previous override), so changing just this one
+        // row doesn't silently reset every other color back to automatic.
+        if (Object.keys(hueOverrides).length === 0) {
+            for (const group of groups) {
+                const anchor = group.members[0].originalIndex;
+                for (const member of group.members) {
+                    hueOverrides[member.originalIndex] = anchor;
+                }
+            }
+        }
+        hueOverrides[originalIndex] = target;
+
+        activateProgressBar();
+        $("#acceptSvg").attr("disabled", "disabled");
+        rendererFn();
     });
 }
 

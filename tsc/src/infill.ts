@@ -4,11 +4,35 @@ import { applyWhiteKnockout } from './flattener';
 
 const paper = loadPaper();
 
+// Spacing (mm) between adjacent cross-hatch lines at each density level.
+// 1-4 are the original levels and MUST keep these exact values - existing
+// snapshots/tests depend on byte-identical output at those densities.
+//
+// 5-7 are the extended ladder added for hue-grouped shading (huePalette.ts):
+// a single pen can render several shades of its hue by hatching the same
+// ink at different spacings and letting paper show through the sparser
+// ones, so the ladder needs enough range to plausibly span "barely tinted"
+// to "essentially solid" for one pen's darkest color.
+//
+// Ink laid per unit area scales roughly as 1/spacing (see buildInfillLines:
+// halving the spacing roughly doubles the number of hatch lines crossing a
+// given region), so level 7 (2.5mm) uses about 20/2.5 = 8x the ink length
+// of level 1 (20mm) for the same area.
+//
+// Approximate cross-hatch coverage (~2 * nibWidth / spacing, nibWidth ~=
+// 1.2mm - two hatch directions, each nib-width wide, per spacing period):
+//   1 (20mm)  -> ~12%    5 (5mm)   -> ~48%
+//   2 (15mm)  -> ~16%    6 (3.5mm) -> ~69%
+//   3 (10mm)  -> ~24%    7 (2.5mm) -> ~96% (near solid)
+//   4 (7mm)   -> ~34%
 const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
     [1, 20],
     [2, 15],
     [3, 10],
     [4, 7],
+    [5, 5],
+    [6, 3.5],
+    [7, 2.5],
 ]);
 
 const infillAngle = Math.PI / 4;
