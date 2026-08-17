@@ -26,6 +26,7 @@ function generatePathsRecursive(item: paper.Item, inherited: PathDensityData | u
                 child.data.outline = effective.outline;
                 child.data.colorIndex = effective.colorIndex;
                 child.data.spacingMm = effective.spacingMm;
+                child.data.hatchAngleDegrees = effective.hatchAngleDegrees;
             }
             paths.push(child);
         }
@@ -36,7 +37,7 @@ function generatePathsRecursive(item: paper.Item, inherited: PathDensityData | u
 
 function getOwnDensityData(item: paper.Item): PathDensityData | undefined {
     const data = item.data as PathDensityData | undefined;
-    if (data && (data.density !== undefined || data.outline !== undefined || data.colorIndex !== undefined || data.spacingMm !== undefined)) {
+    if (data && (data.density !== undefined || data.outline !== undefined || data.colorIndex !== undefined || data.spacingMm !== undefined || data.hatchAngleDegrees !== undefined)) {
         return data;
     }
 
@@ -117,6 +118,59 @@ export function groupPathsByLiteralColor(paths: paper.PathItem[]): ColorGroup[] 
             path.data.colorIndex = colorIndex;
         }
         return { colorIndex, color: bucket.color, paths: bucket.paths };
+    });
+}
+
+// Golden angle (degrees), the standard irrational-spread constant (360 /
+// phi^2). Used mod 180 rather than mod 360 below since a hatch line has no
+// direction - a line at angle theta is indistinguishable from one at
+// theta+180 - so spreading candidate angles across a 360-degree wheel would
+// waste half of them on visual duplicates of the other half.
+const GOLDEN_ANGLE_DEGREES = 137.50776405003785;
+
+// Assigns each multi-color layer's paths a distinct hatch angle (via
+// PathDensityData.hatchAngleDegrees) and switches them onto the
+// angle-aware crossHatchAngled fill strategy (PathDensityData.fillMethod;
+// see fillStrategies/registry.ts) - without this, hatchAngleDegrees would
+// be set but ignored, since the default strategy (crossHatch45) never reads
+// it and always hatches at a fixed 45 degrees.
+//
+// Called from toCommands.ts's renderMultiColor for every multi-color
+// render, regardless of whether the color groups came from raster mode's
+// pre-tagged colorIndex or from groupPathsByLiteralColor's literal-color
+// grouping above - both produce the same ColorGroup[] shape, so one call
+// site covers both origins.
+//
+// Why: two overlapping hatch layers at the same fixed 45-degree angle cross
+// at the same grid of points repeatedly, which reads as visual mud where
+// they overlap and (per the nib-contamination concern from earlier
+// multi-color work, docs/multi-color.md) means a pen re-tracing near-
+// identical lines to a previous layer's. Giving each layer its own angle,
+// spread with the golden angle for even, non-repeating coverage across the
+// 0-180 degree range, makes overlapping layers read as distinct textures
+// and means non-parallel layers' hatch lines cross at fewer, cleaner
+// points.
+//
+// A single-color render (colorGroups.length <= 1) is left alone - nothing
+// to disambiguate an angle against. Paths that already carry an explicit
+// hatchAngleDegrees or fillMethod (none do today, but future manual
+// overrides might) are left untouched rather than clobbered.
+export function assignHatchAnglesPerColorGroup(colorGroups: ColorGroup[]): void {
+    if (colorGroups.length <= 1) {
+        return;
+    }
+
+    colorGroups.forEach((group, i) => {
+        const angleDegrees = (i * GOLDEN_ANGLE_DEGREES) % 180;
+        for (const path of group.paths) {
+            const data = path.data as PathDensityData;
+            if (data.hatchAngleDegrees === undefined) {
+                data.hatchAngleDegrees = angleDegrees;
+            }
+            if (data.fillMethod === undefined) {
+                data.fillMethod = 'crossHatchAngled';
+            }
+        }
     });
 }
 
