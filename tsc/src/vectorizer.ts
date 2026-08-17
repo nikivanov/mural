@@ -2,6 +2,7 @@ import { loadPaper } from './paperLoader';
 import {Potrace} from './tracer';
 import { buildGrayscaleBitmap, computeGrayscaleThreshold } from './grayscale';
 import { PaletteEntry } from './types';
+import { chooseSampleSpacingPx, computeGradientField, serializeGradientField } from './imageGradient';
 
 
 const paper = loadPaper();
@@ -564,5 +565,48 @@ function traceBitmap(width: number, height: number, data: (1|0)[], turdSize: num
     tracer.setBitmap(width, height, data);
 
     return tracer.getSVG(1);
+}
+
+// Computes a local-gradient field from `imageData`'s luminance (see
+// imageGradient.ts) and tags the root `<svg>` element of `svgString` with it
+// via a `data-paper-data` attribute - the same generic mechanism already
+// used elsewhere in this file to carry `density`/`outline`/`colorIndex`
+// tags on `<g>` elements through paper.js's SVG import (see
+// classifyWithFringeResolution's callers and combineGrayscaleLevels in
+// main.ts). Any element's `data-paper-data` is parsed into that item's
+// `.data` on import - the root `<svg>` tag works exactly the same way a
+// `<g>` does.
+//
+// This makes the field available, once per vectorize() call, to
+// generateInfills (infill.ts) later on: the imported root item stays
+// mounted in the paper.js project tree across the whole render, so
+// infill.ts can find this tag by walking `paper.project` without needing
+// the raster (or this SVG's root item) threaded through any function
+// signature - `generatePaths` (generator.ts) only ever propagates the
+// existing density/outline/colorIndex/spacingMm tags down onto individual
+// paths, so putting this on the root instead of on (or under) a path is
+// what keeps it intact and keeps it a single copy rather than duplicated
+// onto every traced path.
+//
+// Every raster-origin vectorize() output (single-mask, grayscale, and
+// color/k-means) is expected to route through this before being posted
+// back to the client - see main.ts. Vector-origin SVGs (path-tracing mode,
+// which never calls vectorize() at all) never get this tag, which is
+// exactly the "no gradient data available" signal gradientHatch falls back
+// on.
+export function withGradientField(svgString: string, imageData: ImageData): string {
+    const field = computeGradientField(imageData, chooseSampleSpacingPx(imageData.width, imageData.height));
+    const serialized = serializeGradientField(field);
+    const tagData = JSON.stringify({ gradientField: serialized });
+    const tagged = svgString.replace(/^(<svg\b[^>]*)>/, `$1 data-paper-data='${tagData}'>`);
+    if (tagged === svgString) {
+        // Defensive: if the tracer's output shape ever changes and the
+        // regex stops matching, fail soft (return the untagged SVG) rather
+        // than throw - a missing gradient field just means gradientHatch
+        // falls back to a fixed angle, which is a fully supported path,
+        // not a broken render.
+        return svgString;
+    }
+    return tagged;
 }
 

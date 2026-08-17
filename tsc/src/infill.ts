@@ -1,10 +1,70 @@
 import { loadPaper } from './paperLoader';
 import { InfillDensity, InfilledPath, PathDensityData } from './types';
 import { applyWhiteKnockout } from './flattener';
-import { FillContext } from './fillStrategies/types';
+import { FillContext, GradientFieldLookup } from './fillStrategies/types';
 import { defaultFillStrategyName, fillStrategies } from './fillStrategies/registry';
+import { deserializeGradientField, sampleGradientField, SerializedGradientField } from './imageGradient';
 
 const paper = loadPaper();
+
+// Gradient field wiring (see vectorizer.ts's withGradientField and
+// gradientHatch.ts): generatePaths() (generator.ts) only ever propagates
+// the density/outline/colorIndex/spacingMm tags down onto individual
+// paths, so a gradientField tag on the imported SVG's root item never
+// reaches the flat `paths` array this module receives. It DOES stay
+// mounted in the live paper.js project tree for the whole render, though
+// (toCommands.ts's paper.project.importJSON never removes it, and
+// generatePaths only collects paths into a return array - it doesn't
+// prune the tree), so it can be recovered here by walking the project
+// directly instead of needing it threaded through any function signature.
+type GradientFieldTag = { gradientField?: SerializedGradientField };
+
+// Only Group/Layer nodes are visited (a Path/CompoundPath never carries
+// this tag - see withGradientField, which only ever tags the root <svg>
+// element), and depth is capped, so this stays cheap regardless of how
+// many thousands of traced leaf paths a raster produced.
+const GRADIENT_TAG_SEARCH_MAX_DEPTH = 6;
+
+function findGradientFieldTag(project: paper.Project): SerializedGradientField | undefined {
+    const visit = (item: paper.Item, depth: number): SerializedGradientField | undefined => {
+        const data = item.data as GradientFieldTag | undefined;
+        if (data && data.gradientField) {
+            return data.gradientField;
+        }
+        if (depth >= GRADIENT_TAG_SEARCH_MAX_DEPTH || !(item instanceof paper.Group)) {
+            return undefined;
+        }
+        for (const child of item.children) {
+            const found = visit(child, depth + 1);
+            if (found) return found;
+        }
+        return undefined;
+    };
+
+    for (const layer of project.layers) {
+        const found = visit(layer, 0);
+        if (found) return found;
+    }
+    return undefined;
+}
+
+// Builds the FillContext-facing lookup once per generateInfills() call
+// (not once per path - the search above and the field deserialization both
+// happen at most once here), or returns undefined when this render's
+// source SVG carries no gradient field at all (vector-origin/path-tracing
+// input, which never calls vectorize() in the first place).
+function buildGradientFieldLookup(project: paper.Project): GradientFieldLookup | undefined {
+    const tag = findGradientFieldTag(project);
+    if (!tag) return undefined;
+
+    const field = deserializeGradientField(tag);
+    return {
+        sampleAt(point: paper.Point, viewSize: paper.Size) {
+            if (viewSize.width <= 0 || viewSize.height <= 0) return undefined;
+            return sampleGradientField(field, point.x / viewSize.width, point.y / viewSize.height);
+        },
+    };
+}
 
 // Spacing (mm) between adjacent cross-hatch lines at each density level.
 // 1-4 are the original levels and MUST keep these exact values - existing
@@ -45,7 +105,7 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
     // `cache` to memoize expensive per-spacing precomputation (e.g. a line
     // grid) across paths; it's fresh per generateInfills() call, matching
     // the original code's per-call `linesBySpacing` map.
-    const ctx: FillContext = {view, boundsPath, cache: new Map()};
+    const ctx: FillContext = {view, boundsPath, cache: new Map(), gradientField: buildGradientFieldLookup(paper.project)};
 
     // White-as-knockout (see flattener.ts's applyWhiteKnockout): a pure
     // white fill with no stroke of its own is dropped entirely (matching
