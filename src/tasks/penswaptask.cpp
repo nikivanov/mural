@@ -6,7 +6,7 @@ PenSwapTask::PenSwapTask(Pen *pen, Movement *movement, Runner *runner, int color
     this->runner = runner;
     this->colorIndex = colorIndex;
     this->penName = penName;
-    this->travelTask = new InterpolatingMovementTask(movement, movement->getHomeCoordinates());
+    this->travelTask = new InterpolatingMovementTask(movement, pen, movement->getHomeCoordinates());
 }
 
 PenSwapTask::~PenSwapTask() {

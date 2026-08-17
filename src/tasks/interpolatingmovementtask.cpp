@@ -18,9 +18,17 @@ bool arePointsEqual(Movement::Point point1, Movement::Point point2) {
     return point1.x == point2.x && point1.y == point2.y;
 }
 
-InterpolatingMovementTask::InterpolatingMovementTask(Movement *movement, Movement::Point target) {
+InterpolatingMovementTask::InterpolatingMovementTask(Movement *movement, Pen *pen, Movement::Point target) {
     this->target = target;
     this->movement = movement;
+    this->pen = pen;
+}
+
+int InterpolatingMovementTask::currentSpeedSteps() {
+    // Pen up -> repositioning travel, safe to run at the faster moveSpeedSteps (already
+    // used elsewhere for pen-up travel, e.g. Movement::extendToHome). Pen down -> drawing,
+    // stays at printSpeedSteps.
+    return pen->isDown() ? printSpeedSteps : moveSpeedSteps;
 }
 
 void InterpolatingMovementTask::startRunning() {
@@ -33,7 +41,7 @@ void InterpolatingMovementTask::startRunning() {
     }
     auto incrementPoint = getNextIncrement(currentCoordinates, target);
     float moveTime;
-    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, printSpeedSteps, moveTime)) {
+    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, currentSpeedSteps(), moveTime)) {
         Serial.println("Failed to start move, aborting task");
         failed = true;
     }
@@ -59,7 +67,7 @@ bool InterpolatingMovementTask::isDone() {
 
     auto incrementPoint = getNextIncrement(currentPosition, target);
     float moveTime;
-    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, printSpeedSteps, moveTime)) {
+    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, currentSpeedSteps(), moveTime)) {
         Serial.println("Failed to start move, aborting task");
         return true;
     }
