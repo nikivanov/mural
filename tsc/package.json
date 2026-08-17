@@ -12,6 +12,7 @@
   "author": "Nik Ivanov",
   "license": "GPL",
   "devDependencies": {
+    "@types/clipper-lib": "^6.4.0",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.10.1",
     "@types/webpack": "^5.28.5",
@@ -26,6 +27,7 @@
   },
   "dependencies": {
     "canvas": "^2.11.2",
+    "clipper-lib": "^6.4.2",
     "jsdom": "^24.1.1",
     "paper": "0.12.17",
     "paper-jsdom": "0.12.17"
