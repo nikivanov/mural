@@ -24,6 +24,7 @@ import { spiralFill } from './spiralFill';
 import { singleDirectionHatch } from './singleDirectionHatch';
 import { crossHatchAngled } from './crossHatchAngled';
 import { jitteredHatch } from './jitteredHatch';
+import { gradientHatch } from './gradientHatch';
 
 export const defaultFillStrategyName = crossHatch45.name;
 
@@ -33,4 +34,5 @@ export const fillStrategies: Record<string, FillStrategy> = {
     [singleDirectionHatch.name]: singleDirectionHatch,
     [crossHatchAngled.name]: crossHatchAngled,
     [jitteredHatch.name]: jitteredHatch,
+    [gradientHatch.name]: gradientHatch,
 };

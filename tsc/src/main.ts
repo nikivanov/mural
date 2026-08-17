@@ -1,6 +1,6 @@
 import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgJsonToCommands } from "./toCommands";
-import { GrayscaleLevelResult, vectorizeImageData, vectorizeImageDataColor, vectorizeImageDataGrayscale } from './vectorizer';
+import { GrayscaleLevelResult, vectorizeImageData, vectorizeImageDataColor, vectorizeImageDataGrayscale, withGradientField } from './vectorizer';
 import { InfillDensities, InfillDensity, RequestTypes } from "./types";
 import { applyHueGrouping, applyHueGroupingWithOverrides } from './huePalette';
 
@@ -35,7 +35,12 @@ function vectorize(request: RequestTypes.VectorizeRequest) {
         self.postMessage({
             type: "vectorizer",
             payload: {
-                svg: svgString,
+                // Gradient field (imageGradient.ts, via vectorizer.ts's
+                // withGradientField): tags the root <svg> with the source
+                // raster's local luminance gradient, so gradientHatch
+                // (fillStrategies/gradientHatch.ts) can follow the image's
+                // form later, at render time - see infill.ts.
+                svg: withGradientField(svgString, request.raster),
             }
         });
         return;
@@ -43,6 +48,12 @@ function vectorize(request: RequestTypes.VectorizeRequest) {
 
     if (request.colorCount && request.colorCount >= 2) {
         const rawResult = vectorizeImageDataColor(request.raster, request.turdSize, request.colorCount, request.palette);
+        // Tag before any hue-grouping remap below: remapSvgGroups only
+        // rewrites the per-mask `<g data-paper-data='...'>` tags (see
+        // huePalette.ts), never the root `<svg>` tag this adds its own
+        // data-paper-data attribute to, so tagging once here survives
+        // untouched through either branch below.
+        rawResult.svg = withGradientField(rawResult.svg, request.raster);
 
         // Hue grouping (huePalette.ts): collapses the detected/matched
         // palette into fewer pens by hue proximity, re-tagging each mask's
@@ -86,7 +97,7 @@ function vectorize(request: RequestTypes.VectorizeRequest) {
     self.postMessage({
         type: "vectorizer",
         payload: {
-            svg: svgString,
+            svg: withGradientField(svgString, request.raster),
         }
     });
 }
