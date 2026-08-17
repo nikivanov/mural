@@ -155,10 +155,28 @@ const GOLDEN_ANGLE_DEGREES = 137.50776405003785;
 // to disambiguate an angle against. Paths that already carry an explicit
 // hatchAngleDegrees or fillMethod (none do today, but future manual
 // overrides might) are left untouched rather than clobbered.
-export function assignHatchAnglesPerColorGroup(colorGroups: ColorGroup[]): void {
+//
+// `defaultFillMethod` is the request-level strategy (RenderSVGRequest.
+// fillMethod). It matters here because crossHatch45 - the default - is
+// hardcoded to 45 degrees and ignores hatchAngleDegrees entirely, so
+// per-layer angles only take effect if the paths are moved onto an
+// angle-aware strategy. Substituting crossHatchAngled achieves that, but it
+// must ONLY happen when the user hasn't chosen a strategy of their own:
+// stamping a per-path fillMethod unconditionally silently overrode every
+// request-level choice (per-path always wins in infill.ts), so picking
+// spiral/contour/gradientHatch appeared to do nothing on any multi-color
+// render. Leaving fillMethod unset lets the request-level default flow
+// through, and the angle-aware strategies (singleDirectionHatch,
+// crossHatchAngled, jitteredHatch) still honour the angle set above.
+export function assignHatchAnglesPerColorGroup(colorGroups: ColorGroup[], defaultFillMethod?: string): void {
     if (colorGroups.length <= 1) {
         return;
     }
+
+    // Only the angle-blind default needs substituting; any explicit choice is
+    // the user's and must survive.
+    const substituteAngleAwareStrategy =
+        defaultFillMethod === undefined || defaultFillMethod === 'crossHatch45';
 
     colorGroups.forEach((group, i) => {
         const angleDegrees = (i * GOLDEN_ANGLE_DEGREES) % 180;
@@ -167,7 +185,7 @@ export function assignHatchAnglesPerColorGroup(colorGroups: ColorGroup[]): void 
             if (data.hatchAngleDegrees === undefined) {
                 data.hatchAngleDegrees = angleDegrees;
             }
-            if (data.fillMethod === undefined) {
+            if (substituteAngleAwareStrategy && data.fillMethod === undefined) {
                 data.fillMethod = 'crossHatchAngled';
             }
         }

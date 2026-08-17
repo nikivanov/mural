@@ -160,7 +160,7 @@ async function renderMultiColor(
     // every *detected* color, never on which other layers the user happens
     // to have toggled off - see toCommands.ts's dispatcher above for the
     // full rationale.
-    assignHatchAnglesPerColorGroup(colorGroups);
+    assignHatchAnglesPerColorGroup(colorGroups, request.fillMethod);
 
     // Per-layer enable/disable (types.ts's disabledColorIndexes): drop the
     // excluded layers' color groups now that every surviving group has its

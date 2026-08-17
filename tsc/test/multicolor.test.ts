@@ -507,6 +507,43 @@ if (!paperAvailable) {
         assert.ok(coordsOf(layer1).length > 0, "expected drawn coordinates for the surviving sliver");
     });
 
+    // --- Request-level fillMethod must survive multi-color rendering ---
+    //
+    // Regression: assignHatchAnglesPerColorGroup (generator.ts) used to stamp
+    // fillMethod:'crossHatchAngled' onto every path in a multi-color render so
+    // that its per-layer angles would take effect (crossHatch45 is hardcoded
+    // to 45 degrees and ignores them). But a per-path fillMethod always beats
+    // the request-level one in infill.ts, so that silently discarded the
+    // user's choice: picking spiral/contour/gradientHatch produced byte-
+    // identical output to the default on every multi-color image. It now only
+    // substitutes when the request didn't specify a strategy.
+    test("fillMethod: a request-level strategy actually changes multi-color output instead of being overridden by per-layer angle assignment", async () => {
+        const twoColorSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="5" y="5" width="60" height="60" fill="#ffff00"/>
+            <rect x="120" y="5" width="60" height="60" fill="#0000ff"/>
+        </svg>`;
+
+        const commandCountFor = async (fillMethod?: string) => {
+            const request = svgToRequest(twoColorSvg, paper, fillMethod === undefined
+                ? { colorSeparation: true }
+                : { colorSeparation: true, fillMethod });
+            const result = await renderSvgJsonToCommands(request, noopStatus);
+            return result.commands.length;
+        };
+
+        const defaultCount = await commandCountFor(undefined);
+        const spiralCount = await commandCountFor("spiral");
+        const contourCount = await commandCountFor("contour");
+
+        assert.ok(defaultCount > 0 && spiralCount > 0 && contourCount > 0);
+        assert.notStrictEqual(spiralCount, defaultCount,
+            "spiral should produce different output from the default strategy");
+        assert.notStrictEqual(contourCount, defaultCount,
+            "contour should produce different output from the default strategy");
+        assert.notStrictEqual(spiralCount, contourCount,
+            "spiral and contour should differ from each other");
+    });
+
     // --- Per-layer enable/disable (disabledColorIndexes, types.ts) ---
     //
     // Three well-separated rects, one per pen, in strict light-to-dark

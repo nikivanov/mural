@@ -1,3 +1,21 @@
+# This is an enthusiastic fork of the original Mural code
+
+This version of Mural now features:
+
+- Multi-colour printing (with pen swaps), with care taken to not overlap pens (and if we do, start with the lighter colours)
+- Variable hatching density based on grey/ colour density (i.e. can do light and dark colours from same pen)
+- 7 fancy new hatching styles in addition to the existing cross-hatchng
+- Tweaks to the already excellent routing algorithms with better smoothing, reducing drawing time
+- Updated and slightly obnoxiously-styled mobile and desktop designs
+- Clear estimations (before action) of image conversion/ hatching time, plotting time, ink used (measured in Sharpies)
+- Larger, better previews of drawings before they get drawn
+- Various smaller QoL tweaks (e.g. auto detection of motor stall on initial calibration, live progress updates in the UI, mostly-graceful resume from power outage/ other error...)
+- - A full test suite and CI
+
+This was only possible thanks to the excellent original code, fantastic original hardware (no changes there yet), previous adventures with Lego Mindstorms wall plotters and a hack of the Makelangelo plotter, and my careful but generous application of Claude Code in pursuit of the greater good.
+
+Backlog
+
 # [getmural.me](https://getmural.me)
 
 Please find the main documentation on https://getmural.me. 
