@@ -60,3 +60,37 @@ document.querySelectorAll('dialog.mural-modal').forEach(function (dialog) {
         dialog.dispatchEvent(new CustomEvent('hidden.bs.modal'));
     });
 });
+
+// ---------------------------------------------------------------------------
+// Info (i) disclosures
+//
+// The badges are native <details> elements sharing a `name`, so opening one
+// natively closes the others with no JS at all. Two behaviours the native
+// element does NOT give us, both of which users expect from a tooltip-like
+// affordance, are added here:
+//   1. clicking anywhere else on the page dismisses the open panel
+//   2. Escape dismisses it
+// Kept here rather than in main.js because it is presentation behaviour that
+// belongs with the other UI-chrome shims, and because main.js should not need
+// to know these exist.
+// ---------------------------------------------------------------------------
+function closeAllInfoPanels(except) {
+    document.querySelectorAll('details.info[open]').forEach(function (d) {
+        if (d !== except) {
+            d.open = false;
+        }
+    });
+}
+
+document.addEventListener('click', function (e) {
+    // A click inside an open disclosure (its badge or its panel) is not an
+    // "outside" click and must not dismiss it.
+    const insideInfo = e.target.closest && e.target.closest('details.info');
+    closeAllInfoPanels(insideInfo);
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        closeAllInfoPanels(null);
+    }
+});

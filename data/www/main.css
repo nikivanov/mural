@@ -670,6 +670,10 @@ details.info {
   display: inline-block;
   position: relative;
   vertical-align: middle;
+  /* Breathing room so the badge never crowds (or visually collides with) the
+     label it annotates. The badge carries a negative margin for its enlarged
+     tap target, so this has to clear that before it reads as separated. */
+  margin-left: 14px;
 }
 
 details.info summary {
@@ -707,27 +711,46 @@ details.info[open] summary {
   color: #fff;
 }
 
+/* The panel is anchored to a badge that can sit anywhere on the line,
+   including hard against the right edge of a column. A plain `left: 0`
+   therefore pushes it off-screen for any right-hand badge (measured: a badge
+   at x=1243 in a 1280px viewport opened a panel ending at x=1543 — 263px of
+   unreadable overflow).
+
+   Small screens: skip anchoring entirely and dock it to the bottom of the
+   viewport as a full-width sheet. There is no room to anchor a 250px panel
+   beside anything on a 375px phone, and a docked sheet is always fully
+   visible and comfortably tappable.  */
 details.info .info-panel {
-  position: absolute;
-  top: 32px;
-  left: 0;
-  z-index: 50;
-  width: 250px;
-  max-width: 70vw;
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  top: auto;
+  z-index: 200;
   background: #1c0f2b;
   color: #fff;
   border: 2px solid var(--accent3);
-  padding: 12px 13px;
-  font-size: 12.5px;
+  padding: 14px 15px;
+  font-size: 13.5px;
   font-weight: 600;
-  line-height: 1.5;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+  line-height: 1.55;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
 @media (min-width: 900px) {
+  /* Desktop: anchor beside the badge again, but flip the side so the panel
+     grows back toward the middle of the screen rather than off the edge.
+     `right: 0` aligns the panel's right edge with the badge's, which keeps
+     it on-screen for any badge that is itself on-screen. */
   details.info .info-panel {
+    position: absolute;
+    top: 34px;
+    left: auto;
+    right: 0;
+    bottom: auto;
     width: 300px;
-    max-width: 360px;
+    max-width: min(360px, calc(100vw - 32px));
   }
 }
 

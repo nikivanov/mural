@@ -159,14 +159,14 @@
             <div id="processingWarning" class="alert alert-warning text-start py-2 mb-2" style="display:none;"></div>
             <div class="control-label-row">
               <span class="control-value" style="font-size:12px;">Time estimate</span>
-              <details class="info"><summary>i</summary>
+              <details class="info" name="muralInfo"><summary>i</summary>
                 <div class="info-panel">Draw is time the pen spends actually drawing. Travel is pen-up repositioning between strokes &mdash; it adds time but no ink. Pen-lifts are the up/down moves between them, about 2s each.</div>
               </details>
             </div>
             <div id="plottingEstimateSummary" class="mb-2 text-start" style="display:none;"></div>
 
             <label for="fillMethod" class="form-label mb-0">Fill style
-              <details class="info"><summary>i</summary>
+              <details class="info" name="muralInfo"><summary>i</summary>
                 <div class="info-panel">
                   <b>Cross-hatch (default)</b> &mdash; even diagonal grid, balanced look, cheapest to compute.<br>
                   <b>Single-direction hatch</b> &mdash; one diagonal pass only, lighter coverage, fast.<br>
@@ -194,7 +194,7 @@
             <div id="fillMethodRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
 
             <label for="infillDensity" class="form-label mb-0">Infill density
-              <details class="info"><summary>i</summary>
+              <details class="info" name="muralInfo"><summary>i</summary>
                 <div class="info-panel">Infill density controls how tightly the fill lines are spaced inside shapes. Denser fill looks darker but takes much longer to draw.</div>
               </details>
             </label>
@@ -206,7 +206,7 @@
             <div id="infillDensityRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
 
             <label for="turdSize" class="form-label mb-0">Despeckle
-              <details class="info"><summary>i</summary>
+              <details class="info" name="muralInfo"><summary>i</summary>
                 <div class="info-panel">Despeckle drops tiny specks too small to matter, so the pen lifts less and finishes faster.</div>
               </details>
             </label>
@@ -248,7 +248,7 @@
                    Default matches the tsc/src/huePalette.ts nib-width default
                    (roughly one nib width). -->
               <label for="knockoutGapMm" class="form-label mb-0">Trapping gap (mm)
-                <details class="info"><summary>i</summary>
+                <details class="info" name="muralInfo"><summary>i</summary>
                   <div class="info-panel">Trapping gap leaves a hairline of bare paper between two colors, so one pen's nib doesn't drag through another's wet ink.</div>
                 </details>
               </label>
@@ -266,13 +266,13 @@
                      that aren't fully opaque at nominal "full" coverage, or for
                      paper that soaks up more/less ink than assumed. -->
                 <label for="nibWidthMm" class="form-label mb-0">Pen nib width (mm)
-                  <details class="info"><summary>i</summary>
+                  <details class="info" name="muralInfo"><summary>i</summary>
                     <div class="info-panel">Pen nib width is the width of the mark your pen makes. It's the dominant term in how closely shading lines need to be spaced.</div>
                   </details>
                 </label>
                 <input type="range" class="form-range mb-2 text-center" min="0.3" max="5" step="0.1" id="nibWidthMm" value="1.2">
                 <label for="inkMultiplier" class="form-label mb-0">Ink strength
-                  <details class="info"><summary>i</summary>
+                  <details class="info" name="muralInfo"><summary>i</summary>
                     <div class="info-panel">Ink strength compensates for pens that aren't fully opaque, or paper that soaks up more or less ink than assumed. Higher values need less hatching for the same apparent darkness.</div>
                   </details>
                 </label>
