@@ -57,12 +57,15 @@ if (!paperAvailable) {
         return { infilled, total: infilled.infillPaths.reduce((sum, p) => sum + p.length, 0) };
     }
 
-    test("registry: default strategy is crossHatch45, and all four strategies are registered", () => {
+    test("registry: default strategy is crossHatch45, and this branch's three strategies are registered", () => {
         assert.strictEqual(defaultFillStrategyName, "crossHatch45");
-        assert.deepStrictEqual(
-            Object.keys(fillStrategies).sort(),
-            ["crossHatch45", "crossHatchAngled", "jitteredHatch", "singleDirectionHatch"],
-        );
+        // Not an exhaustive equality check: other fill-strategy branches
+        // (spiral, contour, gradient-hatch) register their own entries
+        // concurrently, so assert this branch's strategies are present
+        // rather than pinning the full registry contents.
+        for (const name of ["crossHatch45", "crossHatchAngled", "jitteredHatch", "singleDirectionHatch"]) {
+            assert.ok(name in fillStrategies, `expected "${name}" to be registered`);
+        }
     });
 
     test("infill.ts fillMethod resolution: an unknown fillMethod falls back to the default strategy instead of throwing", () => {
