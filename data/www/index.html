@@ -207,6 +207,18 @@
           <label class="form-check-label" for="colorOverprintCheckbox">Overprint (skip knockout)</label>
           <input class="form-check-input mb-2" type="checkbox" id="hueGroupingCheckbox">
           <label class="form-check-label" for="hueGroupingCheckbox">Group shades by hue (fewer pens)</label>
+          <div id="hueGroupingOptions" style="display:none;">
+            <!-- Per-image physical controls for the tone-derived spacing
+                 model (tsc/src/huePalette.ts): the model can't know these,
+                 so the user supplies them. Nib width is the dominant term
+                 in the coverage formula; ink strength compensates for pens
+                 that aren't fully opaque at nominal "full" coverage, or for
+                 paper that soaks up more/less ink than assumed. -->
+            <label for="nibWidthMm" class="form-label mb-0">Pen nib width (mm)</label>
+            <input type="range" class="form-range mb-2 text-center" min="0.3" max="5" step="0.1" id="nibWidthMm" value="1.2">
+            <label for="inkMultiplier" class="form-label mb-0">Ink strength</label>
+            <input type="range" class="form-range mb-2 text-center" min="0.3" max="2" step="0.05" id="inkMultiplier" value="1">
+          </div>
           <div id="hueGroupingSummary" class="mb-2 text-start" style="display:none;"></div>
         </div>
         <input class="form-check-input mb-2" type="checkbox" id="flattenPathsCheckbox">

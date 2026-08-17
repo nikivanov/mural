@@ -57,6 +57,14 @@ export type PathDensityData = {
     density?: InfillDensity;
     outline?: boolean;
     colorIndex?: number;
+    // Continuous tone-derived hatch spacing in mm (see huePalette.ts's
+    // assignToneSpacings), used by hue-grouped shading instead of `density`
+    // so a shade's spacing tracks its actual measured tone rather than
+    // snapping to one of the 7 ladder steps in infill.ts. When set,
+    // generateInfills (infill.ts) honours this in preference to `density`;
+    // paths that never set it keep using `density`/the request's
+    // `infillDensity` exactly as before - this is purely additive.
+    spacingMm?: number;
 }
 
 // One entry of a color palette: a physical pen's display name plus a
@@ -147,5 +155,21 @@ export namespace RequestTypes {
         // up as one pen; omitted indices fall back to their automatically
         // computed bucket. Ignored unless hueGrouping is also set.
         hueOverrides?: Record<number, number>,
+        // Physical nib width (mm) of the pen doing the hatching, dominant
+        // term in huePalette.ts's tone-derived spacing model (a fineliner
+        // and a chisel marker differ several-fold, and it scales spacing
+        // roughly linearly). One global value across all pens/groups
+        // (rather than per-pen) for this first cut - see huePalette.ts's
+        // DEFAULT_NIB_WIDTH_MM comment. Omitted/falsy uses that default.
+        // Ignored unless hueGrouping is also set.
+        nibWidthMm?: number,
+        // Ink-strength / contrast multiplier scaling the model's computed
+        // coverage (huePalette.ts's computeToneCoverage): real pens aren't
+        // opaque even at nominal full coverage, and paper absorbency
+        // varies, so this is the knob a user turns when a hue-grouped plot
+        // comes out too light (>1) or too heavy/inky (<1). Omitted/falsy
+        // uses the neutral default (1.0, no adjustment). Ignored unless
+        // hueGrouping is also set.
+        inkMultiplier?: number,
     }
 }

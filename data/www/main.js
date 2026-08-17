@@ -405,6 +405,11 @@ function init() {
             // default - see getHueGroupingEnabled().
             hueGrouping: getHueGroupingEnabled(),
             hueOverrides: getHueGroupingEnabled() ? hueOverrides : undefined,
+            // Per-image physical controls for huePalette.ts's tone-derived
+            // spacing model - see getNibWidthMm/getInkMultiplier. Ignored by
+            // the worker unless hueGrouping is also set.
+            nibWidthMm: getHueGroupingEnabled() ? getNibWidthMm() : undefined,
+            inkMultiplier: getHueGroupingEnabled() ? getInkMultiplier() : undefined,
         };
 
         if (currentPreviewId == thisPreviewId) {
@@ -554,7 +559,7 @@ function init() {
     }
 
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#hueGroupingCheckbox").on('input change', async function() {
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier").on('input change', async function() {
         // Any change to the number/set of detected colors (colorCount) or
         // to whether/how hue grouping applies (multiColorCheckbox,
         // hueGroupingCheckbox) invalidates previously chosen manual
@@ -570,6 +575,10 @@ function init() {
 
     $("#multiColorCheckbox").on('change', function() {
         $("#multiColorOptions").toggle($(this).is(":checked"));
+    });
+
+    $("#hueGroupingCheckbox").on('change', function() {
+        $("#hueGroupingOptions").toggle($(this).is(":checked"));
     });
 
     $("#preview").click(async function() {
@@ -1229,6 +1238,20 @@ function getHueGroupingEnabled() {
     return getMultiColorEnabled() && $("#hueGroupingCheckbox").is(":checked");
 }
 
+// Per-image physical controls for the tone-derived spacing model
+// (tsc/src/huePalette.ts): dominant nib-width term plus an ink-strength
+// multiplier the user turns when a hue-grouped plot comes out too light or
+// too heavy. Only meaningful (and only sent) when hue grouping is enabled.
+function getNibWidthMm() {
+    const value = parseFloat($("#nibWidthMm").val());
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function getInkMultiplier() {
+    const value = parseFloat($("#inkMultiplier").val());
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 // Multi-color per-layer breakdown/palette mapper (docs/multi-color.md
 // section 6): shown after a multi-color render, listing each layer's
 // (auto-detected or auto-named) color swatch, an editable name field
@@ -1292,10 +1315,11 @@ function renderLayerBreakdown(layers) {
 // Hue-grouped shading (tsc/src/huePalette.ts) breakdown: shown after a
 // raster vectorize with "Group shades by hue" on. Leads with the payoff -
 // the reduced pen/swap count vs. one pen per detected color - then lists
-// each pen's shade ladder (darkest member first, its density tag matching
-// what the render actually hatches with), and lets the user override which
-// pen a detected color belongs to when the automatic hue clustering guesses
-// wrong (docs task: "automatic hue grouping will sometimes be wrong").
+// each pen's shade ladder (darkest member first, its tone-derived spacing
+// matching what the render actually hatches with), and lets the user
+// override which pen a detected color belongs to when the automatic hue
+// clustering guesses wrong (docs task: "automatic hue grouping will
+// sometimes be wrong").
 function renderHueGroupingSummary(groups) {
     const container = $("#hueGroupingSummary");
     if (!groups || groups.length === 0) {
@@ -1308,6 +1332,16 @@ function renderHueGroupingSummary(groups) {
     const swapCount = Math.max(0, penCount - 1);
     const originalSwapCount = Math.max(0, totalColors - 1);
 
+    // Computed spacing range across every member that got a tone-derived
+    // override (singletons stay undefined - see huePalette.ts's
+    // assignToneSpacings), so the effect of the nib width/ink strength
+    // sliders is visible before plotting rather than only discoverable on
+    // the wall.
+    const allSpacings = groups.flatMap(g => g.members.map(m => m.spacingMm)).filter(s => s !== undefined);
+    const spacingRangeText = allSpacings.length > 0
+        ? `spacing range: ${Math.min(...allSpacings).toFixed(1)}mm - ${Math.max(...allSpacings).toFixed(1)}mm`
+        : null;
+
     const penOptions = groups.map((g) => {
         const anchor = g.members[0].originalIndex;
         return `<option value="${anchor}">${escapeHtml(g.pen.name)}</option>`;
@@ -1315,8 +1349,8 @@ function renderHueGroupingSummary(groups) {
 
     const rows = groups.map((group) => {
         const memberRows = group.members.map((member) => {
-            const densityText = member.density !== undefined
-                ? `density ${member.density}`
+            const densityText = member.spacingMm !== undefined
+                ? `${member.spacingMm.toFixed(1)}mm spacing`
                 : (member.originalIndex === group.members[0].originalIndex ? 'pen ink' : 'default density');
             const options = penOptions + `<option value="${member.originalIndex}">New pen (alone)</option>`;
 
@@ -1345,6 +1379,7 @@ function renderHueGroupingSummary(groups) {
         <div class="mb-2">
             <strong>${penCount} pen${penCount === 1 ? '' : 's'}, ${swapCount} swap${swapCount === 1 ? '' : 's'}</strong>
             <small class="text-muted">(was ${totalColors} pen${totalColors === 1 ? '' : 's'}, ${originalSwapCount} swap${originalSwapCount === 1 ? '' : 's'})</small>
+            ${spacingRangeText ? `<br><small class="text-muted">${escapeHtml(spacingRangeText)}</small>` : ''}
         </div>
         ${rows}
     `).show();

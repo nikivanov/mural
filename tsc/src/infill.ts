@@ -37,17 +37,17 @@ const infillDensityToSpacingMap = new Map<Exclude<InfillDensity, 0>, number>([
 
 const infillAngle = Math.PI / 4;
 
-// Builds the diagonal infill line grid for a given density. Kept as its own
-// function (rather than the single shared `lines` array the pre-grayscale
-// code computed once) so paths tagged with a per-path density override (see
-// generator.ts) can each get their own grid, while paths without an override
-// keep sharing a single grid for the request's default density, matching the
-// original behavior exactly.
-function buildInfillLines(view: paper.View, xOffset: number, density: InfillDensity): paper.Path.Line[] {
+// Builds the diagonal infill line grid for a given spacing (mm). Kept as its
+// own function (rather than the single shared `lines` array the
+// pre-grayscale code computed once) so paths tagged with a per-path density
+// or spacingMm override (see generator.ts) can each get their own grid,
+// while paths without an override keep sharing a single grid for the
+// request's default density, matching the original behavior exactly.
+// spacingMm === 0 (the "no infill" density-0 case) produces no lines.
+function buildInfillLines(view: paper.View, xOffset: number, spacingMm: number): paper.Path.Line[] {
     const lines: paper.Path.Line[] = [];
-    if (density != 0) {
-        const infillSpacing = infillDensityToSpacingMap.get(density)!;
-        const infillXSpacing = infillSpacing * Math.sqrt(2);
+    if (spacingMm !== 0) {
+        const infillXSpacing = spacingMm * Math.sqrt(2);
         for (let currentX = -xOffset; currentX < view.size.width; currentX = currentX + infillXSpacing) {
             lines.push(new paper.Path.Line({x: currentX, y: 0}, {x: currentX + xOffset, y: view.size.height}));
             lines.push(new paper.Path.Line({x: currentX, y: view.size.height}, {x: currentX + xOffset, y: 0}));
@@ -61,12 +61,12 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
     const view = paper.project.view;
     const xOffset = view.size.height * Math.tan(infillAngle);
 
-    const linesByDensity = new Map<InfillDensity, paper.Path.Line[]>();
-    function getLines(density: InfillDensity): paper.Path.Line[] {
-        let lines = linesByDensity.get(density);
+    const linesBySpacing = new Map<number, paper.Path.Line[]>();
+    function getLines(spacingMm: number): paper.Path.Line[] {
+        let lines = linesBySpacing.get(spacingMm);
         if (!lines) {
-            lines = buildInfillLines(view, xOffset, density);
-            linesByDensity.set(density, lines);
+            lines = buildInfillLines(view, xOffset, spacingMm);
+            linesBySpacing.set(spacingMm, lines);
         }
         return lines;
     }
@@ -86,8 +86,18 @@ export function generateInfills(pathsToInfill: paper.PathItem[], infillDensity: 
         const pathData = path.data as PathDensityData | undefined;
         const density = pathData?.density !== undefined ? pathData.density : infillDensity;
         const includeOutline = pathData?.outline !== undefined ? pathData.outline : true;
-        const minInfillLength = density === 0 ? 1000 : Math.floor(infillDensityToSpacingMap.get(density)!);
-        const lines = getLines(density);
+        // Tone-derived hue-grouped shading (huePalette.ts) carries a
+        // continuous spacingMm instead of snapping to one of the 7 `density`
+        // ladder steps; when present it takes priority over `density` so
+        // that finer tonal control isn't lost to quantization. Paths
+        // without it (the overwhelming majority - everything that isn't
+        // hue-grouped shading) fall through to the density-derived spacing
+        // exactly as before.
+        const spacingMm = pathData?.spacingMm !== undefined
+            ? pathData.spacingMm
+            : (density === 0 ? 0 : infillDensityToSpacingMap.get(density)!);
+        const minInfillLength = spacingMm === 0 ? 1000 : Math.floor(spacingMm);
+        const lines = getLines(spacingMm);
 
         if (!(path instanceof paper.Path) && !(path instanceof paper.CompoundPath)) {
             throw new Error("Path item is neither a Path or CompoundPath");

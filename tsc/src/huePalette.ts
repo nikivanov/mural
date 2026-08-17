@@ -6,9 +6,10 @@
 // color-separation palette (from vectorizeImageDataColor's k-means or
 // supplied-palette path, in vectorizer.ts) into fewer "pens" by hue
 // proximity, and re-tags the traced SVG's per-mask `colorIndex` so lighter
-// members of a group share their darkest member's pen at a sparser density
-// (PathDensityData.density, from the extended ladder in infill.ts) instead
-// of getting their own colorIndex/pen.
+// members of a group share their darkest member's pen at a sparser hatch
+// spacing (PathDensityData.spacingMm, derived from each member's measured
+// tone - see the "Tone-derived spacing model" section below) instead of
+// getting their own colorIndex/pen.
 //
 // Deliberately independent of vectorizer.ts and paper.js: this operates
 // purely on the already-produced palette (hex strings) and the tag strings
@@ -20,7 +21,7 @@
 // DARKEST member of its group. Lighter shades come from drawing that same
 // ink more sparsely, never from a lighter pen standing in for a dark one.
 
-import { InfillDensity, PaletteEntry } from './types';
+import { PaletteEntry } from './types';
 
 // --- Thresholds -------------------------------------------------------
 //
@@ -162,28 +163,136 @@ export function computeAutoHueGroups(entries: { index: number; color: string }[]
     return bucketIds;
 }
 
-// Spreads `count` shades of one pen across the extended density ladder
-// (infill.ts), densest first. A lone member gets `undefined` (no override -
-// falls back to the request's ordinary infillDensity), since there's no
-// tonal ladder to build with only one shade; this also keeps a
-// single-member group's output identical to plain (non-hue-grouped)
-// colorSeparation.
-export function assignDensityLadder(count: number): (InfillDensity | undefined)[] {
-    if (count <= 0) {
-        return [];
-    }
-    if (count === 1) {
-        return [undefined];
+// --- Tone-derived spacing model -----------------------------------------
+//
+// The bug this replaces: assigning densities by RANK spreads a group's
+// members evenly across the full 7-step ladder regardless of how far apart
+// their colors actually are, so e.g. a 2-member group always lands on the
+// ladder's extremes (2.5mm and 20mm, an 8x ink ratio) even when the two
+// shades are nearly identical in tone.
+//
+// The fix: derive hatch spacing directly from measured luminance. Sparse
+// dark ink on white paper reads as a tint - the fraction of a cell covered
+// by ink approximates the linear mix between paper white and the pen's own
+// (darkest-member) ink color. For a target color T drawn with pen P on
+// paper W:
+//   coverage = (lum(W) - lum(T)) / (lum(W) - lum(P))     clamped to (0, 1]
+// generateInfills' cross-hatch draws 2 stroke directions per spacing period
+// (see infill.ts's buildInfillLines and its coverage-approximation
+// comment), each nibWidth wide, so coverage ~= strokesPerCell * nibWidth /
+// spacing, which inverts to:
+//   spacing = strokesPerCell * nibWidth / coverage
+// The darkest member of a group (T == P) always gets coverage 1 -> spacing
+// = strokesPerCell * nibWidth (near-solid); lighter members get
+// proportionally sparser spacing that tracks how close their tone actually
+// is to the pen, not their rank within the group.
+
+// Paper is assumed white (lum 1.0): this plotter marks paper, not a dark
+// wall (see the "Tom plots on paper" memory) - sparse hatching is read
+// against a bright background, never a dark one.
+export const PAPER_LUMINANCE = 1.0;
+
+// generateInfills' cross-hatch lays 2 stroke directions per spacing period
+// (infill.ts's buildInfillLines draws both diagonals of the grid), so 2
+// nib-widths of ink fall within each spacing cell at full coverage.
+export const STROKES_PER_CELL = 2;
+
+// Global default nib width (mm). Ideally per-pen (a fineliner and a chisel
+// marker differ several-fold - the dominant term in this model), but a
+// single global value is an acceptable first cut: most pens usable with
+// this plotter cluster in the 1-1.5mm range, and per-pen calibration can
+// layer on top once nib widths are actually measured per entry in the ink
+// capacity table. 1.2mm matches the assumption infill.ts's existing
+// coverage-approximation comment already used.
+export const DEFAULT_NIB_WIDTH_MM = 1.2;
+
+// Neutral ink-strength/contrast multiplier: no adjustment to computed
+// coverage. Real pens aren't opaque even at nominal "full" coverage, and
+// paper absorbency varies, so callers turn this up/down when a plot comes
+// out too light or too heavy.
+export const DEFAULT_INK_MULTIPLIER = 1.0;
+
+// Clamp floor: never denser than about one nib width. Below this, the two
+// hatch directions' strokes start overlapping the same nib pass rather than
+// laying fresh ink side by side - wasted ink, a soggier patch of paper, and
+// no darker a result than the floor itself already gives.
+const MIN_SPACING_NIB_WIDTHS = 1;
+
+// Clamp ceiling (mm): beyond this, individual hatch lines read to the eye
+// as visible stripes rather than a blended tone. Set with headroom above
+// the original ladder's sparsest level (infill.ts's density 1, 20mm) since
+// this model is continuous rather than snapped to that ladder - a very
+// light target or a low ink multiplier can still land a bit sparser than
+// the old ladder's floor without crossing into "obviously stripes"
+// territory.
+export const MAX_SPACING_MM = 25;
+
+export type ToneSpacingOptions = {
+    nibWidthMm?: number;
+    inkMultiplier?: number;
+    paperLuminance?: number;
+};
+
+// Coverage fraction implied by a target color's luminance relative to the
+// pen's (darkest-member) luminance and the paper's, per the model above.
+// Deliberately NOT clamped to <= 1 here: a high ink multiplier or a target
+// at/darker than the pen (rawCoverage >= 1 - the latter shouldn't be
+// possible physically, but measurement noise could produce it) is allowed
+// to imply coverage above the geometric "2 nib-widths per cell" nominal
+// full coverage; computeToneSpacingMm's floor clamp (not this function) is
+// what actually prevents the resulting spacing from overlapping a single
+// nib pass. Only clamped away from <= 0, which would otherwise divide out
+// to zero/negative spacing.
+export function computeToneCoverage(
+    targetLuminance: number,
+    penLuminance: number,
+    options?: ToneSpacingOptions,
+): number {
+    const paperLuminance = options?.paperLuminance ?? PAPER_LUMINANCE;
+    const inkMultiplier = options?.inkMultiplier ?? DEFAULT_INK_MULTIPLIER;
+
+    const range = paperLuminance - penLuminance;
+    if (range <= 1e-6) {
+        // Degenerate: the "pen" is (numerically) as light as paper, so
+        // there's no meaningful coverage ratio to derive - treat as solid
+        // rather than dividing by ~0.
+        return 1;
     }
 
-    // Densest -> sparsest; darkest member (index 0) gets the densest level.
-    const levels: InfillDensity[] = [7, 6, 5, 4, 3, 2, 1];
-    const result: InfillDensity[] = [];
-    for (let i = 0; i < count; i++) {
-        const idx = Math.round((i * (levels.length - 1)) / (count - 1));
-        result.push(levels[idx]);
+    const rawCoverage = (paperLuminance - targetLuminance) / range;
+    return Math.max(1e-6, rawCoverage * inkMultiplier);
+}
+
+// Continuous hatch spacing (mm) for a target color drawn with a given pen,
+// per the tone-derived model above. This is what PathDensityData.spacingMm
+// carries - generateInfills (infill.ts) honors it in preference to the
+// enum `density` ladder.
+export function computeToneSpacingMm(
+    targetLuminance: number,
+    penLuminance: number,
+    options?: ToneSpacingOptions,
+): number {
+    const nibWidthMm = options?.nibWidthMm ?? DEFAULT_NIB_WIDTH_MM;
+    const coverage = computeToneCoverage(targetLuminance, penLuminance, options);
+    const spacing = (STROKES_PER_CELL * nibWidthMm) / coverage;
+    const minSpacing = MIN_SPACING_NIB_WIDTHS * nibWidthMm;
+    return Math.min(MAX_SPACING_MM, Math.max(minSpacing, spacing));
+}
+
+// Assigns each member of a group (darkest-first, memberLuminances[0] is the
+// physical pen) a continuous spacingMm derived from how far its actual
+// measured tone sits from the pen's, rather than its rank within the group.
+// A lone member gets `undefined` (no override - falls back to the request's
+// ordinary infillDensity), since there's no tonal spread to model with only
+// one shade; this also keeps a single-member group's output identical to
+// plain (non-hue-grouped) colorSeparation.
+export function assignToneSpacings(memberLuminances: number[], options?: ToneSpacingOptions): (number | undefined)[] {
+    if (memberLuminances.length <= 1) {
+        return memberLuminances.map(() => undefined);
     }
-    return result;
+
+    const penLuminance = memberLuminances[0];
+    return memberLuminances.map(lum => computeToneSpacingMm(lum, penLuminance, options));
 }
 
 export type HueGroupMember = {
@@ -191,7 +300,14 @@ export type HueGroupMember = {
     name: string;
     color: string;
     lightness: number;
-    density?: InfillDensity;
+    // Perceptual luminance (see luminanceOfHex) - the actual measured tone
+    // the spacing model above is derived from, as distinct from `lightness`
+    // (HSL L, used only for the darkest-first sort/display convenience).
+    luminance: number;
+    // Continuous tone-derived hatch spacing (mm) - see assignToneSpacings.
+    // Undefined for a singleton group member (falls back to the request's
+    // ordinary infillDensity, same as before this model existed).
+    spacingMm?: number;
 };
 
 export type HueGroup = {
@@ -222,7 +338,7 @@ type RawColorResult = { svg: string; palette: PaletteEntry[] };
 // a DOM, so this module stays paper.js/DOM-free.
 const GROUP_TAG_RE = /<g data-paper-data='[^']*'>/g;
 
-function remapSvgGroups(svg: string, remap: { colorIndex: number; density?: InfillDensity }[]): string {
+function remapSvgGroups(svg: string, remap: { colorIndex: number; spacingMm?: number }[]): string {
     let i = 0;
     return svg.replace(GROUP_TAG_RE, () => {
         const entry = remap[i];
@@ -230,9 +346,9 @@ function remapSvgGroups(svg: string, remap: { colorIndex: number; density?: Infi
         if (!entry) {
             throw new Error('Hue grouping: fewer remap entries than <g> tags in the vectorized SVG');
         }
-        const data: { colorIndex: number; density?: InfillDensity } = { colorIndex: entry.colorIndex };
-        if (entry.density !== undefined) {
-            data.density = entry.density;
+        const data: { colorIndex: number; spacingMm?: number } = { colorIndex: entry.colorIndex };
+        if (entry.spacingMm !== undefined) {
+            data.spacingMm = entry.spacingMm;
         }
         return `<g data-paper-data='${JSON.stringify(data)}'>`;
     });
@@ -242,12 +358,17 @@ function remapSvgGroups(svg: string, remap: { colorIndex: number; density?: Infi
 // color-separation result, producing the final grouped palette/SVG. Pure
 // with respect to `raw` - safe to call repeatedly (e.g. every time the user
 // tweaks an override) without re-tracing.
-export function buildHueGroupingResult(raw: RawColorResult, bucketIdPerOriginalIndex: number[]): HueGroupingResult {
+export function buildHueGroupingResult(
+    raw: RawColorResult,
+    bucketIdPerOriginalIndex: number[],
+    toneOptions?: ToneSpacingOptions,
+): HueGroupingResult {
     if (bucketIdPerOriginalIndex.length !== raw.palette.length) {
         throw new Error('Hue grouping: bucket assignment length must match the palette length');
     }
 
     const hsls = raw.palette.map(p => hexToHsl(p.color));
+    const luminances = raw.palette.map(p => luminanceOfHex(p.color));
 
     const bucketToIndices = new Map<number, number[]>();
     bucketIdPerOriginalIndex.forEach((bucketId, originalIndex) => {
@@ -257,9 +378,11 @@ export function buildHueGroupingResult(raw: RawColorResult, bucketIdPerOriginalI
     });
 
     const rawGroups = [...bucketToIndices.values()].map(indices => {
-        // Darkest (lowest lightness) first - the darkest member becomes the
-        // physical pen; the rest ride on it at sparser densities.
-        return [...indices].sort((a, b) => hsls[a].l - hsls[b].l);
+        // Darkest (lowest luminance) first - the darkest member becomes the
+        // physical pen; the rest ride on it at a sparser tone-derived
+        // spacing (see assignToneSpacings above, which requires this order:
+        // memberLuminances[0] is treated as the pen).
+        return [...indices].sort((a, b) => luminances[a] - luminances[b]);
     });
 
     // Order groups light -> dark (docs/multi-color.md section 5) by each
@@ -267,19 +390,18 @@ export function buildHueGroupingResult(raw: RawColorResult, bucketIdPerOriginalI
     // elsewhere (groupPathsByLiteralColor in generator.ts,
     // vectorizeImageDataColor in vectorizer.ts).
     const orderedGroups = [...rawGroups].sort((membersA, membersB) => {
-        const darkestA = raw.palette[membersA[0]].color;
-        const darkestB = raw.palette[membersB[0]].color;
-        return luminanceOfHex(darkestB) - luminanceOfHex(darkestA);
+        return luminances[membersB[0]] - luminances[membersA[0]];
     });
 
     const groups: HueGroup[] = orderedGroups.map((members, penIndex) => {
-        const densities = assignDensityLadder(members.length);
+        const spacings = assignToneSpacings(members.map(originalIndex => luminances[originalIndex]), toneOptions);
         const groupMembers: HueGroupMember[] = members.map((originalIndex, i) => ({
             originalIndex,
             name: raw.palette[originalIndex].name,
             color: raw.palette[originalIndex].color,
             lightness: hsls[originalIndex].l,
-            density: densities[i],
+            luminance: luminances[originalIndex],
+            spacingMm: spacings[i],
         }));
 
         return {
@@ -289,14 +411,14 @@ export function buildHueGroupingResult(raw: RawColorResult, bucketIdPerOriginalI
         };
     });
 
-    const remapByOriginalIndex = new Map<number, { colorIndex: number; density?: InfillDensity }>();
+    const remapByOriginalIndex = new Map<number, { colorIndex: number; spacingMm?: number }>();
     for (const group of groups) {
         for (const member of group.members) {
-            remapByOriginalIndex.set(member.originalIndex, { colorIndex: group.penIndex, density: member.density });
+            remapByOriginalIndex.set(member.originalIndex, { colorIndex: group.penIndex, spacingMm: member.spacingMm });
         }
     }
 
-    const orderedRemap: { colorIndex: number; density?: InfillDensity }[] = [];
+    const orderedRemap: { colorIndex: number; spacingMm?: number }[] = [];
     for (let originalIndex = 0; originalIndex < raw.palette.length; originalIndex++) {
         orderedRemap.push(remapByOriginalIndex.get(originalIndex)!);
     }
@@ -309,10 +431,10 @@ export function buildHueGroupingResult(raw: RawColorResult, bucketIdPerOriginalI
 }
 
 // Convenience: automatic hue clustering with no manual override.
-export function applyHueGrouping(raw: RawColorResult): HueGroupingResult {
+export function applyHueGrouping(raw: RawColorResult, toneOptions?: ToneSpacingOptions): HueGroupingResult {
     const entries = raw.palette.map((p, index) => ({ index, color: p.color }));
     const bucketIds = computeAutoHueGroups(entries);
-    return buildHueGroupingResult(raw, bucketIds);
+    return buildHueGroupingResult(raw, bucketIds, toneOptions);
 }
 
 // Applies hueOverrides (RequestTypes.VectorizeRequest.hueOverrides) on top of
@@ -321,7 +443,11 @@ export function applyHueGrouping(raw: RawColorResult): HueGroupingResult {
 // bucket ids are offset into a disjoint range from the auto ids so a manual
 // reassignment can't accidentally collide with (and silently merge into) an
 // unrelated automatic cluster.
-export function applyHueGroupingWithOverrides(raw: RawColorResult, overrides: Record<number, number>): HueGroupingResult {
+export function applyHueGroupingWithOverrides(
+    raw: RawColorResult,
+    overrides: Record<number, number>,
+    toneOptions?: ToneSpacingOptions,
+): HueGroupingResult {
     const entries = raw.palette.map((p, index) => ({ index, color: p.color }));
     const autoBucketIds = computeAutoHueGroups(entries);
 
@@ -333,5 +459,5 @@ export function applyHueGroupingWithOverrides(raw: RawColorResult, overrides: Re
         return override !== undefined ? overrideOffset + override : autoId;
     });
 
-    return buildHueGroupingResult(raw, bucketIds);
+    return buildHueGroupingResult(raw, bucketIds, toneOptions);
 }

@@ -25,6 +25,7 @@ function generatePathsRecursive(item: paper.Item, inherited: PathDensityData | u
                 child.data.density = effective.density;
                 child.data.outline = effective.outline;
                 child.data.colorIndex = effective.colorIndex;
+                child.data.spacingMm = effective.spacingMm;
             }
             paths.push(child);
         }
@@ -35,7 +36,7 @@ function generatePathsRecursive(item: paper.Item, inherited: PathDensityData | u
 
 function getOwnDensityData(item: paper.Item): PathDensityData | undefined {
     const data = item.data as PathDensityData | undefined;
-    if (data && (data.density !== undefined || data.outline !== undefined || data.colorIndex !== undefined)) {
+    if (data && (data.density !== undefined || data.outline !== undefined || data.colorIndex !== undefined || data.spacingMm !== undefined)) {
         return data;
     }
 

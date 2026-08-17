@@ -80,13 +80,13 @@ if (!paperAvailable) {
         const [darker, lighter] = blueGroup!.members;
         assert.strictEqual(darker.color, "#1133aa");
         assert.strictEqual(lighter.color, "#77aaee");
-        assert.ok(darker.density! > lighter.density!, "darker blue must get a denser level than lighter blue");
+        assert.ok(darker.spacingMm! < lighter.spacingMm!, "darker blue must get a tighter (denser) spacing than lighter blue");
 
         // Drive the grouped SVG through the full render pipeline: must
         // produce exactly one c<index> boundary (2 pens = N-1 = 1 marker),
-        // and the drawn region tagged with the denser level must actually
-        // draw more (longer infill) than the sparser one for an
-        // equal-sized region - proving the density difference isn't just a
+        // and the drawn region tagged with the tighter spacing must
+        // actually draw more (longer infill) than the sparser one for an
+        // equal-sized region - proving the spacing difference isn't just a
         // metadata tag but changes real hatch output.
         const probeSize = new paper.Size(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
         paper.setup(probeSize);
@@ -127,6 +127,7 @@ if (!paperAvailable) {
         ]);
         assert.strictEqual(result.palette.length, 3);
         assert.ok(!result.svg.includes('"density"'), "no density tag should appear unless hue grouping ran");
+        assert.ok(!result.svg.includes('"spacingMm"'), "no spacingMm tag should appear unless hue grouping ran");
     });
 
     test("infill: the extended density ladder produces correspondingly denser hatching (level 7 > level 4 > level 1)", () => {
@@ -175,6 +176,25 @@ if (!paperAvailable) {
             for (const path of infilled.infillPaths) {
                 assert.ok(path.length > minLength, `density ${density}: infill segment length ${path.length} should exceed minInfillLength ${minLength}`);
             }
+        }
+    });
+
+    test("infill: PathDensityData.spacingMm (tone-derived, continuous) takes priority over `density` when both are set", () => {
+        paper.setup(new paper.Size(100, 100));
+        const square = new paper.Path.Rectangle(new paper.Point(10, 10), new paper.Size(60, 60));
+        square.fillColor = new paper.Color("#000000");
+
+        // A continuous spacing that doesn't correspond to any ladder step -
+        // if generateInfills fell back to `density` (7 -> 2.5mm) instead of
+        // honoring spacingMm, every infill segment would exceed
+        // floor(2.5)=2 rather than floor(3.3)=3.
+        const clone = square.clone({ insert: false });
+        clone.data = { density: 7, spacingMm: 3.3 };
+        const [infilled] = generateInfills([clone], 0);
+
+        assert.ok(infilled.infillPaths.length > 0, "expected some infill to be drawn");
+        for (const path of infilled.infillPaths) {
+            assert.ok(path.length > Math.floor(3.3), `expected minInfillLength derived from spacingMm (3.3mm), got a path of length ${path.length}`);
         }
     });
 }
