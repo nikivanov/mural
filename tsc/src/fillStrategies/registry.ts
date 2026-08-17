@@ -5,9 +5,11 @@
 // do not stub out future strategies' internals in this branch.
 import { FillStrategy } from './types';
 import { crossHatch45 } from './crossHatch45';
+import { contour } from './contour';
 
 export const defaultFillStrategyName = crossHatch45.name;
 
 export const fillStrategies: Record<string, FillStrategy> = {
     [crossHatch45.name]: crossHatch45,
+    [contour.name]: contour,
 };
