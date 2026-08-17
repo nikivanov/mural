@@ -1178,6 +1178,7 @@ function startLiveDrawingView() {
     $("#penSwapPanel").hide();
     $("#liveConnectionNotice").hide();
     $("#liveProgressBar").css('width', '0%').text('0%');
+    $("#liveProgressPct").text('0%');
     $("#liveStatsText").text('');
 
     liveEventSource = new EventSource('/events');
@@ -1224,6 +1225,7 @@ function formatDuration(totalSeconds) {
 function updateLiveProgress(data) {
     const percent = Math.max(0, Math.min(100, data.percent || 0));
     $("#liveProgressBar").css('width', percent + '%').text(percent + '%');
+    $("#liveProgressPct").text(percent + '%');
 
     const now = Date.now();
     liveProgressHistory.push({t: now, lines: data.executedLines});

@@ -5,73 +5,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mural</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
-    integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
   <link rel="stylesheet/less" type="text/css" href="dpad.less" />
   <link href="main.css" rel="stylesheet">
-  <style>
-    .bd-placeholder-img {
-      font-size: 1.125rem;
-      text-anchor: middle;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      user-select: none;
-    }
-
-    @media (min-width: 768px) {
-      .bd-placeholder-img-lg {
-        font-size: 3.5rem;
-      }
-    }
-
-    .b-example-divider {
-      height: 3rem;
-      background-color: rgba(0, 0, 0, .1);
-      border: solid rgba(0, 0, 0, .15);
-      border-width: 1px 0;
-      box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
-    }
-
-    .b-example-vr {
-      flex-shrink: 0;
-      width: 1.5rem;
-      height: 100vh;
-    }
-
-    .bi {
-      vertical-align: -.125em;
-      fill: currentColor;
-    }
-
-    .nav-scroller {
-      position: relative;
-      z-index: 2;
-      height: 2.75rem;
-      overflow-y: hidden;
-    }
-
-    .nav-scroller .nav {
-      display: flex;
-      flex-wrap: nowrap;
-      padding-bottom: 1rem;
-      margin-top: -1px;
-      overflow-x: auto;
-      text-align: center;
-      white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
-    }
-  </style>
 </head>
 
-<body class="text-center">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
-    crossorigin="anonymous"></script>
+<body>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-throttle-debounce/1.1/jquery.ba-throttle-debounce.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/less" ></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js" integrity="sha512-NApOOz1j2Dz1PKsIvg1hrXLzDFd62+J0qOPIhm8wueAnk4fQdSclq6XvfzvejDs6zibSoDC+ipl1dC66m+EoSQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="modal.js" type="module"></script>
   <script src="main.js" type="module"></script>
   <div id="errorAlertContainer" style="position:fixed; top:10px; left:10px; right:10px; z-index:2000;"></div>
   <main class="form-signin w-100 m-auto">
@@ -79,8 +22,13 @@
         <div class="spinner-border mb-5 loading" role="status"></div>
       </div>
       <div id="retractBeltsSlide" class="muralSlide" style="display:none;">
+        <div class="ui-topbar"><span class="eyebrow">Setup</span></div>
         <h3 class="mb-2 fw-normal">Retract belts</h3>
-        <h6 class="mb-4"><small class="text-muted">Place the belt loops on the homing screws and retract the belts until the motors stall. Don't let the motors stall for too long.</small></h6>
+        <ul class="instr-list">
+          <li class="instr-line">Place the belt loops on the homing screws.</li>
+          <li class="instr-line">Retract the belts until the motors stall.</li>
+          <li class="instr-line"><b>Don't</b> let the motors stall for too long.</li>
+        </ul>
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
             <div class="spinner-border spinner-border-sm me-2" id="leftRetractSpinner" role="status" style="visibility:hidden;"></div>
@@ -94,31 +42,42 @@
         <button class="w-100 btn btn-lg btn-primary mb-4" id="autoRetractButton" style="display:none;">Auto-retract</button>
         <h6 class="mb-2" id="manualRetractHint" style="display:none;"><small class="text-muted">If auto-detection fails, use the manual controls below.</small></h6>
         <div class="form-check form-switch mb-5">
-          <input class="form-check-input" style="transform: scale(2);" type="checkbox" role="switch" id="leftMotorToggle">
+          <input class="form-check-input" type="checkbox" role="switch" id="leftMotorToggle">
           <label class="form-check-label" for="leftMotorToggle">Left motor</label>
         </div>
         <div class="form-check form-switch mb-5">
-          <input class="form-check-input" style="transform: scale(2);" type="checkbox" role="switch" id="rightMotorToggle">
+          <input class="form-check-input" type="checkbox" role="switch" id="rightMotorToggle">
           <label class="form-check-label" for="rightMotorToggle">Right motor</label>
         </div>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="beltsRetracted">Belts are retracted</button>
       </div>
       <div id="distanceBetweenAnchorsSlide" class="muralSlide" style="display:none;">
+        <div class="ui-topbar"><span class="eyebrow">Setup</span></div>
         <h3 class="mb-2 fw-normal">Distance between hangers</h3>
-        <h6 class="mb-5"><small class="text-muted">Distance between the two nails on which you are hanging Mural, in millimeters</small></h6>
+        <ul class="instr-list">
+          <li class="instr-line">Measure the distance between the two nails you're hanging Mural on, in millimeters.</li>
+        </ul>
         <input type="number" class="form-control mb-5" id="distanceInput">
         <button class="w-100 btn btn-lg btn-primary mb-5" id="setDistance">Set distance</button>
-        <div style="position:fixed; top: 10px; right: 10px;" data-bs-toggle="modal" data-bs-target="#toolsModal"><i class="bi-gear fs-2"></i></div>
+        <button type="button" class="tools-gear-btn" data-modal-target="toolsModal" aria-label="Tools" style="position:fixed; top: 10px; right: 10px;">&#9881;</button>
       </div>
       <div id="extendToHomeSlide" class="muralSlide" style="display:none;">
+        <div class="ui-topbar"><span class="eyebrow">Setup</span></div>
         <h3 class="mb-2 fw-normal" id="extendToHomeTitle">Extend belts</h3>
-        <h6 class="mb-5"><small class="text-muted" id="extendToHomeText">The belts will extend to their home position. Make sure the belts are unobstructed and the motors do not skip, or the drawing accuracy may be affected</small></h6>
+        <ul class="instr-list">
+          <li class="instr-line" id="extendToHomeText">The belts will extend to their home position. Make sure the belts are unobstructed and the motors do not skip, or the drawing accuracy may be affected.</li>
+        </ul>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="extendToHome">Extend to home position</button>
         <div class="spinner-border mb-5 loading" id="extendingSpinner" role="status" style="visibility:hidden;"></div>
       </div>
       <div id="penCalibrationSlide" class="muralSlide" style="display:none;">
+        <div class="ui-topbar"><span class="eyebrow">Setup</span></div>
         <h3 class="mb-2 fw-normal">Pen calibration</h3>
-        <h6 class="mb-5"><small class="text-muted">Insert the pen so it's close to, but not touching the wall and secure it with a bolt. Then, adjust the pen position so the pen is touching the wall</small></h6>
+        <ul class="instr-list">
+          <li class="instr-line">Insert the pen so it's close to, but not touching, the wall.</li>
+          <li class="instr-line">Secure it with a bolt.</li>
+          <li class="instr-line">Adjust the pen position so the pen is touching the wall.</li>
+        </ul>
         <input type="range" class="form-range mb-5 text-center" min="0" max="90" id="servoRange" value="0">
         <div class="btn-group mb-3 btn-group-lg" role="group">
           <div class="btn-group me-3" role="group">
@@ -131,8 +90,9 @@
         <button class="w-100 btn btn-lg btn-primary mb-5" id="setPenDistance">Pen is touching the wall</button>
       </div>
       <div id="svgUploadSlide" class="muralSlide" style="display:none;">
-        <h3 class="mb-2 fw-normal">Select SVG Image</h3>
-        <h6 class="mb-2"><small class="text-muted">Use black and white line art SVGs for now</small></h6>
+        <div class="ui-topbar"><span class="eyebrow">Setup</span></div>
+        <h3 class="mb-2 fw-normal">Select SVG image</h3>
+        <h6 class="mb-2"><small class="text-muted">Use black and white line art SVGs for now.</small></h6>
         <img id="sourceSvg" class="img-thumbnail mb-2 svg-control" style="display:none;width:100%;">
         <div class="container svg-control mb-2" style="display: none;">
           <div class="row">
@@ -142,14 +102,14 @@
                   <a class="up" href="#"></a>
                   <a class="right" href="#"></a>
                   <a class="down" href="#"></a>
-                  <a class="left" href="#"></a>  
+                  <a class="left" href="#"></a>
                 </nav>
               </div>
             </div>
             <div class="col-2 align-self-center">
-              <button type="button" class="btn btn-primary mb-2" id="zoomIn"><i class="bi-zoom-in fs-2"></i></button>
-              <button type="button" class="btn btn-primary mb-2" id="zoomOut"><i class="bi-zoom-out fs-2"></i></button>
-              <button type="button" class="btn btn-primary" id="resetTransform"><i class="bi-arrow-counterclockwise fs-2"></i></button>
+              <button type="button" class="btn btn-primary mb-2 fs-2" id="zoomIn" aria-label="Zoom in">&#8853;</button>
+              <button type="button" class="btn btn-primary mb-2 fs-2" id="zoomOut" aria-label="Zoom out">&#8854;</button>
+              <button type="button" class="btn btn-primary fs-2" id="resetTransform" aria-label="Reset transform">&#8635;</button>
             </div>
           </div>
           <div class="row">
@@ -162,110 +122,178 @@
         <hr class="my-4">
         <h6 class="mb-2"><small class="text-muted">Or re-upload a previously saved command file</small></h6>
         <input class="form-control form-control-lg mb-2" id="uploadCommandsFile" type="file" accept=".txt,.commands">
-        <div style="position:fixed; top: 10px; right: 10px;" data-bs-toggle="modal" data-bs-target="#toolsModal"><i class="bi-gear fs-2"></i></div>
+        <button type="button" class="tools-gear-btn" data-modal-target="toolsModal" aria-label="Tools" style="position:fixed; top: 10px; right: 10px;">&#9881;</button>
       </div>
       <div id="chooseRendererSlide" class="muralSlide" style="display:none;">
+        <div class="ui-topbar"><span class="eyebrow">Setup</span></div>
         <h3 class="mb-2 fw-normal">Choose render type</h3>
         <button class="w-100 btn btn-lg btn-primary mb-5 mt-5" id="pathTracing">Path Tracing<br/><sub>Works well for most drawings</sub></button>
-        <button class="w-100 btn btn-lg btn-primary mb-5" id="vectorRasterVector">Vector → Raster → Vector<br/><sub>Preserves stroke width</sub></button>
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="vectorRasterVector">Vector &rarr; Raster &rarr; Vector<br/><sub>Preserves stroke width</sub></button>
         <button class="w-100 btn btn-lg btn-secondary mt-3 backToSvgSelect">Back</button>
       </div>
-      <div id="drawingPreviewSlide" class="muralSlide" style="display:none;">
+      <div id="drawingPreviewSlide" class="muralSlide two-col-desktop" style="display:none;">
+        <div class="ui-topbar"><span class="eyebrow">Preview</span></div>
         <h3 class="mb-2 fw-normal">Drawing preview</h3>
-        <img id="previewSvg" class="img-thumbnail mb-2 svg-preview" style="display:none;">
-        <div class="progress mb-2" style="height: 20px;">
-          <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="progressBar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
-        </div>
-        <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
-        <!-- Cost estimator (tsc/src/costEstimator.ts): projected PROCESSING
-             time on THIS device, shown before every (re-)render, and the
-             fuller draw/travel/pen-lift PLOTTING estimate shown after a
-             render actually completes. Both re-populate on settings changes
-             (debounced - see main.js's re-estimate throttle). -->
-        <div id="processingEstimateText" class="mb-1 text-start" style="display:none;"><small class="text-muted"></small></div>
-        <div id="processingWarning" class="alert alert-warning text-start py-2 mb-2" style="display:none;"></div>
-        <div id="plottingEstimateSummary" class="mb-2 text-start" style="display:none;"></div>
-        <label for="fillMethod" class="form-label mb-0">Fill style</label>
-        <!-- Descriptions ground truth: each strategy's own header comment
-             (tsc/src/fillStrategies/*.ts) - see costEstimator.ts's
-             INFILL_US_PER_SEGMENT_AT_BASE_SPACING for the relative cost
-             ordering these summarize. -->
-        <select class="form-select mb-1" id="fillMethod">
-          <option value="crossHatch45">Cross-hatch (default) &mdash; even diagonal grid, balanced look, cheapest to compute</option>
-          <option value="singleDirectionHatch">Single-direction hatch &mdash; one diagonal pass only, lighter coverage, fast</option>
-          <option value="crossHatchAngled">Cross-hatch (angled) &mdash; the default grid rotated to a chosen angle, similar cost</option>
-          <option value="jitteredHatch">Jittered cross-hatch &mdash; hand-drawn, slightly irregular grid; a bit slower</option>
-          <option value="spiral">Spiral &mdash; one continuous spiral stroke, fewest pen-lifts, best on rounded shapes</option>
-          <option value="gradientHatch">Gradient hatch &mdash; hatching follows the image's own shading, like an engraving; most expensive</option>
-          <option value="contour">Contour &mdash; concentric outline rings, topographic-map look; fairly expensive</option>
-        </select>
-        <div id="fillMethodRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
-        <label for="infillDensity" class="form-label mb-0">Infill Density</label>
-        <!-- Extended ladder (tsc/src/infill.ts): 1-4 are the original
-             levels (20/15/10/7mm spacing), 5-7 are denser levels
-             (5/3.5/2.5mm) added for hue-grouped shading below, so a single
-             pen can hatch several believable shades of its darkest color. -->
-        <input type="range" class="form-range mb-2 text-center" min="0" max="7" step="1" id="infillDensity" value="0">
-        <div id="infillDensityRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
-        <label for="turdSize" class="form-label mb-0">Despeckle</label>
-        <input type="range" class="form-range mb-2 text-center" min="2" max="200" step="11" id="turdSize" value="2">
-        <div id="turdSizeRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
-        <input class="form-check-input mb-2" type="checkbox" id="grayscaleCheckbox">
-        <label class="form-check-label" for="grayscaleCheckbox">Grayscale (tonal)</label>
-        <label for="grayscaleLevels" class="form-label mb-0">Grayscale Levels</label>
-        <select class="form-select mb-2" id="grayscaleLevels">
-          <option value="3">3</option>
-          <option value="4">4</option>
-        </select>
-        <input class="form-check-input mb-2" type="checkbox" id="multiColorCheckbox">
-        <label class="form-check-label" for="multiColorCheckbox">Multiple colors (pen swaps)</label>
-        <div id="multiColorOptions" style="display:none;">
-          <label for="colorCount" class="form-label mb-0">Number of colors</label>
-          <select class="form-select mb-2" id="colorCount">
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-          </select>
-          <div id="colorCountRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
-          <input class="form-check-input mb-2" type="checkbox" id="colorOverprintCheckbox">
-          <label class="form-check-label" for="colorOverprintCheckbox">Overprint (skip knockout)</label>
-          <!-- Trapping gap (docs/multi-color.md section 5 addendum): with
-               knockout on, a lighter layer's geometry is trimmed back this
-               many mm from every darker layer that knocks it out, leaving a
-               hairline of bare paper so the two colors' pens can't touch
-               along the knockout edge. 0 restores plain touching knockout.
-               Default matches the tsc/src/huePalette.ts nib-width default
-               (roughly one nib width). -->
-          <label for="knockoutGapMm" class="form-label mb-0">Trapping gap (mm)</label>
-          <input type="range" class="form-range mb-2 text-center" min="0" max="5" step="0.1" id="knockoutGapMm" value="1.2">
-          <input class="form-check-input mb-2" type="checkbox" id="hueGroupingCheckbox">
-          <label class="form-check-label" for="hueGroupingCheckbox">Group shades by hue (fewer pens)</label>
-          <div id="hueGroupingRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
-          <div id="hueGroupingOptions" style="display:none;">
-            <!-- Per-image physical controls for the tone-derived spacing
-                 model (tsc/src/huePalette.ts): the model can't know these,
-                 so the user supplies them. Nib width is the dominant term
-                 in the coverage formula; ink strength compensates for pens
-                 that aren't fully opaque at nominal "full" coverage, or for
-                 paper that soaks up more/less ink than assumed. -->
-            <label for="nibWidthMm" class="form-label mb-0">Pen nib width (mm)</label>
-            <input type="range" class="form-range mb-2 text-center" min="0.3" max="5" step="0.1" id="nibWidthMm" value="1.2">
-            <label for="inkMultiplier" class="form-label mb-0">Ink strength</label>
-            <input type="range" class="form-range mb-2 text-center" min="0.3" max="2" step="0.05" id="inkMultiplier" value="1">
+        <div class="two-col">
+          <div class="col-media">
+            <div class="preview-box">
+              <input type="checkbox" id="previewZoomToggle" class="zoom-toggle">
+              <div class="preview-frame">
+                <img id="previewSvg" class="svg-preview" style="display:none;">
+                <label for="previewZoomToggle" class="zoom-open">&#10530; Enlarge</label>
+              </div>
+              <label for="previewZoomToggle" class="zoom-close">&#10005; Close</label>
+            </div>
+            <div class="progress mb-2" style="height: 20px;">
+              <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="progressBar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
           </div>
-          <div id="hueGroupingSummary" class="mb-2 text-start" style="display:none;"></div>
+          <div class="col-controls">
+            <!-- Cost estimator (tsc/src/costEstimator.ts): projected PROCESSING
+                 time on THIS device, shown before every (re-)render, and the
+                 fuller draw/travel/pen-lift PLOTTING estimate shown after a
+                 render actually completes. Both re-populate on settings changes
+                 (debounced - see main.js's re-estimate throttle). -->
+            <div id="processingEstimateText" class="mb-1 text-start" style="display:none;"><small class="text-muted"></small></div>
+            <div id="processingWarning" class="alert alert-warning text-start py-2 mb-2" style="display:none;"></div>
+            <div class="control-label-row">
+              <span class="control-value" style="font-size:12px;">Time estimate</span>
+              <details class="info" name="muralInfo"><summary>i</summary>
+                <div class="info-panel">Draw is time the pen spends actually drawing. Travel is pen-up repositioning between strokes &mdash; it adds time but no ink. Pen-lifts are the up/down moves between them, about 2s each.</div>
+              </details>
+            </div>
+            <div id="plottingEstimateSummary" class="mb-2 text-start" style="display:none;"></div>
+
+            <label for="fillMethod" class="form-label mb-0">Fill style
+              <details class="info" name="muralInfo"><summary>i</summary>
+                <div class="info-panel">
+                  <b>Cross-hatch (default)</b> &mdash; even diagonal grid, balanced look, cheapest to compute.<br>
+                  <b>Single-direction hatch</b> &mdash; one diagonal pass only, lighter coverage, fast.<br>
+                  <b>Cross-hatch (angled)</b> &mdash; the default grid rotated to a chosen angle, similar cost.<br>
+                  <b>Jittered cross-hatch</b> &mdash; hand-drawn, slightly irregular grid; a bit slower.<br>
+                  <b>Spiral</b> &mdash; one continuous spiral stroke, fewest pen-lifts, best on rounded shapes.<br>
+                  <b>Gradient hatch</b> &mdash; hatching follows the image's own shading, like an engraving; most expensive.<br>
+                  <b>Contour</b> &mdash; concentric outline rings, topographic-map look; fairly expensive.
+                </div>
+              </details>
+            </label>
+            <!-- Descriptions ground truth: each strategy's own header comment
+                 (tsc/src/fillStrategies/*.ts) - see costEstimator.ts's
+                 INFILL_US_PER_SEGMENT_AT_BASE_SPACING for the relative cost
+                 ordering these summarize. -->
+            <select class="form-select mb-1" id="fillMethod">
+              <option value="crossHatch45">Cross-hatch (default) &mdash; even diagonal grid, balanced look, cheapest to compute</option>
+              <option value="singleDirectionHatch">Single-direction hatch &mdash; one diagonal pass only, lighter coverage, fast</option>
+              <option value="crossHatchAngled">Cross-hatch (angled) &mdash; the default grid rotated to a chosen angle, similar cost</option>
+              <option value="jitteredHatch">Jittered cross-hatch &mdash; hand-drawn, slightly irregular grid; a bit slower</option>
+              <option value="spiral">Spiral &mdash; one continuous spiral stroke, fewest pen-lifts, best on rounded shapes</option>
+              <option value="gradientHatch">Gradient hatch &mdash; hatching follows the image's own shading, like an engraving; most expensive</option>
+              <option value="contour">Contour &mdash; concentric outline rings, topographic-map look; fairly expensive</option>
+            </select>
+            <div id="fillMethodRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
+
+            <label for="infillDensity" class="form-label mb-0">Infill density
+              <details class="info" name="muralInfo"><summary>i</summary>
+                <div class="info-panel">Infill density controls how tightly the fill lines are spaced inside shapes. Denser fill looks darker but takes much longer to draw.</div>
+              </details>
+            </label>
+            <!-- Extended ladder (tsc/src/infill.ts): 1-4 are the original
+                 levels (20/15/10/7mm spacing), 5-7 are denser levels
+                 (5/3.5/2.5mm) added for hue-grouped shading below, so a single
+                 pen can hatch several believable shades of its darkest color. -->
+            <input type="range" class="form-range mb-2 text-center" min="0" max="7" step="1" id="infillDensity" value="0">
+            <div id="infillDensityRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
+
+            <label for="turdSize" class="form-label mb-0">Despeckle
+              <details class="info" name="muralInfo"><summary>i</summary>
+                <div class="info-panel">Despeckle drops tiny specks too small to matter, so the pen lifts less and finishes faster.</div>
+              </details>
+            </label>
+            <input type="range" class="form-range mb-2 text-center" min="2" max="200" step="11" id="turdSize" value="2">
+            <div id="turdSizeRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
+
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="grayscaleCheckbox">
+              <label class="form-check-label" for="grayscaleCheckbox">Grayscale (tonal)</label>
+            </div>
+            <label for="grayscaleLevels" class="form-label mb-0">Grayscale levels</label>
+            <select class="form-select mb-2" id="grayscaleLevels">
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="multiColorCheckbox">
+              <label class="form-check-label" for="multiColorCheckbox">Multiple colors (pen swaps)</label>
+            </div>
+            <div id="multiColorOptions" style="display:none;">
+              <label for="colorCount" class="form-label mb-0">Number of colors</label>
+              <select class="form-select mb-2" id="colorCount">
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+              </select>
+              <div id="colorCountRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="colorOverprintCheckbox">
+                <label class="form-check-label" for="colorOverprintCheckbox">Overprint (skip knockout)</label>
+              </div>
+              <!-- Trapping gap (docs/multi-color.md section 5 addendum): with
+                   knockout on, a lighter layer's geometry is trimmed back this
+                   many mm from every darker layer that knocks it out, leaving a
+                   hairline of bare paper so the two colors' pens can't touch
+                   along the knockout edge. 0 restores plain touching knockout.
+                   Default matches the tsc/src/huePalette.ts nib-width default
+                   (roughly one nib width). -->
+              <label for="knockoutGapMm" class="form-label mb-0">Trapping gap (mm)
+                <details class="info" name="muralInfo"><summary>i</summary>
+                  <div class="info-panel">Trapping gap leaves a hairline of bare paper between two colors, so one pen's nib doesn't drag through another's wet ink.</div>
+                </details>
+              </label>
+              <input type="range" class="form-range mb-2 text-center" min="0" max="5" step="0.1" id="knockoutGapMm" value="1.2">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="hueGroupingCheckbox">
+                <label class="form-check-label" for="hueGroupingCheckbox">Group shades by hue (fewer pens)</label>
+              </div>
+              <div id="hueGroupingRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
+              <div id="hueGroupingOptions" style="display:none;">
+                <!-- Per-image physical controls for the tone-derived spacing
+                     model (tsc/src/huePalette.ts): the model can't know these,
+                     so the user supplies them. Nib width is the dominant term
+                     in the coverage formula; ink strength compensates for pens
+                     that aren't fully opaque at nominal "full" coverage, or for
+                     paper that soaks up more/less ink than assumed. -->
+                <label for="nibWidthMm" class="form-label mb-0">Pen nib width (mm)
+                  <details class="info" name="muralInfo"><summary>i</summary>
+                    <div class="info-panel">Pen nib width is the width of the mark your pen makes. It's the dominant term in how closely shading lines need to be spaced.</div>
+                  </details>
+                </label>
+                <input type="range" class="form-range mb-2 text-center" min="0.3" max="5" step="0.1" id="nibWidthMm" value="1.2">
+                <label for="inkMultiplier" class="form-label mb-0">Ink strength
+                  <details class="info" name="muralInfo"><summary>i</summary>
+                    <div class="info-panel">Ink strength compensates for pens that aren't fully opaque, or paper that soaks up more or less ink than assumed. Higher values need less hatching for the same apparent darkness.</div>
+                  </details>
+                </label>
+                <input type="range" class="form-range mb-2 text-center" min="0.3" max="2" step="0.05" id="inkMultiplier" value="1">
+              </div>
+              <div id="hueGroupingSummary" class="mb-2 text-start" style="display:none;"></div>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="flattenPathsCheckbox">
+              <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths</label>
+            </div>
+            <div id="layerBreakdown" class="mb-2 text-start" style="display:none;"></div>
+            <button class="w-100 btn btn-lg btn-outline-secondary mb-2" type="button" data-modal-target="inkModal">Pen ink estimates</button>
+            <button class="w-100 btn btn-lg btn-primary mb-2" id="acceptSvg" disabled>Accept</button>
+            <button class="w-100 btn btn-lg btn-secondary mb-5 backToSvgSelect">Back</button>
+          </div>
         </div>
-        <input class="form-check-input mb-2" type="checkbox" id="flattenPathsCheckbox">
-        <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths</label>
-        <div id="layerBreakdown" class="mb-2 text-start" style="display:none;"></div>
-        <button class="w-100 btn btn-lg btn-outline-secondary mb-2" type="button" data-bs-toggle="modal" data-bs-target="#inkModal">Pen ink estimates</button>
-        <button class="w-100 btn btn-lg btn-primary mb-2" id="acceptSvg" disabled>Accept</button>
-        <button class="w-100 btn btn-lg btn-secondary mb-5 backToSvgSelect">Back</button>
       </div>
       <div id="uploadProgress" class="muralSlide" style="display:none;">
-        <h3 class="mb-2 fw-normal">Uploading...</h3>
+        <div class="ui-topbar"><span class="eyebrow">Upload</span></div>
+        <h3 class="mb-2 fw-normal">Uploading&hellip;</h3>
         <div class="progress mb-2" id="uploadProgress" role="progressbar" aria-label="Upload progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-bar" style="width: 0%"></div>
         </div>
@@ -274,13 +302,15 @@
         </div>
       </div>
       <div id="beginDrawingSlide" class="muralSlide" style="display: none;">
+        <div class="ui-topbar"><span class="eyebrow">Ready</span></div>
         <h3 class="mb-5 fw-normal">Mural is ready!</h3>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="beginDrawing">Begin Drawing</button>
         <button class="w-100 btn btn-lg btn-outline-secondary mb-5" id="downloadCommands">Download commands</button>
         <button class="w-100 btn btn-lg btn-secondary mb-5" id="reset">Reset</button>
       </div>
       <div id="drawingLiveSlide" class="muralSlide" style="display: none;">
-        <h3 class="mb-2 fw-normal">Drawing in progress</h3>
+        <div class="ui-topbar"><span class="eyebrow">Drawing</span></div>
+        <div class="pct-wrap"><span class="pct-readout" id="liveProgressPct">0%</span><span class="pct-of">complete</span></div>
         <div class="progress mb-2" style="height: 24px;">
           <div class="progress-bar" role="progressbar" id="liveProgressBar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
@@ -302,10 +332,11 @@
             <button class="w-100 btn btn-lg btn-success" id="confirmPenSwapBtn">Pen inserted, continue</button>
           </div>
         </div>
-        <button class="w-100 btn btn-lg btn-warning mb-2" id="pauseDrawingBtn">Pause</button>
+        <button class="w-100 btn btn-lg btn-warning mb-2" id="pauseDrawingBtn">Pause drawing</button>
         <button class="w-100 btn btn-lg btn-primary mb-5" id="resumeDrawingBtn" style="display:none;">Resume</button>
       </div>
       <div id="resumeDrawingSlide" class="muralSlide" style="display: none;">
+        <div class="ui-topbar"><span class="eyebrow">Resume</span></div>
         <h3 class="mb-2 fw-normal">Resume interrupted drawing?</h3>
         <h6 class="mb-2"><small class="text-muted" id="resumeDrawingText">A previous drawing was interrupted, likely by a power loss.</small></h6>
         <h6 class="mb-4" id="resumeDrawingPenLine" style="display:none;"><strong>Pen check:</strong> <span id="resumeDrawingPenText"></span></h6>
@@ -326,67 +357,62 @@
       </div>
       <div class="mt-5"><a href="https://github.com/nikivanov/mural" class="link-primary">Mural</a></div>
   </main>
-  <div class="modal fade" id="inkModal" tabindex="-1" role="dialog" aria-labelledby="inkModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="inkModalLabel">Pen ink estimates</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body text-start">
-          <h6><small class="text-muted">Rough estimates only - actual ink capacity varies a lot by pen brand, paper, and line width. Figures below are for drawing on paper; adjust them for your own pens.</small></h6>
-          <table class="table table-sm" id="inkCapacityTable">
-            <thead>
-              <tr><th>Pen type</th><th>Capacity (m)</th></tr>
-            </thead>
-            <tbody id="inkCapacityTableBody"></tbody>
-          </table>
-          <button class="w-100 btn btn-outline-secondary mb-2" id="resetInkCapacityTable">Reset to defaults</button>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
-        </div>
+  <dialog class="mural-modal" id="inkModal" aria-labelledby="inkModalLabel">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="inkModalLabel">Pen ink estimates</h5>
+        <button type="button" class="btn-close" data-modal-dismiss aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-start">
+        <h6><small class="text-muted">Rough estimates only - actual ink capacity varies a lot by pen brand, paper, and line width. Figures below are for drawing on paper; adjust them for your own pens.</small></h6>
+        <table class="table table-sm" id="inkCapacityTable">
+          <thead>
+            <tr><th>Pen type</th><th>Capacity (m)</th></tr>
+          </thead>
+          <tbody id="inkCapacityTableBody"></tbody>
+        </table>
+        <button class="w-100 btn btn-outline-secondary mb-2" id="resetInkCapacityTable">Reset to defaults</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-modal-dismiss>Close</button>
       </div>
     </div>
-  </div>
-  <div class="modal fade" id="toolsModal" tabindex="-1" role="dialog" aria-labelledby="toolsModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="toolsModalLabel">Tools</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  </dialog>
+  <dialog class="mural-modal" id="toolsModal" aria-labelledby="toolsModalLabel">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="toolsModalLabel">Tools</h5>
+        <button type="button" class="btn-close" data-modal-dismiss aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label for="leftMotorTool" class="form-label">Left Motor</label>
+        <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="leftMotorTool" value="0">
+        <label for="rightMotorTool" class="form-label">Right Motor</label>
+        <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="rightMotorTool" value="0">
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="parkServoTool">Park Servo</button>
+        <button class="w-100 btn btn-lg btn-primary mb-2" id="estepsTool">Extend 1000mm (E-steps calibration)</button>
+        <label for="estepsMeasuredInput" class="form-label">Measured travel (mm)</label>
+        <div class="input-group mb-5">
+          <input type="number" class="form-control" id="estepsMeasuredInput" placeholder="e.g. 998.4">
+          <button class="btn btn-primary" id="estepsApplyTool">Apply</button>
         </div>
-        <div class="modal-body">
-          <label for="leftMotorTool" class="form-label">Left Motor</label>
-          <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="leftMotorTool" value="0">
-          <label for="rightMotorTool" class="form-label">Right Motor</label>
-          <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="rightMotorTool" value="0">
-          <button class="w-100 btn btn-lg btn-primary mb-5" id="parkServoTool">Park Servo</button>
-          <button class="w-100 btn btn-lg btn-primary mb-2" id="estepsTool">Extend 1000mm (E-steps calibration)</button>
-          <label for="estepsMeasuredInput" class="form-label">Measured travel (mm)</label>
-          <div class="input-group mb-5">
-            <input type="number" class="form-control" id="estepsMeasuredInput" placeholder="e.g. 998.4">
-            <button class="btn btn-primary" id="estepsApplyTool">Apply</button>
-          </div>
-          <hr>
-          <h6 class="mb-3">Physics constants</h6>
-          <label for="massBotInput" class="form-label">Bot mass (kg)</label>
-          <input type="number" step="any" class="form-control mb-3" id="massBotInput">
-          <label for="beltElongationInput" class="form-label">Belt elongation coefficient (m/N)</label>
-          <input type="number" step="any" class="form-control mb-3" id="beltElongationInput">
-          <label for="diameterInput" class="form-label">Effective pulley diameter (mm)</label>
-          <input type="number" step="any" class="form-control mb-3" id="diameterInput">
-          <label for="homedStepOffsetInput" class="form-label">Homed step offset (mm)</label>
-          <input type="number" step="any" class="form-control mb-3" id="homedStepOffsetInput">
-          <button class="w-100 btn btn-lg btn-primary mb-5" id="savePhysicsConstantsTool">Save physics constants</button>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
-        </div>
+        <hr>
+        <h6 class="mb-3">Physics constants</h6>
+        <label for="massBotInput" class="form-label">Bot mass (kg)</label>
+        <input type="number" step="any" class="form-control mb-3" id="massBotInput">
+        <label for="beltElongationInput" class="form-label">Belt elongation coefficient (m/N)</label>
+        <input type="number" step="any" class="form-control mb-3" id="beltElongationInput">
+        <label for="diameterInput" class="form-label">Effective pulley diameter (mm)</label>
+        <input type="number" step="any" class="form-control mb-3" id="diameterInput">
+        <label for="homedStepOffsetInput" class="form-label">Homed step offset (mm)</label>
+        <input type="number" step="any" class="form-control mb-3" id="homedStepOffsetInput">
+        <button class="w-100 btn btn-lg btn-primary mb-5" id="savePhysicsConstantsTool">Save physics constants</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-modal-dismiss>Close</button>
       </div>
     </div>
-  </div>
-  
+  </dialog>
 </body>
 
 </html>
