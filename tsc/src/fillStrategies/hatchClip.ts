@@ -38,7 +38,23 @@ export function clipHatchLinesToPath(
     for (const line of lines) {
         const intersections = [...path.getIntersections(line), ...boundsPath.getIntersections(line)].filter(i => i.point.isInside(boundsPath.bounds));
 
-        intersections.sort((a, b) => a.point.x - b.point.x);
+        // Order the crossings ALONG THE LINE, by projecting each onto the
+        // line's own direction, rather than by x.
+        //
+        // Sorting by x is only valid while the line has meaningful horizontal
+        // extent. crossHatch45's original hardcoded 45-degree lines always
+        // did, so it went unnoticed - but these strategies take an arbitrary
+        // hatchAngleDegrees (multi-color assigns per-layer angles by golden
+        // angle, which lands near 90 degrees for some layers). For a
+        // near-vertical line every crossing shares almost the same x, so the
+        // comparator becomes meaningless, interior and exterior runs get
+        // paired wrongly, and segments are emitted OUTSIDE the shape -
+        // visible as hatch lines bleeding out past the region's edge.
+        const lineStart = line.firstSegment.point;
+        const lineDirection = line.lastSegment.point.subtract(lineStart);
+        intersections.sort((a, b) =>
+            a.point.subtract(lineStart).dot(lineDirection) -
+            b.point.subtract(lineStart).dot(lineDirection));
 
         let currentLineGroup: paper.Point[] = [];
         function saveCurrentLineAsPath() {

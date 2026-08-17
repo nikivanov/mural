@@ -939,6 +939,28 @@ details.info .info-panel {
   background: var(--paper);
   padding: 16px;
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* An enlarged preview is a full-screen view, so everything behind it must
+   actually go away. Without this the controls column, the estimate banner
+   and the Accept button all still painted over the enlarged image (they sit
+   in a different part of the DOM, so the overlay's z-index alone doesn't
+   cover them) - the enlarged preview looked like a broken layer rather than
+   a fullscreen view. Hidden rather than removed so no layout reflows and
+   nothing loses its state while zoomed. */
+.two-col:has(.zoom-toggle:checked) .col-controls,
+.muralSlide:has(.zoom-toggle:checked) .estimate-banner,
+.muralSlide:has(.zoom-toggle:checked) .slide-actions {
+  visibility: hidden;
+}
+
+/* Stop the page scrolling behind the overlay while it's open. */
+html:has(.zoom-toggle:checked),
+body:has(.zoom-toggle:checked) {
+  overflow: hidden;
 }
 
 .zoom-toggle:checked ~ .preview-frame img {
@@ -1090,11 +1112,18 @@ dialog.mural-modal::backdrop {
    use the extra desktop space for a much bigger preview. Every other
    step stays inside the comfortable reading-width column. */
 @media (min-width: 900px) {
+  /* Full-bleed WITHOUT a transform. `transform` on an ancestor creates a
+     containing block for `position: fixed` descendants, which silently broke
+     the zoomed preview overlay below: it was positioned against this slide
+     instead of the viewport, so it neither covered the screen nor sat above
+     the controls. margin-left does the same centring with no such side
+     effect (position/left/margin do not establish a containing block for
+     fixed elements; transform, filter, perspective, will-change and contain
+     all do). */
   #drawingPreviewSlide.two-col-desktop {
-    width: 96vw;
-    max-width: 1400px;
-    margin-left: 50%;
-    transform: translateX(-50%);
+    width: min(96vw, 1400px);
+    max-width: none;
+    margin-left: calc(50% - min(48vw, 700px));
   }
 }
 
