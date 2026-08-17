@@ -178,7 +178,11 @@
         </div>
         <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
         <label for="infillDensity" class="form-label mb-0">Infill Density</label>
-        <input type="range" class="form-range mb-2 text-center" min="0" max="4" step="1" id="infillDensity" value="0">
+        <!-- Extended ladder (tsc/src/infill.ts): 1-4 are the original
+             levels (20/15/10/7mm spacing), 5-7 are denser levels
+             (5/3.5/2.5mm) added for hue-grouped shading below, so a single
+             pen can hatch several believable shades of its darkest color. -->
+        <input type="range" class="form-range mb-2 text-center" min="0" max="7" step="1" id="infillDensity" value="0">
         <label for="turdSize" class="form-label mb-0">Despeckle</label>
         <input type="range" class="form-range mb-2 text-center" min="2" max="200" step="11" id="turdSize" value="2">
         <input class="form-check-input mb-2" type="checkbox" id="grayscaleCheckbox">
@@ -201,6 +205,9 @@
           </select>
           <input class="form-check-input mb-2" type="checkbox" id="colorOverprintCheckbox">
           <label class="form-check-label" for="colorOverprintCheckbox">Overprint (skip knockout)</label>
+          <input class="form-check-input mb-2" type="checkbox" id="hueGroupingCheckbox">
+          <label class="form-check-label" for="hueGroupingCheckbox">Group shades by hue (fewer pens)</label>
+          <div id="hueGroupingSummary" class="mb-2 text-start" style="display:none;"></div>
         </div>
         <input class="form-check-input mb-2" type="checkbox" id="flattenPathsCheckbox">
         <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths</label>

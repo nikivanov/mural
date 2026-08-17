@@ -31,8 +31,14 @@ export type InfilledPath = {
     originalPath: paper.PathItem,
 }
 
-export type InfillDensity = 0 | 1 | 2 | 3 | 4;
-export const InfillDensities: InfillDensity[] = [0, 1, 2, 3, 4];
+// 5-7 are the "extended ladder" added for hue-grouped shading (see
+// huePalette.ts): densities dense enough that several lightness tiers of a
+// single pen's ink can span a believable tonal range within one hue group.
+// 1-4 keep their original meaning/spacing exactly (see infill.ts's
+// infillDensityToSpacingMap) so pre-existing single-density behavior and
+// snapshots are untouched.
+export type InfillDensity = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export const InfillDensities: InfillDensity[] = [0, 1, 2, 3, 4, 5, 6, 7];
 
 // Per-path/per-group tonal overrides carried on paper.Item#data (via the SVG
 // `data-paper-data` attribute) so a single render request can mix densities
@@ -119,5 +125,27 @@ export namespace RequestTypes {
         // clustering instead, with the resulting cluster centroids returned
         // as the palette.
         palette?: PaletteEntry[],
+        // Hue-grouped shading (see huePalette.ts): when set alongside
+        // colorCount/palette, collapses the detected/matched palette entries
+        // into fewer pens by hue proximity - each pen is the darkest member
+        // of its group, and lighter members are re-tagged to draw with the
+        // same pen at a sparser density (PathDensityData.density) from the
+        // extended ladder instead of getting a separate colorIndex. Lives on
+        // VectorizeRequest (not RenderSVGRequest) because the grouping has
+        // to happen before/alongside quantization, where the palette and the
+        // per-mask colorIndex tags are produced; RenderSVGRequest never
+        // re-quantizes - it just consumes the (possibly already
+        // hue-grouped) tags and palette baked into svgJson/`palette` by this
+        // step, via the same mechanism a supplied palette already uses.
+        // Omitted/false preserves the existing one-pen-per-detected-color
+        // behavior exactly.
+        hueGrouping?: boolean,
+        // Manual override for hueGrouping's automatic clustering (per
+        // huePalette.ts's buildHueGroupingResult): maps a detected color's
+        // index in the (pre-grouping) palette/quantization result to an
+        // arbitrary caller-chosen bucket id. Entries sharing a bucket id end
+        // up as one pen; omitted indices fall back to their automatically
+        // computed bucket. Ignored unless hueGrouping is also set.
+        hueOverrides?: Record<number, number>,
     }
 }
