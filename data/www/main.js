@@ -514,6 +514,7 @@ function init() {
             colorSeparation: !!groupByLiteralColor && getMultiColorEnabled(),
             palette: vectorizePalette || undefined,
             colorOverprint: getColorOverprint(),
+            knockoutGapMm: getKnockoutGapMm(),
         }
 
         worker.onmessage = (e) => {
@@ -559,7 +560,7 @@ function init() {
     }
 
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier").on('input change', async function() {
+    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#knockoutGapMm,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier").on('input change', async function() {
         // Any change to the number/set of detected colors (colorCount) or
         // to whether/how hue grouping applies (multiColorCheckbox,
         // hueGroupingCheckbox) invalidates previously chosen manual
@@ -1232,6 +1233,19 @@ function getColorCount() {
 
 function getColorOverprint() {
     return $("#colorOverprintCheckbox").is(":checked");
+}
+
+// Trapping gap (docs/multi-color.md section 5 addendum; RenderSVGRequest's
+// knockoutGapMm, consumed by flattener.ts's flattenPathsAcrossLayers): how
+// far (mm) a lighter layer's geometry retreats from every darker layer that
+// knocks it out, so the two colors' pens can't touch along the knockout
+// edge. Unlike getNibWidthMm/getInkMultiplier below, 0 is a valid,
+// meaningful value here (restores plain touching knockout), so only
+// non-finite/negative slider values fall back to undefined (letting the
+// server apply its own nib-width-derived default).
+function getKnockoutGapMm() {
+    const value = parseFloat($("#knockoutGapMm").val());
+    return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 function getHueGroupingEnabled() {

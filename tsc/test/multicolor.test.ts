@@ -14,6 +14,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertPenStatesAlternate } from "./fixtures";
 import type { Command, RequestTypes } from "../src/types";
+import { DEFAULT_NIB_WIDTH_MM } from "../src/huePalette";
 
 process.env.server = "1";
 
@@ -367,5 +368,142 @@ if (!paperAvailable) {
         );
 
         assert.ok(result.commands.includes("c2"), "expected a single c2 boundary between the two layers");
+    });
+
+    // --- Trapping gap (docs/multi-color.md section 5 addendum;
+    // flattener.ts's flattenPathsAcrossLayers `gapMm` parameter): the
+    // cross-layer knockout above leaves the lighter layer's remaining
+    // geometry sharing its exact boundary with the darker layer that
+    // knocked it out - two pens then both touch that shared line. These
+    // tests exercise `RequestTypes.RenderSVGRequest.knockoutGapMm`. ---
+
+    // Two literal colors sharing an edge at x=30 (unlike twoColorSvg above,
+    // whose rects are far apart) - the case where trapping actually matters.
+    // Yellow (lighter) on the left, blue (darker) on the right, so yellow is
+    // layer 1 and blue is layer 2, same light-to-dark convention as above.
+    const adjoiningColorsSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="30" height="20" fill="#ffff00"/>
+        <rect x="30" y="0" width="30" height="20" fill="#0000ff"/>
+    </svg>`;
+    const adjoiningFrameOverrides = { svgWidth: WIDTH, svgHeight: 20, height: 20, colorSeparation: true };
+
+    // Headers (d, h, t, n1, n2) occupy indices 0-4 for every 2-color render
+    // in this file (default palette naming, no supplied `palette` override),
+    // matching the "two literal colors..." test above - reused here instead
+    // of re-deriving it per test.
+    const HEADER_COMMAND_COUNT = 5;
+
+    function splitTwoLayers(commands: Command[]): { layer1: Command[]; layer2: Command[] } {
+        const c2Index = commands.indexOf("c2" as unknown as Command);
+        assert.ok(c2Index > HEADER_COMMAND_COUNT - 1, "expected a c2 boundary marker after the headers");
+        return {
+            layer1: commands.slice(HEADER_COMMAND_COUNT, c2Index),
+            layer2: commands.slice(c2Index + 1),
+        };
+    }
+
+    const coordRe = /^(-?[\d.]+) (-?[\d.]+)$/;
+    function coordsOf(cmds: Command[]): { x: number; y: number }[] {
+        return (cmds as unknown as string[])
+            .map((c) => coordRe.exec(c))
+            .filter((m): m is RegExpExecArray => m !== null)
+            .map((m) => ({ x: parseFloat(m[1]), y: parseFloat(m[2]) }));
+    }
+
+    // Minimum Euclidean distance between any point of `a` and any point of
+    // `b` - the direct, "no coincident/touching geometry" measurement the
+    // task asks for, rather than an axis-aligned proxy, so it holds
+    // regardless of which edge/orientation the two layers happen to share.
+    function minSeparation(a: { x: number; y: number }[], b: { x: number; y: number }[]): number {
+        let min = Infinity;
+        for (const p of a) {
+            for (const q of b) {
+                const d = Math.hypot(p.x - q.x, p.y - q.y);
+                if (d < min) min = d;
+            }
+        }
+        return min;
+    }
+
+    test("multicolor trapping: knockoutGapMm 0 reproduces today's touching behavior", async () => {
+        const request = svgToRequest(adjoiningColorsSvg, paper, { ...adjoiningFrameOverrides, knockoutGapMm: 0 });
+        const result = await renderSvgJsonToCommands(request, noopStatus);
+        const { layer1, layer2 } = splitTwoLayers(result.commands as Command[]);
+
+        const layer1Points = coordsOf(layer1);
+        const layer2Points = coordsOf(layer2);
+        assert.ok(layer1Points.length > 0 && layer2Points.length > 0, "expected drawn geometry in both layers");
+
+        // The two layers' geometry must actually meet (share their boundary
+        // at x=30, same as before this feature existed) - separation should
+        // be ~0, well under a millimeter given RDP/flatten tolerances.
+        const separation = minSeparation(layer1Points, layer2Points);
+        assert.ok(separation < 0.5, `expected the two layers to touch with gap 0, measured separation ${separation}mm`);
+    });
+
+    test("multicolor trapping: a positive knockoutGapMm produces a measurable separation close to the configured gap, with zero coincident/touching geometry", async () => {
+        const gapMm = 2;
+        const request = svgToRequest(adjoiningColorsSvg, paper, { ...adjoiningFrameOverrides, knockoutGapMm: gapMm });
+        const result = await renderSvgJsonToCommands(request, noopStatus);
+        const { layer1, layer2 } = splitTwoLayers(result.commands as Command[]);
+
+        const layer1Points = coordsOf(layer1);
+        const layer2Points = coordsOf(layer2);
+        assert.ok(layer1Points.length > 0 && layer2Points.length > 0, "expected drawn geometry in both layers");
+
+        const separation = minSeparation(layer1Points, layer2Points);
+        assert.ok(separation > gapMm - 0.5, `expected separation close to ${gapMm}mm, measured ${separation}mm (too small - layers still touch/overlap)`);
+        assert.ok(separation < gapMm + 1, `expected separation close to ${gapMm}mm, measured ${separation}mm (unexpectedly large)`);
+
+        // The darker layer (blue, layer 2) isn't itself grown - only the
+        // lighter layer's boundary retreats - so layer 2 should still reach
+        // all the way to its own original edge (x=30).
+        const layer2MinX = Math.min(...layer2Points.map((p) => p.x));
+        assert.ok(layer2MinX < 30 + 0.5, `expected the darker layer to still reach its own edge (x~30), min x was ${layer2MinX}`);
+
+        // And layer 1 (yellow) must have retreated by ~gapMm from that edge.
+        const layer1MaxX = Math.max(...layer1Points.map((p) => p.x));
+        assert.ok(layer1MaxX < 30 - gapMm + 0.5, `expected the lighter layer to retreat to ~x=${30 - gapMm}, max x was ${layer1MaxX}`);
+    });
+
+    test("multicolor trapping: knockoutGapMm omitted defaults to roughly one nib width (huePalette's DEFAULT_NIB_WIDTH_MM)", async () => {
+        const requestDefault = svgToRequest(adjoiningColorsSvg, paper, { ...adjoiningFrameOverrides });
+        const requestExplicitDefault = svgToRequest(adjoiningColorsSvg, paper, { ...adjoiningFrameOverrides, knockoutGapMm: DEFAULT_NIB_WIDTH_MM });
+        const requestZero = svgToRequest(adjoiningColorsSvg, paper, { ...adjoiningFrameOverrides, knockoutGapMm: 0 });
+
+        const resultDefault = await renderSvgJsonToCommands(requestDefault, noopStatus);
+        const resultExplicitDefault = await renderSvgJsonToCommands(requestExplicitDefault, noopStatus);
+        const resultZero = await renderSvgJsonToCommands(requestZero, noopStatus);
+
+        // Omitting the field must be byte-identical to spelling out the
+        // documented default explicitly...
+        assert.deepStrictEqual(resultDefault.commands, resultExplicitDefault.commands);
+        // ...and must NOT be identical to gap 0 (i.e. the default really
+        // does apply a nonzero gap, it's not silently ignored).
+        assert.notDeepStrictEqual(resultDefault.commands, resultZero.commands);
+    });
+
+    test("multicolor trapping: a thin sliver in the lighter color adjacent to the darker color survives (not annihilated) even though the default gap exceeds its width", async () => {
+        // A 1mm-wide light-gray sliver directly touching a black rect's left
+        // edge. The default gap (~1.2mm, DEFAULT_NIB_WIDTH_MM) is wider than
+        // the sliver, so growing the black rect by the gap and subtracting
+        // it would consume the sliver entirely under a naive implementation
+        // - the thin-feature protection in flattenPathsAcrossLayers must
+        // fall back to the ungapped (touching) subtraction for this pair
+        // instead, so the sliver still draws something.
+        const sliverSvg = `<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="9" y="10" width="1" height="30" fill="#cccccc"/>
+            <rect x="10" y="10" width="40" height="30" fill="#000000"/>
+        </svg>`;
+        const request = svgToRequest(sliverSvg, paper, { svgWidth: WIDTH, svgHeight: HEIGHT, height: HEIGHT, colorSeparation: true });
+        const result = await renderSvgJsonToCommands(request, noopStatus);
+
+        const layers = (result as any).layers;
+        assert.ok(Array.isArray(layers) && layers.length === 2, "expected two layers (sliver + black rect)");
+        assert.strictEqual(layers[0].color, "#cccccc");
+        assert.ok(layers[0].distance > 0, "the thin sliver layer must still draw something, not be annihilated by the gap");
+
+        const { layer1 } = splitTwoLayers(result.commands as Command[]);
+        assert.ok(coordsOf(layer1).length > 0, "expected drawn coordinates for the surviving sliver");
     });
 }

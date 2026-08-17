@@ -9,6 +9,7 @@ import { measureDistance } from './measurer';
 import { loadPaper } from './paperLoader';
 import { flattenPaths, flattenPathsAcrossLayers } from './flattener';
 import { simplifyPaths } from './simplifier';
+import { DEFAULT_NIB_WIDTH_MM } from './huePalette';
 
 const RDP_TOLERANCE_MM = 0.1;
 
@@ -152,7 +153,14 @@ async function renderMultiColor(
     if (!request.colorOverprint) {
         // Cross-layer knockout (docs/multi-color.md section 5): darker
         // layers always win over lighter ones, regardless of z-order.
-        flattenPathsAcrossLayers(areaLayerArrays, updateStatusFn);
+        // Trapping gap: default to roughly one nib width (huePalette.ts's
+        // DEFAULT_NIB_WIDTH_MM) when the request doesn't specify one, so
+        // the two colors' ink genuinely cannot touch given a typical pen;
+        // request.knockoutGapMm === 0 restores the exact prior (touching)
+        // behavior, which is why this only falls back on `undefined`, not
+        // on falsy.
+        const knockoutGapMm = request.knockoutGapMm !== undefined ? request.knockoutGapMm : DEFAULT_NIB_WIDTH_MM;
+        flattenPathsAcrossLayers(areaLayerArrays, updateStatusFn, Math.max(0, knockoutGapMm));
     }
 
     for (let i = 0; i < layerPathArrays.length; i++) {
