@@ -150,6 +150,14 @@ export function estimateAndRecommend(imageData: ImageData, options: CostEstimato
         ? { factor: options.deviceFactor, benchmarkMs: 0, measuredAt: Date.now() }
         : calibrateDeviceSpeed();
 
+    // Resolved before estimateProcessingSeconds (not after, as previously)
+    // so its avgShapeSpanMm projection is anchored to the real requested
+    // physical size instead of a raster-pixel-density guess - see
+    // processingEstimator.ts's ProcessingEstimateInputs.drawWidthMm doc
+    // comment for the under-read bug this fixes.
+    const drawWidthMm = options.drawWidthMm ?? DEFAULT_DRAW_WIDTH_MM;
+    const drawHeightMm = options.drawHeightMm ?? DEFAULT_DRAW_HEIGHT_MM;
+
     const processing = estimateProcessingSeconds({
         sourceWidthPx: characteristics.widthPx,
         sourceHeightPx: characteristics.heightPx,
@@ -162,10 +170,10 @@ export function estimateAndRecommend(imageData: ImageData, options: CostEstimato
         flattenPaths: options.flattenPaths,
         grayscaleLevels: options.grayscaleLevels,
         deviceFactor: deviceCalibration.factor,
+        drawWidthMm,
+        drawHeightMm,
     });
 
-    const drawWidthMm = options.drawWidthMm ?? DEFAULT_DRAW_WIDTH_MM;
-    const drawHeightMm = options.drawHeightMm ?? DEFAULT_DRAW_HEIGHT_MM;
     const drawAreaMm2 = Math.max(0, drawWidthMm) * Math.max(0, drawHeightMm);
     const avgShapeSpanMm = processing.estimatedShapeCount > 0
         ? Math.sqrt(drawAreaMm2 / processing.estimatedShapeCount)
@@ -176,6 +184,11 @@ export function estimateAndRecommend(imageData: ImageData, options: CostEstimato
         avgShapeSpanMm,
         fillStrategy,
         infillDensity,
+        // Same complexity-driven per-shape correction the processing-time
+        // estimate uses (see processingEstimator.ts's call site) - keeps
+        // the plotting-distance projection consistent with it, rather than
+        // silently reverting to the plain shapeCount-only model here.
+        shapeComplexity: complexity,
     });
 
     // Outline ink: one boundary length per shape. Infill ink: segment count

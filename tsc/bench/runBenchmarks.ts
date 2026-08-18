@@ -263,6 +263,82 @@ async function benchFillStrategiesMatrix() {
     }
 }
 
+// --- 6b. Color-separation matrix: literal-color-grouped SVG, few-huge-shapes --
+//
+// Added while diagnosing the under-read bug (task brief 2026-08-18): a
+// colorSeparation render (src/toCommands.ts's groupPathsByLiteralColor
+// branch) traces to very FEW color groups, each an individually large,
+// multi-hole compound-path-ish shape set - the opposite regime from
+// benchFillStrategiesMatrix's single-shape-per-geometry runs above. This
+// matrix measures real per-shape-group vertex count (a proxy for Potrace
+// sub-loop/hole complexity) alongside real infill/optimize/render timings,
+// so the estimator's per-shape split-factor constants (segmentModel.ts's
+// hatch "1.3" concavity factor, spiral's SPIRAL_CONCAVITY_SPLIT_FACTOR) can
+// be refit against real shape-complexity data instead of the constant they
+// currently are.
+async function benchColorSeparationMatrix() {
+    await section('color separation (literal-color groups, few large shapes)');
+
+    const svgLogoString = readSvgFile(SVG_LOGO_PATH);
+    const { svgJson, svgWidth, svgHeight } = svgStringToSvgJson(svgLogoString);
+
+    const densities: InfillDensity[] = [1, 3, 5];
+    const widths = [300, 900];
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const paper = require('paper');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { generatePaths, groupPathsByLiteralColor, collectExistingColorGroups } = require('../src/generator');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { simplifyPaths } = require('../src/simplifier');
+
+    for (const widthMm of widths) {
+        for (const strategy of STRATEGY_NAMES) {
+            for (const density of densities) {
+                const request = buildRenderRequest(svgJson, svgWidth, svgHeight, widthMm, {
+                    infillDensity: density,
+                    fillMethod: strategy,
+                    colorSeparation: true,
+                });
+
+                paper.setup({ width: request.width, height: request.height });
+                const svg = paper.project.importJSON(request.svgJson);
+                const ratio = request.width / request.svgWidth;
+                svg.scale(ratio, { x: 0, y: 0 });
+                svg.applyMatrix = true;
+
+                const paths = generatePaths(svg);
+                paths.forEach((p: paper.PathItem) => p.flatten(0.5));
+                simplifyPaths(paths, 0.1);
+                let colorGroups = collectExistingColorGroups(paths);
+                if (!colorGroups) colorGroups = groupPathsByLiteralColor(paths);
+
+                for (const g of colorGroups) {
+                    const vertexCount = g.paths.reduce((sum: number, p: any) =>
+                        sum + (p.children ? p.children.reduce((s: number, ch: any) => s + ch.segments.length, 0) : p.segments.length), 0);
+                    const r = runSingleColorStages(g.paths, density, strategy, false, request.width, request.height);
+                    record('colorseparation', {
+                        widthMm,
+                        strategy,
+                        density,
+                        colorIndex: g.colorIndex,
+                        shapeCount: r.shapeCount,
+                        vertexCount,
+                        infillSegmentCount: r.infillSegmentCount,
+                        totalDrawSegments: r.totalDrawSegments,
+                        infillMs: r.stages.infill,
+                        optimizeMs: r.stages.optimize,
+                        renderMs: r.stages.render,
+                        dedupeMs: r.stages.dedupe,
+                        measureMs: r.stages.measure,
+                    });
+                }
+                paper.project.remove();
+            }
+        }
+    }
+}
+
 // --- 7. End-to-end validation: full renderSvgJsonToCommands, real inputs ----
 
 async function benchEndToEnd() {
@@ -310,6 +386,25 @@ async function benchEndToEnd() {
         record('end-to-end', { case: 'bluey-multi-600mm-d3', vectorizeMs: vecStart.ms, renderMs: ms, totalMs: vecStart.ms + ms });
     }
 
+    // Dense colorSeparation cases from the task brief (2026-08-18 M5 Pro
+    // measurements): density 3/crossHatch45 (actual 0.59s) and density
+    // 5/spiral (actual 1.81s, 147,901 commands) - the two cases the
+    // estimator must land within ~2x of.
+    {
+        const request = buildRenderRequest(logoJson, logoW, logoH, 900, {
+            infillDensity: 3, fillMethod: 'crossHatch45', colorSeparation: true,
+        });
+        const { ms } = await timeFullRender(request);
+        record('end-to-end', { case: 'svgLogo-colorSep-900mm-d3-crossHatch45', ms });
+    }
+    {
+        const request = buildRenderRequest(logoJson, logoW, logoH, 900, {
+            infillDensity: 5, fillMethod: 'spiral', colorSeparation: true,
+        });
+        const { ms } = await timeFullRender(request);
+        record('end-to-end', { case: 'svgLogo-colorSep-900mm-d5-spiral', ms });
+    }
+
     // Raster, continuous-tone photo, single-color, moderate size.
     {
         const imageData = await loadRasterImageDataAsync(HORSE_PATH, 500);
@@ -338,6 +433,7 @@ async function main() {
     await benchFlatten();
     await benchKnockout();
     await benchFillStrategiesMatrix();
+    await benchColorSeparationMatrix();
     await benchEndToEnd();
 
     const outPath = process.env.MURAL_BENCH_OUT;

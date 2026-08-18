@@ -49,6 +49,23 @@ export type SegmentProjectionInputs = {
     avgShapeSpanMm: number;
     fillStrategy: FillStrategyName;
     infillDensity: InfillDensity;
+    // 0 (clean/low-detail trace - each shape is close to a simple
+    // convex-ish blob) .. 1 (highly detailed source - each traced shape is
+    // likely a compound path with many internal sub-loops/holes, e.g.
+    // Potrace's output for a busy colour-separation mask). Corrects a
+    // structural blind spot in the per-shape split-factor constants below
+    // (the hatch "1.3" concavity factor, spiral's
+    // SPIRAL_CONCAVITY_SPLIT_FACTOR): those were calibrated against
+    // moderate-detail single shapes, and badly under-predict when a shape
+    // is actually a multi-hole compound path - shapeCount alone can't see
+    // this (a raster colour separation traces to very FEW shapes that are
+    // individually enormous), so this is a second, independent signal.
+    // Pass processingEstimator.ts's/costEstimator.ts's `complexity` input
+    // (0..1, itself derived from imageCharacteristics.ts's flat/edge
+    // fractions) directly - see processingEstimator.ts's call site.
+    // Optional/defaults to 0 (no correction) so existing standalone callers
+    // keep their prior behavior.
+    shapeComplexity?: number;
 };
 
 export type SegmentProjection = {
@@ -80,6 +97,7 @@ function estimateInfillSegmentsForOneShape(
     strategy: FillStrategyName,
     spacingMm: number,
     avgShapeSpanMm: number,
+    shapeComplexity: number,
 ): { count: number; avgLengthMm: number } {
     if (spacingMm <= 0 || avgShapeSpanMm <= 0) {
         return { count: 0, avgLengthMm: 0 };
@@ -117,22 +135,55 @@ function estimateInfillSegmentsForOneShape(
 
         case 'spiral': {
             // spiralFill.ts's whole point: one continuous Archimedean
-            // spiral, so a convex shape collapses to essentially one run.
-            // SPIRAL_CONCAVITY_SPLIT_FACTOR is a small constant (not
-            // spacing-dependent) standing in for the handful of extra runs
-            // a non-convex shape's boundary re-entries produce - this is
-            // exactly the strategy the task brief singles out as the
-            // pen-lift-minimizing choice, so its segment count must stay
-            // roughly constant (not grow with density) to reflect that.
+            // spiral, so a genuinely convex, single-loop shape collapses to
+            // essentially one run - SPIRAL_CONCAVITY_SPLIT_FACTOR is the
+            // floor for that clean case.
+            //
+            // MEASURED 2026-08-18 (task brief's under-read bug): that floor
+            // is only realistic for low-detail shapes. A shape traced from
+            // detailed/edge-dense source content (e.g. Potrace's output for
+            // a busy colour-separation mask) is typically a compound path
+            // with many internal sub-loops/holes, and spiralFill's own
+            // re-entry handling produces roughly one extra run per
+            // sub-loop the spiral's growing radius crosses - which scales
+            // with BOTH how finely spaced the spiral is (linesAcrossSpan)
+            // AND how hole-dense the shape is (shapeComplexity, 0..1 - see
+            // SegmentProjectionInputs' own doc comment).
+            //
+            // Fit end-to-end against real totals (shapeCount x this
+            // per-shape count vs. measured total infill segment count),
+            // NOT against the real per-shape average directly - this
+            // formula is always evaluated against THIS module's own
+            // (over-)estimated shapeCount (colour separation traces to far
+            // fewer real shapes than estimateShapeCount predicts - see
+            // processingEstimator.ts's estimateShapeCount, a known,
+            // separately-flagged limitation), so calibrating the per-shape
+            // factor to cancel that over-count, rather than to match a real
+            // per-shape average that a smaller real shapeCount would need
+            // multiplied by, is what makes the *product* land close to
+            // reality. tsc/bench/runBenchmarks.js's benchColorSeparationMatrix
+            // on SVG_Logo.svg (2 colour groups, 18 real shapes vs. this
+            // estimator's own shapeCount=50 for that same image,
+            // complexity=0.306), density 1/3/5 (3 points), least-squares
+            // through the origin: predicted vs. measured total infill
+            // segments 0.94x/0.90x/0.99x (using this module's own
+            // avgShapeSpanMm at shapeCount=50). Only calibrated against one
+            // image at one complexity level and one shapeCount-over-count
+            // ratio (~2.8x) - a very different over/under-count ratio would
+            // need this re-derived; flagged as a follow-up, not fixed here.
+
             const SPIRAL_CONCAVITY_SPLIT_FACTOR = 2;
-            return { count: SPIRAL_CONCAVITY_SPLIT_FACTOR, avgLengthMm: avgShapeSpanMm * Math.PI };
+            const SPIRAL_COMPLEXITY_LINES_PER_SPACING_UNIT = 5.6;
+            const complexityRuns = Math.round(linesAcrossSpan * shapeComplexity * SPIRAL_COMPLEXITY_LINES_PER_SPACING_UNIT);
+            return { count: Math.max(SPIRAL_CONCAVITY_SPLIT_FACTOR, complexityRuns), avgLengthMm: avgShapeSpanMm * Math.PI };
         }
 
         case 'gradientHatch': {
             // Seeded on a roughly square grid across the shape's *area*
             // (buildSeedGrid, fillStrategies/gradientHatch.ts), spaced
             // spacingMm apart in both axes - so seed count scales with
-            // (span/spacing)^2, not linearly like a straight hatch. Each
+            // (span/spacing)^2, not linearly like a straight hatch, WHEN a
+            // real source luminance gradient field is present. Each
             // surviving seed produces one short stroke
             // (STROKE_LENGTH_SPACING_MULTIPLIER=3x spacing long, that
             // file's own constant); GRADIENT_SEED_SURVIVAL_FRACTION
@@ -141,10 +192,42 @@ function estimateInfillSegmentsForOneShape(
             // combined with each stroke being individually short, is
             // exactly the "many short disconnected segments" case the task
             // brief calls out as pen-lift-pathological.
+            //
+            // BUT gradientHatch.ts's own header is explicit that it only
+            // does this when a real gradient field exists (raster-origin
+            // content with genuine local shading) - "for pure vector-origin
+            // SVGs, or for a raster-origin path whose local gradient is
+            // genuinely flat, there's nothing directional to follow", so it
+            // delegates straight to crossHatch45's linear-in-linesAcrossSpan
+            // machinery instead. Which case a given pre-render image will
+            // hit isn't knowable from this module's inputs (no gradient-
+            // field-presence signal reaches here) - and every real
+            // measurement available (tsc/bench/runBenchmarks.js's
+            // benchFillStrategiesMatrix, none of whose geometries carry a
+            // gradient field - see that section's own comment) exercises
+            // only the crossHatch45 fallback, where this quadratic formula
+            // badly OVER-predicts once avgShapeSpanMm reflects the real
+            // physical size (e.g. 900mm) rather than the old, much smaller,
+            // pixel-density guess. With no calibration data for the true
+            // gradient-follow path at all, and confirmed data showing the
+            // fallback is common and must not be over-predicted, this
+            // capped to whichever of the two is cheaper: the quadratic
+            // seed-grid projection when it happens to predict FEWER
+            // segments than the crossHatch45 fallback would (genuinely fine
+            // spacing on a small shape), and the crossHatch45-equivalent
+            // linear count otherwise (the common case) - a deliberately
+            // conservative choice given the missing calibration data, not a
+            // claim that the quadratic model is wrong for a true
+            // gradient-follow render. Flagged as a follow-up needing a real
+            // gradient-field measurement (mirroring
+            // INFILL_US_PER_SEGMENT_AT_BASE_SPACING's own gradientHatch
+            // note above), not fully fixed here.
             const GRADIENT_SEED_SURVIVAL_FRACTION = 0.55;
             const seedCount = linesAcrossSpan * linesAcrossSpan;
+            const quadraticCount = Math.max(1, Math.round(seedCount * GRADIENT_SEED_SURVIVAL_FRACTION));
+            const fallbackCount = Math.max(1, Math.round(linesAcrossSpan * 2 * 1.3)); // crossHatch45-equivalent
             return {
-                count: Math.max(1, Math.round(seedCount * GRADIENT_SEED_SURVIVAL_FRACTION)),
+                count: Math.min(quadraticCount, fallbackCount),
                 avgLengthMm: spacingMm * 3,
             };
         }
@@ -164,7 +247,8 @@ export function projectSegmentCounts(inputs: SegmentProjectionInputs): SegmentPr
     const shapeCount = Math.max(0, Math.round(inputs.shapeCount));
     const spacingMm = spacingMmForDensity(inputs.infillDensity);
 
-    const perShape = estimateInfillSegmentsForOneShape(inputs.fillStrategy, spacingMm, inputs.avgShapeSpanMm);
+    const shapeComplexity = Math.min(1, Math.max(0, inputs.shapeComplexity ?? 0));
+    const perShape = estimateInfillSegmentsForOneShape(inputs.fillStrategy, spacingMm, inputs.avgShapeSpanMm, shapeComplexity);
 
     const infillSegmentCount = shapeCount * perShape.count;
     const totalDrawSegments = shapeCount + infillSegmentCount;
