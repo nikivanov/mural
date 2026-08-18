@@ -6,7 +6,7 @@ The original hardware and firmware are excellent and this fork changes neither i
 
 > ### ⚠️ Not yet tested on hardware
 >
-> Everything here is verified in software — 203 automated tests, three firmware
+> Everything here is verified in software — 205 automated tests, three firmware
 > build configurations, and a mock-firmware harness that runs the whole web UI
 > without a machine attached. **None of it has drawn a physical line yet**; we're
 > waiting on parts. Treat the drawing-quality claims as "the geometry is correct
@@ -58,7 +58,7 @@ The density ladder now reaches 2.5mm spacing (was 7mm), which is what makes true
 
 ### Under the hood
 
-- **203 automated tests and CI** covering the whole image pipeline, plus flash-budget gates that fail the build if the firmware or filesystem outgrows its partition.
+- **205 automated tests and CI** covering the whole image pipeline, plus flash-budget gates that fail the build if the firmware or filesystem outgrows its partition.
 - Better path ordering (both-endpoint greedy plus a bounded 2-opt pass) and polyline simplification, which cut pen-up travel and command-file size.
 
 ---
