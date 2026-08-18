@@ -86,10 +86,17 @@ export type ProcessingEstimate = {
 // classifyWithFringeResolution's per-pixel classification+growth pass are
 // all O(pixels); none dominates enough on its own to warrant separate
 // tuning, so they share one blended per-pixel-per-level coefficient.
-// Order-of-magnitude starting point: low single-digit microseconds per
-// pixel per traced level on the M5 Pro reference device - retune against
-// real measured vectorize() calls.
-export const VECTORIZE_US_PER_PIXEL_PER_LEVEL = 1.6;
+//
+// MEASURED 2026-08-18 on the M5 Pro reference machine via
+// tsc/bench/runBenchmarks.js (see that file's header for how to re-run):
+// vectorizeImageDataGrayscale (pure per-level trace cost, no k-means) timed
+// across Brown-Horse-Clipart-GraphicsFairy.jpg at two raster sizes
+// (~317K and ~1.27M px) and levels=1..4 (8 data points), fit by
+// least-squares through the origin against pixels*levels. Predicted vs.
+// measured ranged 0.69x-1.12x across those 8 points - well within this
+// estimator's +-2x accuracy bar. The previous value here (1.6) was never
+// measured and was ~13x too high.
+export const VECTORIZE_US_PER_PIXEL_PER_LEVEL = 0.12;
 
 // k-means (vectorizer.ts's kMeansQuantize) runs up to K_MEANS_MAX_ITERATIONS
 // (10, mirrored here) full reassignment passes over every sampled
@@ -97,11 +104,27 @@ export const VECTORIZE_US_PER_PIXEL_PER_LEVEL = 1.6;
 // above, and only when no fixed palette is supplied (colorCount>1, no
 // palette).
 export const KMEANS_ITERATIONS = 10; // mirrors vectorizer.ts's K_MEANS_MAX_ITERATIONS
-export const KMEANS_US_PER_PIXEL_PER_ITERATION = 0.05;
+// MEASURED 2026-08-18 (same session as VECTORIZE_US_PER_PIXEL_PER_LEVEL
+// above): vectorizeImageDataColor timed on Bluey_Hero.png at two sizes
+// (~490K and ~1.96M px) x colorCount in {2,3,4,6}, with the per-pixel
+// trace cost (colorCount x VECTORIZE_US_PER_PIXEL_PER_LEVEL, since each
+// color mask is its own independent trace pass) subtracted out first, then
+// the remainder fit against pixels*KMEANS_ITERATIONS. k-means's actual
+// iteration count varies run to run (it stops early on convergence, see
+// kMeansQuantize), so this is noisier than the trace-only fit above
+// (ratios 0.58x-1.37x across 8 points) but still within the accuracy bar.
+// Previous value (0.05) was ~8x too high.
+export const KMEANS_US_PER_PIXEL_PER_ITERATION = 0.006;
 
 // Hue-grouping (huePalette.ts) is pure per-color hex/HSL/tone math, not a
 // per-pixel pass - a small fixed cost per color, not scaled by pixel count.
-export const HUE_GROUPING_US_PER_COLOR = 200;
+// MEASURED 2026-08-18: applyHueGrouping timed on synthetic palettes of
+// 2/3/6/10/16 colors (tsc/bench/runBenchmarks.js's benchHueGrouping) -
+// converges to ~1.2-1.3us/color once past the first (JIT-warmup-inflated)
+// sample; this stage is sub-millisecond even at 16 colors, so its accuracy
+// barely matters to the total estimate either way. Previous value (200)
+// was ~150x too high.
+export const HUE_GROUPING_US_PER_COLOR = 1.5;
 
 function estimateVectorizeSeconds(inputs: ProcessingEstimateInputs, pixels: number, levels: number): number {
     const traceSeconds = (pixels * levels * VECTORIZE_US_PER_PIXEL_PER_LEVEL) / 1e6;
@@ -151,7 +174,30 @@ function estimateShapeCount(inputs: ProcessingEstimateInputs, pixels: number): n
 // whole pipeline (general polygon boolean ops, not a cheap distance
 // comparison), hence the much larger per-pair coefficient than the
 // optimizer's below.
-export const FLATTEN_US_PER_SHAPE_PAIR = 25;
+//
+// MEASURED 2026-08-18: flattenPaths (intra-layer) timed on SVG_Logo.svg's
+// traced paths at shapeCount in {2,4,7,10,13} (tsc/bench/runBenchmarks.js's
+// benchFlatten), fit by least-squares through the origin against
+// shapeCount^2. Previous value (25) was ~11x too low.
+//
+// KNOWN LIMITATION, not fixed by this recalibration: this coefficient (and
+// the shapeCount^2 formula generally) only knows shape *count*, not shape
+// *complexity*. A raster color-separation mask traced from a detailed
+// image (e.g. a busy cartoon) can come back as ONE compound path per color
+// with thousands of internal sub-loops from Potrace - shapeCount stays
+// tiny (1 per layer) but a single subtract() between two such paths is
+// dramatically more expensive than this formula assumes. Measured
+// end-to-end on Bluey_Hero.png (500px, 2-4 colors, cross-layer knockout):
+// real cost was 3-14 SECONDS against a shapeCount of only 2-4 per side -
+// three to four orders of magnitude beyond what shapeCount^2 x this
+// coefficient would predict. There is no pre-render signal available to
+// this estimator (which only knows requested colorCount, not what Potrace
+// will actually produce) that would let it see this coming; fixing it
+// properly would need either a post-vectorize complexity signal (e.g. real
+// traced point count) threaded into the estimate, or a pipeline-side fix
+// (flattener.ts operating on decomposed sub-paths instead of whole
+// compound paths). Flagged separately rather than addressed here.
+export const FLATTEN_US_PER_SHAPE_PAIR = 280;
 
 function estimateFlattenKnockoutSeconds(inputs: ProcessingEstimateInputs, shapeCount: number): number {
     if (!inputs.flattenPaths && !inputs.knockout) {
@@ -186,14 +232,41 @@ function estimateFlattenKnockoutSeconds(inputs: ProcessingEstimateInputs, shapeC
 //   - contour: Clipper integer-polygon offsetting per ring
 //     (fillStrategies/contour.ts) - general polygon-offset math, the next
 //     most expensive strategy after gradientHatch.
+// MEASURED 2026-08-18 via tsc/bench/runBenchmarks.js's benchFillStrategiesMatrix:
+// generateInfills timed per strategy x density {1,3,5} x 3 geometries
+// (SVG_Logo.svg at 300mm/900mm, Brown-Horse-Clipart-GraphicsFairy.jpg
+// traced at 300mm), fit by least-squares through the origin against
+// (real infillSegmentCount) x (INFILL_BASE_SPACING_MM / actual spacing),
+// using only the higher-segment-count runs (>=100 segments) to avoid
+// being dominated by each strategy's own fixed per-call setup cost (grid
+// construction, Clipper initialization, etc.) - see this constant's
+// section in the harness/PR notes for the full per-strategy ratio table.
+// At very low segment counts (a handful of segments on a small/simple
+// shape) that fixed setup cost can dominate the *absolute* time (tens of
+// ms) even though it's a poor fit for the *proportional* model here; since
+// those cases are trivially fast in absolute terms regardless, this
+// under-modeling doesn't meaningfully affect the total estimate.
+//
+// gradientHatch specifically: neither benchmark geometry above carries a
+// source luminance gradient field (see gradientHatch.ts's header - it
+// falls back to crossHatch45's cheap path for pure vector-origin SVGs or
+// gradient-free rasters), so the matrix run alone would have measured the
+// *fallback*, not the real gradient-follow algorithm - and did, the first
+// time this was run (it came back ~identical to crossHatch45, contradicting
+// gradientHatch's own header comment that it's "BY FAR the most expensive").
+// Corrected via a separate targeted measurement: vectorizeImageData +
+// withGradientField on Brown-Horse-Clipart-GraphicsFairy.jpg (600px, so
+// generateInfills's gradientField lookup actually finds real field data),
+// generateInfills with fillMethod='gradientHatch' at density {1,3,5} ->
+// 352/258/424 us/segment-at-base-spacing; 350 used below.
 export const INFILL_US_PER_SEGMENT_AT_BASE_SPACING: Record<FillStrategyName, number> = {
-    crossHatch45: 18,
-    crossHatchAngled: 19,
-    singleDirectionHatch: 12,
-    jitteredHatch: 22,
-    spiral: 15,
-    gradientHatch: 45,
-    contour: 60,
+    crossHatch45: 30,
+    crossHatchAngled: 85,
+    singleDirectionHatch: 88,
+    jitteredHatch: 87,
+    spiral: 286,
+    gradientHatch: 350,
+    contour: 344,
 };
 export const INFILL_BASE_SPACING_MM = 10; // density level 3 - the coefficients above are calibrated at this spacing
 
@@ -219,7 +292,20 @@ function estimateInfillSeconds(inputs: ProcessingEstimateInputs, segments: Segme
 // getClosestInfilledPath) rescans every remaining shape on each iteration -
 // O(shapeCount^2) simple distance comparisons (cheap per pair, unlike
 // flatten's boolean ops above).
-export const GREEDY_NN_US_PER_SHAPE_PAIR = 0.15;
+// MEASURED 2026-08-18: this harness's geometries (SVG_Logo.svg: 13 shapes;
+// the horse trace: 1 shape) don't vary shapeCount enough to isolate the
+// greedy pass's own O(shapeCount^2) cost from the 2-opt pass's
+// O(totalDrawSegments^2) cost below - optimizePaths() only exposes their
+// combined wall time. Both loops do the same kind of work (a plain
+// paper.Point#getDistance comparison per pair - see optimizer.ts's
+// getClosestPath/getClosestInfilledPath and twoOptOptimize), so, lacking
+// data to separate them, this reuses the single per-pair coefficient fit
+// below for TWO_OPT_US_PER_SEGMENT_PAIR rather than guessing a different
+// number for this one. Re-deriving them separately would need a benchmark
+// geometry matrix that varies shapeCount independently of
+// totalDrawSegments (e.g. many small shapes vs. few large ones at matched
+// total segment counts) - flagged as a follow-up, not done here.
+export const GREEDY_NN_US_PER_SHAPE_PAIR = 0.31;
 
 // The bounded 2-opt pass (twoOptOptimize) is also O(totalDrawSegments^2) in
 // the worst case, but - unlike every other stage in this model - it has a
@@ -230,7 +316,24 @@ export const GREEDY_NN_US_PER_SHAPE_PAIR = 0.15;
 // raw (device-scaled) estimate is calculated first and then clamped to the
 // budget, rather than the budget itself being scaled - see
 // estimateOptimizeSeconds below.
-export const TWO_OPT_US_PER_SEGMENT_PAIR = 0.08;
+//
+// MEASURED 2026-08-18 via the same fill-strategy matrix as the infill
+// section above: optimizePaths() timed alongside generateInfills(), fit
+// against totalDrawSegments^2 using the median per-pair implied
+// coefficient across all 63 runs (least-squares through the origin was
+// skewed by a few large runs; see this constant's PR notes for the full
+// table). Actual optimizePaths cost depends on how infill segments
+// distribute across shapes, not just their total count (optimizer.ts's
+// outer loop only compares within one shape's own infill lines at a time -
+// see getClosestInfilledPath/getClosestPath), so a single geometry with
+// many small shapes and one with few large shapes at the same
+// totalDrawSegments can genuinely cost differently; this coefficient is a
+// calibrated average across both regimes present in the benchmark data,
+// not an exact model. Measured ratios: median 1.2x, p90 3x, worst case
+// 9.8x (a 900mm/density-5/gradientHatch run) - the worst case exceeds this
+// estimator's usual +-2x target; see the PR notes for why a linear-in-
+// totalDrawSegments model can't fully capture this stage.
+export const TWO_OPT_US_PER_SEGMENT_PAIR = 0.31;
 export const TWO_OPT_TIME_BUDGET_SECONDS = 2; // mirrors optimizer.ts's TWO_OPT_TIME_BUDGET_MS
 
 function estimateOptimizeSeconds(deviceFactor: number, shapeCount: number, totalDrawSegments: number): number {
@@ -247,8 +350,35 @@ function estimateOptimizeSeconds(deviceFactor: number, shapeCount: number, total
 // renderPathsToCommands (renderer.ts), simplifyPaths' RDP pass
 // (simplifier.ts), dedupeCommands (deduplicator.ts), and measureDistance
 // (measurer.ts) are all a single linear walk over the command/point list,
-// so they're modeled together as one per-segment coefficient.
-export const RENDER_SIMPLIFY_DEDUPE_US_PER_SEGMENT = 8;
+// so they're modeled together as one per-segment coefficient. (Note: in
+// the real pipeline, toCommands.ts's simplifyPaths call actually runs
+// *before* infill, not after render like this stage's name suggests - see
+// toCommands.ts. It's bundled here anyway, against whichever stage its
+// cost is attributed to in the model, rather than left completely
+// unmodeled.)
+//
+// MEASURED 2026-08-18 via the same fill-strategy matrix as the two stages
+// above: rdpSimplify + render + dedupe + measure times summed, divided by
+// totalDrawSegments (path count, not point count - see caveat below),
+// median across 63 runs. Previous value (8) was in the right order of
+// magnitude and is only revised down slightly here.
+//
+// KNOWN LIMITATION, not fixed by this recalibration: totalDrawSegments
+// counts *paths* (pen-down/pen-up brackets), not the *points* within them.
+// For strategies whose infill paths carry many points per path (spiral's
+// continuous curve in particular), the real cost of this stage - which
+// walks every point, not every path - can run well ahead of what this
+// per-path coefficient predicts. Compounding that: measurer.ts's
+// measureDistance has a confirmed O(n^2) algorithmic bug (it calls
+// `dedupedCommands.slice(0, i)` inside its own O(n) loop, on every
+// iteration), which shows up as a real, measured multi-second stall on
+// large/dense spiral renders (e.g. a 900mm/density-5 spiral job measured
+// several REAL seconds in this stage alone). That bug is a pipeline
+// performance issue, not an estimator-calibration one - flagged
+// separately rather than fixed here - but it means this coefficient
+// (fit against moderate-sized runs) will under-predict badly on very
+// large, point-dense renders until the underlying bug is fixed.
+export const RENDER_SIMPLIFY_DEDUPE_US_PER_SEGMENT = 3.5;
 
 function estimateRenderSimplifyDedupeSeconds(totalDrawSegments: number): number {
     return (totalDrawSegments * RENDER_SIMPLIFY_DEDUPE_US_PER_SEGMENT) / 1e6;

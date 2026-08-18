@@ -6,7 +6,8 @@
   "scripts": {
     "build": "webpack --mode=production --node-env=production",
     "pretest": "tsc -p tsconfig.test.json",
-    "test": "node --test dist-test/test/*.test.js"
+    "test": "node --test dist-test/test/*.test.js",
+    "bench": "tsc -p tsconfig.test.json && node dist-test/bench/runBenchmarks.js"
   },
   "keywords": [],
   "author": "Nik Ivanov",
