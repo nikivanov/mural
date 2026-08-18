@@ -982,6 +982,143 @@ body:has(.zoom-toggle:checked) {
 }
 
 /* =====================================================================
+   Render-in-flight overlay + stale/dirty preview (feedback #1 and #2:
+   rendering happens in a worker and previously only surfaced as a small
+   text change in a thin bar below the preview - easy to miss, and every
+   settings change silently re-triggered it, making the page look "dead"
+   mid-render). The overlay sits directly over the preview image; the image
+   itself dims/desaturates any time it no longer reflects current settings
+   (either mid-render, or dirty and waiting for "Update preview").
+   ===================================================================== */
+
+.preview-frame.is-stale img {
+  filter: grayscale(75%);
+  opacity: 0.4;
+}
+
+.render-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.render-overlay-panel {
+  width: 86%;
+  max-width: 320px;
+  background: var(--paper);
+  border: var(--border-w) solid var(--ink);
+  padding: 16px;
+  text-align: center;
+  clip-path: polygon(0 0, 100% 0, 100% 86%, 91% 100%, 0 100%);
+}
+
+.render-overlay-stage {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 13px;
+  min-height: 1.4em;
+  margin-bottom: 10px;
+}
+
+.render-overlay-progress {
+  margin: 0;
+  height: 18px;
+}
+
+.preview-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border: var(--border-w) solid var(--ink);
+  background: var(--warning-bg);
+  padding: 10px 12px;
+  margin: 10px 0 16px;
+}
+
+.preview-dirty-badge {
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
+
+/* =====================================================================
+   Color mode selector (single/grayscale/multi radio group replacing two
+   independently-checkable checkboxes - see docs/multi-color.md and
+   tsc/src/main.ts's "mutually exclusive tonal/color separation modes")
+   ===================================================================== */
+
+.mode-select {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap-min);
+  border: var(--border-w) solid var(--ink);
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.mode-option input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  margin: 0;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.mode-option input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.mode-option:has(input:checked) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.mode-option:has(input:checked) input[type="radio"] {
+  border-color: var(--paper);
+  background: var(--paper);
+}
+
+.mode-option:has(input:checked) input[type="radio"]:checked::after {
+  background: var(--accent4);
+}
+
+.mode-option input[type="radio"]:focus-visible {
+  outline: 3px solid var(--accent2);
+  outline-offset: 2px;
+}
+
+/* =====================================================================
    Modal (native <dialog>, replaces Bootstrap Modal)
    ===================================================================== */
 

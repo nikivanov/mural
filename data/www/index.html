@@ -138,14 +138,31 @@
           <div class="col-media">
             <div class="preview-box">
               <input type="checkbox" id="previewZoomToggle" class="zoom-toggle">
-              <div class="preview-frame">
+              <div class="preview-frame" id="previewFrame">
                 <img id="previewSvg" class="svg-preview" style="display:none;">
+                <!-- Render-in-flight overlay (over the preview, not a small bar
+                     below it - see main.js's showRenderOverlay/updateRenderStage/
+                     hideRenderOverlay). Shows the current worker pipeline stage
+                     (tsc/src/main.ts's `status` messages) mapped to an approximate
+                     completion percentage. -->
+                <div class="render-overlay" id="renderOverlay" style="display:none;" role="status" aria-live="polite">
+                  <div class="render-overlay-panel">
+                    <div class="render-overlay-stage" id="renderOverlayStage">Starting&hellip;</div>
+                    <div class="progress render-overlay-progress mb-0">
+                      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="progressBar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                  </div>
+                </div>
                 <label for="previewZoomToggle" class="zoom-open">&#10530; Enlarge</label>
               </div>
               <label for="previewZoomToggle" class="zoom-close">&#10005; Close</label>
             </div>
-            <div class="progress mb-2" style="height: 20px;">
-              <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="progressBar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+            <!-- Explicit update flow (task 2): a settings change marks the
+                 preview dirty instead of auto re-rendering; this row surfaces
+                 that state and the button that actually kicks off a render. -->
+            <div class="preview-status-row" id="previewStatusRow" style="display:none;">
+              <span class="preview-dirty-badge" id="previewDirtyBadge">Preview out of date</span>
+              <button type="button" class="btn btn-primary" id="updatePreviewBtn">Update preview</button>
             </div>
             <h6 class="mb-2 fw-normal svg-preview" style="display: none;" id="distances"></h6>
           </div>
@@ -213,18 +230,32 @@
             <input type="range" class="form-range mb-2 text-center" min="2" max="200" step="11" id="turdSize" value="2">
             <div id="turdSizeRationale" class="mb-2 text-start" style="display:none;"><small class="text-muted"></small></div>
 
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="grayscaleCheckbox">
-              <label class="form-check-label" for="grayscaleCheckbox">Grayscale (tonal)</label>
+            <label class="form-label mb-0" id="colorModeLabel">Color mode</label>
+            <!-- Single control (task 3): grayscale (tonal) and multi-color
+                 separation are mutually exclusive at the render pipeline level
+                 (tsc/src/main.ts) - a radio group makes that structural, instead
+                 of two independent checkboxes plus imperative uncheck-the-other
+                 logic. -->
+            <div class="mode-select" id="colorModeGroup" role="radiogroup" aria-labelledby="colorModeLabel">
+              <label class="mode-option" id="colorModeSingleOption">
+                <input type="radio" name="colorMode" id="colorModeSingle" value="single" checked>
+                <span>Single colour</span>
+              </label>
+              <label class="mode-option" id="colorModeGrayscaleOption">
+                <input type="radio" name="colorMode" id="colorModeGrayscale" value="grayscale">
+                <span>Grayscale (tonal)</span>
+              </label>
+              <label class="mode-option" id="colorModeMultiOption">
+                <input type="radio" name="colorMode" id="colorModeMulti" value="multi">
+                <span>Multiple colours (pen swaps)</span>
+              </label>
             </div>
-            <label for="grayscaleLevels" class="form-label mb-0">Grayscale levels</label>
-            <select class="form-select mb-2" id="grayscaleLevels">
-              <option value="3">3</option>
-              <option value="4">4</option>
-            </select>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="multiColorCheckbox">
-              <label class="form-check-label" for="multiColorCheckbox">Multiple colors (pen swaps)</label>
+            <div id="grayscaleOptions" style="display:none;">
+              <label for="grayscaleLevels" class="form-label mb-0">Grayscale levels</label>
+              <select class="form-select mb-2" id="grayscaleLevels">
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
             </div>
             <div id="multiColorOptions" style="display:none;">
               <label for="colorCount" class="form-label mb-0">Number of colors</label>
@@ -285,11 +316,17 @@
               <label class="form-check-label" for="flattenPathsCheckbox">Flatten paths</label>
             </div>
             <div id="layerBreakdown" class="mb-2 text-start" style="display:none;"></div>
-            <button class="w-100 btn btn-lg btn-outline-secondary mb-2" type="button" data-modal-target="inkModal">Pen ink estimates</button>
+            <!-- Ink capacity is config most users never touch (task 4) - the
+                 editable table lives behind the cog (#toolsModal) now; the
+                 resulting figure still surfaces here via the plotting
+                 estimate (renderPlottingEstimate's ink line) and per-layer
+                 breakdown above. -->
+            <div id="acceptBlockedNote" class="mb-2 text-start" style="display:none;"><small class="text-muted">Update the preview to match your current settings before accepting.</small></div>
             <button class="w-100 btn btn-lg btn-primary mb-2" id="acceptSvg" disabled>Accept</button>
             <button class="w-100 btn btn-lg btn-secondary mb-5 backToSvgSelect">Back</button>
           </div>
         </div>
+        <button type="button" class="tools-gear-btn" data-modal-target="toolsModal" aria-label="Tools" style="position:fixed; top: 10px; right: 10px;">&#9881;</button>
       </div>
       <div id="uploadProgress" class="muralSlide" style="display:none;">
         <div class="ui-topbar"><span class="eyebrow">Upload</span></div>
@@ -357,27 +394,6 @@
       </div>
       <div class="mt-5"><a href="https://github.com/nikivanov/mural" class="link-primary">Mural</a></div>
   </main>
-  <dialog class="mural-modal" id="inkModal" aria-labelledby="inkModalLabel">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="inkModalLabel">Pen ink estimates</h5>
-        <button type="button" class="btn-close" data-modal-dismiss aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-start">
-        <h6><small class="text-muted">Rough estimates only - actual ink capacity varies a lot by pen brand, paper, and line width. Figures below are for drawing on paper; adjust them for your own pens.</small></h6>
-        <table class="table table-sm" id="inkCapacityTable">
-          <thead>
-            <tr><th>Pen type</th><th>Capacity (m)</th></tr>
-          </thead>
-          <tbody id="inkCapacityTableBody"></tbody>
-        </table>
-        <button class="w-100 btn btn-outline-secondary mb-2" id="resetInkCapacityTable">Reset to defaults</button>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-modal-dismiss>Close</button>
-      </div>
-    </div>
-  </dialog>
   <dialog class="mural-modal" id="toolsModal" aria-labelledby="toolsModalLabel">
     <div class="modal-content">
       <div class="modal-header">
@@ -385,6 +401,22 @@
         <button type="button" class="btn-close" data-modal-dismiss aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <!-- Pen ink capacity (task 4): moved out of the main preview flow
+             into the tools/cog modal - config most users never touch. The
+             resulting figure still surfaces in the preview flow itself, see
+             #plottingEstimateSummary and #layerBreakdown in main.js. -->
+        <h6 class="mb-3">Pen ink estimates</h6>
+        <h6><small class="text-muted">Rough estimates only - actual ink capacity varies a lot by pen brand, paper, and line width. Figures below are for drawing on paper; adjust them for your own pens.</small></h6>
+        <table class="table table-sm" id="inkCapacityTable">
+          <thead>
+            <tr><th>Pen type</th><th>Capacity (m)</th></tr>
+          </thead>
+          <tbody id="inkCapacityTableBody"></tbody>
+        </table>
+        <button class="w-100 btn btn-outline-secondary mb-3" id="resetInkCapacityTable">Reset to defaults</button>
+        <label for="defaultPenType" class="form-label mb-0">Default pen (for the preview's ink estimate)</label>
+        <select class="form-select mb-5" id="defaultPenType"></select>
+        <hr>
         <label for="leftMotorTool" class="form-label">Left Motor</label>
         <input type="range" class="form-range mb-5 text-center" min="-1" max="1" id="leftMotorTool" value="0">
         <label for="rightMotorTool" class="form-label">Right Motor</label>

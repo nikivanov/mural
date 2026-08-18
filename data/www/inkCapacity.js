@@ -51,3 +51,28 @@ export function estimatePenUsage(distanceM, capacityM) {
         text: `${distanceM.toFixed(1)} m ≈ ${fraction.toFixed(2)} pens`,
     };
 }
+
+// Which pen type to use for the single-color/aggregate ink readout shown
+// alongside the plotting estimate (task 4: the editable capacity table moved
+// behind the cog, but a genuinely useful figure - "~7% of a Sharpie" - stays
+// visible in the main preview flow). Separate from per-layer selections
+// (main.js's layerPenTypeSelections), which only apply once a multi-color
+// render has detected layers to pick per-layer pens for.
+const DEFAULT_PEN_STORAGE_KEY = "muralDefaultPenType";
+
+export function loadDefaultPenType(capacities) {
+    try {
+        const stored = localStorage.getItem(DEFAULT_PEN_STORAGE_KEY);
+        if (stored && capacities[stored]) {
+            return stored;
+        }
+    } catch (err) {
+        // fall through
+    }
+    const names = Object.keys(capacities);
+    return names.length ? names[0] : null;
+}
+
+export function saveDefaultPenType(name) {
+    localStorage.setItem(DEFAULT_PEN_STORAGE_KEY, name);
+}
