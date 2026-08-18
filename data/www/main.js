@@ -2,7 +2,7 @@ import * as svgControl from './svgControl.js';
 import * as client from './client.js';
 import { showError } from './alerts.js';
 import { crc32OfString } from './crc32.js';
-import { estimatePenUsage, loadPenCapacities, resetPenCapacities, savePenCapacities } from './inkCapacity.js';
+import { estimatePenUsage, loadPenCapacities, resetPenCapacities, savePenCapacities, loadDefaultPenType, saveDefaultPenType } from './inkCapacity.js';
 
 let currentState = null;
 
@@ -65,6 +65,125 @@ let disabledColorIndexes = [];
 // actually survived filtering) so a fully-disabled layer's row - and its
 // re-enable checkbox - never disappears from the breakdown UI.
 let allDetectedLayers = null;
+// Exact draw distance (m) from the most recent successful render - kept
+// alongside lastPlottingEstimate so the ink-estimate readout (task 4) can be
+// recomputed on demand (e.g. when the user changes the default pen type in
+// the tools modal) without needing a fresh render.
+let lastDrawDistanceM = null;
+
+// --- Dirty/explicit-update preview state (feedback #2) --------------------
+//
+// Every settings change used to auto-trigger a full re-render, which is why
+// the page looked like it hung after any tweak. Now a settings change only
+// marks the preview DIRTY (see markDirty()) - the actual (expensive) render
+// only happens when the user asks for it via #updatePreviewBtn, or the very
+// first time after picking a renderer (still automatic - see the
+// #pathTracing/#vectorRasterVector handlers). `settingsGeneration` bumps on
+// every dirty-marking change; `renderTargetGeneration` snapshots it at the
+// start of each render, so a render that completes AFTER the settings moved
+// on again (user tweaked something while it was running) correctly leaves
+// the preview dirty instead of wrongly clearing it - this is also what keeps
+// Accept from ever uploading a command file that doesn't match what's shown
+// (see the 'renderer' completion handler in renderSvgInWorker).
+let settingsGeneration = 0;
+let renderTargetGeneration = -1;
+let previewDirty = false;
+let previewRendering = false;
+let hasRenderedOnce = false;
+
+// --- Render-in-flight overlay (feedback #1) --------------------------------
+//
+// Stage names arrive as discrete steps (tsc/src/main.ts's updateStatusFn,
+// called from toCommands.ts/flattener.ts/toSvgJson.ts), not a continuous
+// percentage, so this maps the KNOWN stage sequence to an approximate
+// cumulative completion band rather than faking smooth motion. Per-layer
+// stages arrive suffixed "<name>: <i> / <n>" - that fraction interpolates
+// within the stage's own band. Bands are a rough relative-cost ordering
+// (infill/path-optimization dominate), not a measurement; an unlisted stage
+// name just nudges the bar forward slightly so it still visibly moves
+// without asserting a completion percentage it doesn't know.
+const RENDER_STAGE_BANDS = [
+    ['Vectorizing', 0, 8],
+    ['Importing', 8, 14],
+    ['Generating paths', 14, 26],
+    ['Reducing path detail', 26, 32],
+    ['Sorting paths', 32, 36],
+    ['Flattening paths', 36, 48],
+    ['Cross-layer knockout', 48, 56],
+    ['Generating infill', 56, 74],
+    ['Optimizing paths', 74, 86],
+    ['Generating commands', 86, 94],
+    ['Simplifying commands', 94, 96],
+    ['Measuring total distance', 96, 97],
+    ['Assembling command file', 97, 98],
+    ['Rendering result', 98, 100],
+];
+let lastRenderPct = 0;
+
+function stageProgressPercent(payload) {
+    const match = payload.match(/^(.*?):\s*(\d+)\s*\/\s*(\d+)\s*$/);
+    const baseName = match ? match[1] : payload;
+    const band = RENDER_STAGE_BANDS.find(([name]) => baseName === name || baseName.startsWith(name));
+    if (!band) {
+        return Math.min(97, lastRenderPct + 1);
+    }
+    const [, start, end] = band;
+    let pct = start;
+    if (match) {
+        const i = parseInt(match[2]);
+        const n = parseInt(match[3]);
+        if (n > 0) {
+            pct = start + (end - start) * Math.min(1, i / n);
+        }
+    }
+    return Math.max(lastRenderPct, Math.round(pct));
+}
+
+function showRenderOverlay() {
+    previewRendering = true;
+    lastRenderPct = 0;
+    $("#renderOverlay").show();
+    $("#renderOverlayStage").text("Starting…");
+    $("#progressBar").css('width', '0%').attr('aria-valuenow', 0);
+    $("#previewFrame").addClass("is-stale");
+    $("#updatePreviewBtn").prop("disabled", true);
+}
+
+function updateRenderStage(payload) {
+    const pct = stageProgressPercent(payload);
+    lastRenderPct = pct;
+    $("#renderOverlayStage").text(payload);
+    $("#progressBar").css('width', pct + '%').attr('aria-valuenow', pct);
+}
+
+function hideRenderOverlay() {
+    previewRendering = false;
+    $("#renderOverlay").hide();
+    $("#updatePreviewBtn").prop("disabled", false);
+}
+
+// --- Explicit "Update preview" / dirty state (feedback #2) ----------------
+function updatePreviewStatusUI() {
+    $("#previewStatusRow").toggle(previewDirty);
+    $("#previewFrame").toggleClass("is-stale", previewDirty || previewRendering);
+    // Accept must never upload a command file that doesn't match what's
+    // currently shown - block it outright while dirty (rather than silently
+    // forcing a re-render on click) so what the user sees is always exactly
+    // what they'd be accepting, and clicking Accept never itself triggers a
+    // surprise multi-second render.
+    if (previewDirty || !hasRenderedOnce) {
+        $("#acceptSvg").attr("disabled", "disabled");
+    } else {
+        $("#acceptSvg").removeAttr("disabled");
+    }
+    $("#acceptBlockedNote").toggle(previewDirty && hasRenderedOnce);
+}
+
+function markDirty() {
+    settingsGeneration++;
+    previewDirty = true;
+    updatePreviewStatusUI();
+}
 
 window.onload = function () {
     init();
@@ -291,6 +410,13 @@ function init() {
         lastPlottingEstimate = null;
         disabledColorIndexes = [];
         allDetectedLayers = null;
+        lastDrawDistanceM = null;
+        settingsGeneration = 0;
+        renderTargetGeneration = -1;
+        previewDirty = false;
+        previewRendering = false;
+        hasRenderedOnce = false;
+        updatePreviewStatusUI();
         $("#processingEstimateText,#processingWarning,#plottingEstimateSummary").hide().empty();
         $("#fillMethodRationale,#infillDensityRationale,#turdSizeRationale,#colorCountRationale,#hueGroupingRationale").hide();
 
@@ -305,9 +431,8 @@ function init() {
             $("#infillDensity").val(0);
             $("#turdSize").val(2);
             $("#fillMethod").val("crossHatch45");
-            $("#grayscaleCheckbox").prop("checked", false);
+            setColorMode('single');
             $("#grayscaleLevels").val(3);
-            $("#multiColorCheckbox").prop("checked", false).trigger('change');
             $("#colorOverprintCheckbox").prop("checked", false);
             $("#hueGroupingCheckbox").prop("checked", false);
             hueOverrides = {};
@@ -422,13 +547,15 @@ function init() {
         }
         currentPreviewId++;
         const thisPreviewId = currentPreviewId;
+        renderTargetGeneration = settingsGeneration;
+        showRenderOverlay();
 
         const svgString = await getUploadedSvgString();
         if (!svgString) {
             throw new Error('No SVG string');
         }
 
-        $("#progressBar").text("Rasterizing");
+        updateRenderStage("Rasterizing");
         const raster = await svgControl.getCurrentSvgImageData();
         vectorizePalette = null;
         vectorizeHueGroups = null;
@@ -461,9 +588,18 @@ function init() {
         if (currentPreviewId == thisPreviewId) {
             currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
 
+            currentWorker.onerror = (err) => {
+                if (currentPreviewId !== thisPreviewId) {
+                    return;
+                }
+                hideRenderOverlay();
+                markDirty();
+                showError("Render failed: " + (err.message || err), () => rendererFn());
+            };
+
             currentWorker.onmessage = (e) => {
                 if (e.data.type === 'status') {
-                    $("#progressBar").text(e.data.payload);
+                    updateRenderStage(e.data.payload);
                 } else if (e.data.type === 'vectorizer') {
                     const vectorizedSvg = e.data.payload.svg;
                     // Multi-color: the vectorizer already assigned each mask a
@@ -502,6 +638,8 @@ function init() {
         }
         currentPreviewId++;
         const thisPreviewId = currentPreviewId;
+        renderTargetGeneration = settingsGeneration;
+        showRenderOverlay();
 
         const svgString = await getUploadedSvgString();
         if (!svgString) {
@@ -510,9 +648,17 @@ function init() {
 
         if (currentPreviewId == thisPreviewId) {
             currentWorker = new Worker(`./worker/worker.js?v=${Date.now()}`);
+            currentWorker.onerror = (err) => {
+                if (currentPreviewId !== thisPreviewId) {
+                    return;
+                }
+                hideRenderOverlay();
+                markDirty();
+                showError("Render failed: " + (err.message || err), () => rendererFn());
+            };
             currentWorker.onmessage = (e) => {
                 if (e.data.type === 'status') {
-                    $("#progressBar").text(e.data.payload);
+                    updateRenderStage(e.data.payload);
                 }
                 else if (e.data.type === 'log') {
                     console.log(`Worker: ${e.data.payload}`);
@@ -573,7 +719,7 @@ function init() {
 
         worker.onmessage = (e) => {
             if (e.data.type === 'status') {
-                $("#progressBar").text(e.data.payload);
+                updateRenderStage(e.data.payload);
             } else if (e.data.type === 'renderer') {
                 console.log("Worker finished!");
 
@@ -583,12 +729,25 @@ function init() {
 
                 const totalDistanceM = +(e.data.payload.distance / 1000).toFixed(1);
                 const drawDistanceM = +(e.data.payload.drawDistance / 1000).toFixed(1);
+                lastDrawDistanceM = drawDistanceM;
 
-                deactivateProgressBar();
+                hideRenderOverlay();
                 $("#previewSvg").attr("src", resultDataUrl);
                 $("#distances").text(`Total: ${totalDistanceM}m / Draw: ${drawDistanceM}m`);
                 $(".svg-preview").show();
-                $("#acceptSvg").removeAttr("disabled");
+                hasRenderedOnce = true;
+
+                // This render reflects settings as of renderTargetGeneration -
+                // only clear dirty/enable Accept if nothing changed since it
+                // started (see the settingsGeneration comment near its
+                // declaration). If the user tweaked a setting while this
+                // render was in flight, it's already dirty again and Accept
+                // stays blocked - correctly, since this result no longer
+                // matches current settings.
+                if (renderTargetGeneration === settingsGeneration) {
+                    previewDirty = false;
+                }
+                updatePreviewStatusUI();
 
                 // Post-render plotting estimate (plottingEstimator.ts, via
                 // toCommands.ts): exact draw/travel/pen-lift breakdown for
@@ -596,7 +755,7 @@ function init() {
                 // effect of disabledColorIndexes on pen count/swaps.
                 const returnedLayers = e.data.payload.layers || null;
                 lastPlottingEstimate = e.data.payload.plotting || null;
-                renderPlottingEstimate(lastPlottingEstimate, returnedLayers);
+                renderPlottingEstimate(lastPlottingEstimate, returnedLayers, drawDistanceM);
 
                 if (disabledColorIndexes.length === 0) {
                     // Clean detection pass (nothing disabled this render) -
@@ -617,26 +776,11 @@ function init() {
         worker.postMessage(renderRequest);
     }
 
-    function activateProgressBar() {
-        const bar = $("#progressBar");
-        bar.addClass("progress-bar-striped");
-        bar.addClass("progress-bar-animated");
-        bar.removeClass("bg-success");
-        bar.text("");
-    }
-
-    function deactivateProgressBar() {
-        const bar = $("#progressBar");
-        bar.removeClass("progress-bar-striped");
-        bar.removeClass("progress-bar-animated");
-        bar.addClass("bg-success");
-        bar.text("Success");
-    }
-
-
     const SMART_DEFAULT_CONTROL_IDS = ['fillMethod', 'infillDensity', 'turdSize', 'colorCount', 'hueGroupingCheckbox'];
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#knockoutGapMm,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier,#fillMethod").on('input change', function() {
+    const SETTINGS_CONTROL_SELECTOR = "#infillDensity,#turdSize,#flattenPathsCheckbox,input[name='colorMode'],#grayscaleLevels,#colorCount,#colorOverprintCheckbox,#knockoutGapMm,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier,#fillMethod";
+
+    $(SETTINGS_CONTROL_SELECTOR).on('input change', function() {
         // A control the smart defaults may have pre-set was just changed by
         // the user directly (this handler only ever fires from a real
         // input/change event - applySmartDefaults() below sets values
@@ -647,38 +791,48 @@ function init() {
         }
     });
 
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#knockoutGapMm,#hueGroupingCheckbox,#nibWidthMm,#inkMultiplier,#fillMethod").on('input change', async function() {
+    $(SETTINGS_CONTROL_SELECTOR).on('input change', function() {
         // Any change to the number/set of detected colors (colorCount) or
-        // to whether/how hue grouping applies (multiColorCheckbox,
-        // hueGroupingCheckbox) invalidates previously chosen manual
-        // reassignments - they refer to detected-color indices from a
-        // vectorize run that's about to be superseded. The same is true of
-        // which layers are disabled (per-layer enable/disable).
-        if (this.id === 'colorCount' || this.id === 'multiColorCheckbox' || this.id === 'hueGroupingCheckbox') {
+        // to whether/how hue grouping applies (color mode, hueGroupingCheckbox)
+        // invalidates previously chosen manual reassignments - they refer to
+        // detected-color indices from a vectorize run that's about to be
+        // superseded. The same is true of which layers are disabled
+        // (per-layer enable/disable).
+        if (this.id === 'colorCount' || this.name === 'colorMode' || this.id === 'hueGroupingCheckbox') {
             hueOverrides = {};
             disabledColorIndexes = [];
             allDetectedLayers = null;
         }
-        activateProgressBar();
-        $("#acceptSvg").attr("disabled", "disabled");
-        await rendererFn();
+        // Settings changes mark the preview dirty instead of auto
+        // re-rendering (feedback #2) - the expensive render only happens
+        // when the user explicitly asks for it via #updatePreviewBtn (or the
+        // very first time, right after picking a renderer).
+        markDirty();
     });
 
     // Processing-time re-estimate (costEstimator.ts's ProcessingEstimate):
     // depends on the same settings above, but is purely advisory (doesn't
-    // gate the render itself), so it's debounced separately - following the
-    // existing $.throttle pattern (see servoRange below) - so dragging a
-    // slider doesn't fire a worker round-trip per tick.
-    $("#infillDensity,#turdSize,#flattenPathsCheckbox,#grayscaleCheckbox,#grayscaleLevels,#multiColorCheckbox,#colorCount,#colorOverprintCheckbox,#hueGroupingCheckbox,#fillMethod").on('input change', $.throttle(600, function() {
+    // gate the render itself) and CHEAP (no full pipeline run), so it stays
+    // live on every change rather than waiting for "Update preview" -
+    // debounced separately, following the existing $.throttle pattern (see
+    // servoRange below), so dragging a slider doesn't fire a worker
+    // round-trip per tick.
+    $(SETTINGS_CONTROL_SELECTOR).on('input change', $.throttle(600, function() {
         runProcessingEstimate();
     }));
 
-    $("#multiColorCheckbox").on('change', function() {
-        $("#multiColorOptions").toggle($(this).is(":checked"));
+    $("input[name='colorMode']").on('change', function() {
+        const mode = getColorMode();
+        $("#grayscaleOptions").toggle(mode === 'grayscale');
+        $("#multiColorOptions").toggle(mode === 'multi');
     });
 
     $("#hueGroupingCheckbox").on('change', function() {
         $("#hueGroupingOptions").toggle($(this).is(":checked"));
+    });
+
+    $("#updatePreviewBtn").click(async function() {
+        await rendererFn();
     });
 
     $("#preview").click(async function() {
@@ -688,8 +842,7 @@ function init() {
 
     $("#pathTracing").click(async function() {
         $("label[for='turdSize'],#turdSize").hide();
-        $("label[for='grayscaleCheckbox'],#grayscaleCheckbox").hide();
-        $("label[for='grayscaleLevels'],#grayscaleLevels").hide();
+        $("#colorModeGrayscaleOption").hide();
         $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").show();
 
         $("#chooseRendererSlide").hide();
@@ -701,11 +854,15 @@ function init() {
 
     $("#vectorRasterVector").click(async function() {
         $("#flattenPathsCheckbox").prop("checked", false);
-        $("#grayscaleCheckbox").prop("checked", false);
+        // Grayscale is raster-only - reset it off on entry so a stale
+        // selection from earlier in this image's session can't linger
+        // (mirrors the previous checkbox-based reset).
+        if (getColorMode() === 'grayscale') {
+            setColorMode('single');
+        }
         $("#grayscaleLevels").val(3);
         $("label[for='turdSize'],#turdSize").show();
-        $("label[for='grayscaleCheckbox'],#grayscaleCheckbox").show();
-        $("label[for='grayscaleLevels'],#grayscaleLevels").show();
+        $("#colorModeGrayscaleOption").show();
         $("label[for='flattenPathsCheckbox'],#flattenPathsCheckbox").hide();
 
         $("#chooseRendererSlide").hide();
@@ -719,7 +876,10 @@ function init() {
         uploadConvertedCommands = null;
 
         $(".loading").show();
-        activateProgressBar();
+        hideRenderOverlay();
+        previewDirty = false;
+        hasRenderedOnce = false;
+        updatePreviewStatusUI();
         $("#previewSvg").removeAttr("src");
         $(".svg-preview").hide();
         $("#acceptSvg").attr("disabled", "disabled");
@@ -729,7 +889,7 @@ function init() {
         $("#drawingPreviewSlide").hide();
         $("#chooseRendererSlide").hide();
     });
-    
+
     $("#acceptSvg").click(function() {
         if (!uploadConvertedCommands) {
             throw new Error('Commands are empty');
@@ -893,6 +1053,12 @@ function init() {
         $.get("/getPhysicsConstants", function(data) {
             populatePhysicsConstants(data);
         });
+        // Pen ink estimates (docs/multi-color.md section 5) - purely local/
+        // cosmetic, persisted in localStorage. Moved into the tools/cog
+        // modal (task 4: config most users never touch); the resulting
+        // figure still surfaces in the main preview flow via
+        // renderPlottingEstimate's ink line and the per-layer breakdown.
+        renderInkCapacityTable();
     });
 
     toolsModal.addEventListener('hidden.bs.modal', function (event) {
@@ -900,17 +1066,20 @@ function init() {
         client.leftRetractUp();
     });
 
-    // Pen ink estimates (docs/multi-color.md section 5) - purely local/
-    // cosmetic, persisted in localStorage.
-    const inkModal = $("#inkModal")[0];
-    inkModal.addEventListener('show.bs.modal', function (event) {
-        renderInkCapacityTable();
-    });
-
     $("#resetInkCapacityTable").click(function() {
         penCapacities = resetPenCapacities();
         renderInkCapacityTable();
         renderLayerBreakdown(currentLayers);
+        if (lastPlottingEstimate) {
+            renderPlottingEstimate(lastPlottingEstimate, allDetectedLayers, lastDrawDistanceM);
+        }
+    });
+
+    $("#defaultPenType").on('change', function() {
+        saveDefaultPenType($(this).val());
+        if (lastPlottingEstimate) {
+            renderPlottingEstimate(lastPlottingEstimate, allDetectedLayers, lastDrawDistanceM);
+        }
     });
 
     // Multi-color pen swap panel (docs/multi-color.md sections 2-4): reuses
@@ -1315,8 +1484,24 @@ function getFillMethod() {
     return value || undefined;
 }
 
+// Color mode (task 3): single/grayscale/multi is one mutually-exclusive
+// choice (tsc/src/main.ts: "grayscaleLevels and colorCount are mutually
+// exclusive tonal/color separation modes"), driven by a radio group -
+// #colorModeSingle/#colorModeGrayscale/#colorModeMulti - instead of two
+// independently-checkable boxes plus imperative uncheck-the-other logic.
+function getColorMode() {
+    const value = $("input[name='colorMode']:checked").val();
+    return value || 'single';
+}
+
+function setColorMode(mode) {
+    $(`input[name='colorMode'][value='${mode}']`).prop("checked", true);
+    $("#grayscaleOptions").toggle(mode === 'grayscale');
+    $("#multiColorOptions").toggle(mode === 'multi');
+}
+
 function getGrayscaleLevels() {
-    if (!$("#grayscaleCheckbox").is(":checked")) {
+    if (getColorMode() !== 'grayscale') {
         return 0;
     }
 
@@ -1333,7 +1518,7 @@ function getFlattenPaths() {
 }
 
 function getMultiColorEnabled() {
-    return $("#multiColorCheckbox").is(":checked");
+    return getColorMode() === 'multi';
 }
 
 function getColorCount() {
@@ -1646,7 +1831,7 @@ function renderLayerBreakdown(layers) {
         renderLayerBreakdown(currentLayers);
     });
 
-    container.off('change', '.layer-enabled-checkbox').on('change', '.layer-enabled-checkbox', async function() {
+    container.off('change', '.layer-enabled-checkbox').on('change', '.layer-enabled-checkbox', function() {
         const row = $(this).closest('.layer-breakdown-row');
         const colorIndex = parseInt(row.data('color-index'));
         if ($(this).is(':checked')) {
@@ -1656,10 +1841,32 @@ function renderLayerBreakdown(layers) {
                 disabledColorIndexes.push(colorIndex);
             }
         }
-        activateProgressBar();
-        $("#acceptSvg").attr("disabled", "disabled");
-        await rendererFn();
+        // Which layers are enabled is a settings change like any other
+        // (feedback #2) - mark dirty and let the user hit "Update preview"
+        // rather than re-rendering immediately.
+        markDirty();
     });
+}
+
+// Ink readout (task 4): the editable pen ink capacity table moved behind
+// the cog (#toolsModal), but the resulting figure - "~7% of a Sharpie" -
+// stays visible where it's genuinely useful, right in the plotting
+// estimate. Only shown for single-color jobs; multi-color already gets a
+// proper per-layer ink breakdown with its own pen-type picker (see
+// renderLayerBreakdown), so an aggregate line there would be redundant.
+function inkEstimateLine(drawDistanceM) {
+    if (typeof drawDistanceM !== 'number' || !isFinite(drawDistanceM)) {
+        return '';
+    }
+    const penType = loadDefaultPenType(penCapacities);
+    if (!penType) {
+        return '';
+    }
+    const usage = estimatePenUsage(drawDistanceM, penCapacities[penType]);
+    if (!usage) {
+        return '';
+    }
+    return `<div><small class="text-muted">&#8776;${Math.round(usage.fraction * 100)}% of a ${escapeHtml(penType)}</small></div>`;
 }
 
 // Post-render plotting time estimate (plottingEstimator.ts's
@@ -1667,7 +1874,7 @@ function renderLayerBreakdown(layers) {
 // draw/travel/pen-lift breakdown plus pen count/swaps, so pen-lift time
 // (~2s each, previously invisible) and pen-swap pauses are visible before
 // the user commits to actually drawing this.
-function renderPlottingEstimate(plotting, layers) {
+function renderPlottingEstimate(plotting, layers, drawDistanceM) {
     const container = $("#plottingEstimateSummary");
     if (!plotting) {
         container.hide().empty();
@@ -1685,8 +1892,9 @@ function renderPlottingEstimate(plotting, layers) {
     const swapPauseLine = swapCount > 0
         ? `<div><small class="text-muted">+ ~${formatDuration(plotting.estimatedPenSwapPauseSeconds)} for ${swapCount} pen swap${swapCount === 1 ? '' : 's'} (rough guess, human-paced) &rarr; ~${formatDuration(plotting.totalSeconds)} total</small></div>`
         : '';
+    const inkLine = penCount > 1 ? '' : inkEstimateLine(drawDistanceM);
 
-    container.html(`${swapLine}<div>${automatedLine}</div>${swapPauseLine}`).show();
+    container.html(`${swapLine}<div>${automatedLine}</div>${swapPauseLine}${inkLine}`).show();
 }
 
 // Hue-grouped shading (tsc/src/huePalette.ts) breakdown: shown after a
@@ -1792,9 +2000,9 @@ function renderHueGroupingSummary(groups) {
         }
         hueOverrides[originalIndex] = target;
 
-        activateProgressBar();
-        $("#acceptSvg").attr("disabled", "disabled");
-        rendererFn();
+        // A hue-group reassignment is a settings change like any other
+        // (feedback #2) - mark dirty and let the user hit "Update preview".
+        markDirty();
     });
 }
 
@@ -1824,6 +2032,7 @@ function renderInkCapacityTable() {
         </tr>
     `).join('');
     body.html(rows);
+    renderDefaultPenTypeSelect();
 
     body.off('change', 'input').on('change', 'input', function() {
         const updated = {};
@@ -1837,7 +2046,24 @@ function renderInkCapacityTable() {
         penCapacities = updated;
         savePenCapacities(penCapacities);
         renderLayerBreakdown(currentLayers);
+        renderDefaultPenTypeSelect();
+        if (lastPlottingEstimate) {
+            renderPlottingEstimate(lastPlottingEstimate, allDetectedLayers, lastDrawDistanceM);
+        }
     });
+}
+
+// Default pen type used for the single-color ink readout (task 4) - see
+// inkEstimateLine(). Lives alongside the capacity table in the tools modal.
+function renderDefaultPenTypeSelect() {
+    const select = $("#defaultPenType");
+    const current = loadDefaultPenType(penCapacities);
+    select.html(Object.keys(penCapacities).map(name =>
+        `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`
+    ).join(''));
+    if (current) {
+        select.val(current);
+    }
 }
 
 function getPenSwapServoValueFromInputValue() {
