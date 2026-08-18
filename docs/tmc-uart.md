@@ -22,16 +22,25 @@ switch to UART-stepping. UART is used only for:
    (`Movement::setupTmcDrivers()` in `src/movement.cpp`).
 2. Reading each driver's `DIAG` pin to detect a stall, used for:
    - **(a) Sensorless homing during belt retraction.** `RetractBeltsPhase`
-     (`src/phases/retractbeltsphase.cpp`) automatically jogs both belts
-     inward and stops as soon as either driver reports a stall, instead of
-     requiring the user to watch the belts and press "done" by hand.
+     (`src/phases/retractbeltsphase.cpp`) gains an explicit `auto-retract`
+     command (sent from the UI instead of the always-available manual
+     jog buttons). Once requested, it jogs both belts inward and tracks
+     each motor's `DIAG` stall independently - `Movement::runSteppers()`
+     latches a stall per motor, so one belt reaching its stop and halting
+     doesn't stop the other, and the phase only advances once
+     `isLeftStalled()` and `isRightStalled()` are both true. The manual
+     "jog and press done" workflow (`CommandHandlingPhase`) remains the
+     default fallback if `auto-retract` isn't requested or StallGuard isn't
+     tuned yet.
    - **(b) Stall monitoring while drawing.** `Movement::runSteppers()` halts
-     both motors the instant a stall is seen; `Runner::run()`
+     the stalled motor(s) the instant a stall is seen; `Runner::run()`
      (`src/runner.cpp`) then stops feeding new drawing tasks, lifts the pen,
-     and shows `STALL - paused` on the OLED. There is currently no
-     auto-resume - by the time a stall happens mid-drawing the web server has
-     already been shut down (`server->end()` in `BeginDrawingPhase::run()`),
-     so recovery means power-cycling and re-homing.
+     and shows `STALL - paused` on the OLED. Because the web server now stays
+     alive for the whole job (`src/phases/drawingphase.*`, `server->end()`
+     was removed - see the README), this routes through the same
+     pause/resume machinery as a manual pause: `/resumeDrawing` clears the
+     stall, lowers the pen if it was down, and retries the interrupted move.
+     No power-cycle is needed to recover from a stall mid-drawing.
 
 The manual jog buttons (`l-ret`/`l-ext`/`r-ret`/`r-ext`) and the manual
 "done" button on the retract-belts screen keep working exactly as before -

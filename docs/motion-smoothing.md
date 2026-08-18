@@ -43,16 +43,21 @@ current position to whatever target it's given - so this is a change to
 
 ## Known limitation
 
-The progress percentage shown on the OLED during drawing
-(`Runner::run()` -> `progress`) is computed from `totalDistance` (precomputed
-by the `tsc` toolchain as the sum of the *original* per-waypoint segment
-lengths) versus `distanceSoFar` (summed per completed task). Because merging
-nearly-collinear waypoints replaces several short segments with one direct
-line between their endpoints, `distanceSoFar` will end up very slightly
-*less* than the true path length by the end of a drawing (the corner-cutting
-mentioned above). In practice this means the progress percentage may land a
-hair under 100% before the finishing sequence kicks in - cosmetic only, not a
-correctness issue for the actual drawing.
+The progress percentage shown on the OLED and pushed over `/events` during
+drawing is `executedLines / totalLines` (`Runner::run()`, `src/runner.cpp`),
+where `totalLines` is a one-time pre-scan of the command file and
+`executedLines` increments once per line actually read as a task boundary
+in `Runner::getNextTask()`. Waypoints folded into a merged task by the
+lookahead above are still consumed from the file (`openedFile.readStringUntil()`
+inside the peek loop), but that peek loop does not increment `executedLines` -
+only the line that started the merge does. So a merged run of, say, five
+collinear waypoints advances `executedLines` by one while consuming five
+lines' worth of `totalLines`. In practice this means the progress percentage
+can land noticeably under 100% by the time the file is exhausted and the
+finishing sequence kicks in - cosmetic only (progress display and the
+resume-after-power-loss checkpoint, which is keyed off the same line
+position, are unaffected in correctness), but worth knowing if the percentage
+looks like it stalls on long straight runs.
 
 ## Safe first test
 
