@@ -216,7 +216,10 @@ async function renderMultiColor(
     }
 
     for (let i = 0; i < layerPathArrays.length; i++) {
-        layerPathArrays[i] = [...areaLayerArrays[i], ...strokeOnlyLayerArrays[i]];
+        // concat rather than spread: these arrays can be very large, and
+        // spread would pass each element as a call argument (see the
+        // assembly loop below for the stack-overflow this caused).
+        layerPathArrays[i] = areaLayerArrays[i].concat(strokeOnlyLayerArrays[i]);
     }
 
     const paletteEntries = resolvePaletteNames(colorGroups, request.palette);
@@ -243,7 +246,7 @@ async function renderMultiColor(
         // measureDistance skips index 0, expecting it to be a header line -
         // prepend a throwaway non-pen command so a layer's own commands
         // (which start with 'p0') are measured in full.
-        const distances = measureDistance(['n' as Command, ...deduped]);
+        const distances = measureDistance((['n' as Command] as Command[]).concat(deduped));
         const layerDistance = +distances.totalDistance.toFixed(1);
         const layerDrawDistance = +distances.drawDistance.toFixed(1);
         totalDistance += layerDistance;
@@ -269,7 +272,17 @@ async function renderMultiColor(
         if (i > 0) {
             assembled.push(`c${i + 1}`);
         }
-        assembled.push(...layerCommands);
+        // NOT `assembled.push(...layerCommands)`: spreading passes every
+        // element as a separate function argument, so a large layer blows
+        // the call stack outright ("RangeError: Maximum call stack size
+        // exceeded", around 100k+ arguments in V8). A dense multi-colour
+        // render reaches that easily - the case that surfaced this was a
+        // hue-grouped render whose tone-derived spacing produced over 100
+        // metres of drawing - and it failed at the very last step, after
+        // all the expensive work was already done.
+        for (const command of layerCommands) {
+            assembled.push(command);
+        }
     });
 
     const roundedTotalDistance = +totalDistance.toFixed(1);

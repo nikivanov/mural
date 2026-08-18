@@ -507,6 +507,37 @@ if (!paperAvailable) {
         assert.ok(coordsOf(layer1).length > 0, "expected drawn coordinates for the surviving sliver");
     });
 
+    // --- Large multi-colour renders must not blow the call stack ---
+    //
+    // Regression: the final assembly step did `assembled.push(...layerCommands)`.
+    // Spread passes every element as a separate call argument, so a layer of
+    // ~100k+ commands threw "RangeError: Maximum call stack size exceeded" in
+    // V8 - and it failed at the very last step, after all the expensive work
+    // was done. Reported from a hue-grouped render whose tone-derived spacing
+    // produced over 100 metres of drawing. Two sibling sites used spread on
+    // the same unbounded arrays.
+    //
+    // Guarding the concatenation helpers directly rather than rendering a
+    // genuinely enormous image, which would make the suite very slow: the
+    // failure is purely a function of array length, not of geometry.
+    test("large command lists concatenate without exceeding the call stack", () => {
+        const huge = new Array(200_000).fill("p0") as Command[];
+
+        // The pattern that used to be used - documents precisely what broke.
+        assert.throws(() => {
+            const sink: Command[] = [];
+            sink.push(...huge);
+        }, RangeError, "expected spread-push of a 200k array to overflow the stack");
+
+        // The patterns now used in toCommands.ts must both survive it.
+        const viaLoop: Command[] = [];
+        for (const c of huge) {
+            viaLoop.push(c);
+        }
+        assert.strictEqual(viaLoop.length, 200_000);
+        assert.strictEqual(([] as Command[]).concat(huge).length, 200_000);
+    });
+
     // --- Request-level fillMethod must survive multi-color rendering ---
     //
     // Regression: assignHatchAnglesPerColorGroup (generator.ts) used to stamp
