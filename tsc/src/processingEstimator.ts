@@ -385,6 +385,21 @@ function estimateRenderSimplifyDedupeSeconds(totalDrawSegments: number): number 
 }
 
 export function estimateProcessingSeconds(inputs: ProcessingEstimateInputs): ProcessingEstimate {
+    // Defensive: every numeric input feeds a multiplication chain, so a single
+    // missing or non-finite one propagates NaN all the way to totalSeconds -
+    // which the UI would render verbatim as "NaNs" in a user-facing warning.
+    // TypeScript makes that unreachable for typed callers, but data/www is
+    // plain untypechecked JS, so a future caller assembling this object by
+    // hand could omit a field and see that. Substitute a neutral value
+    // instead: a wrong-but-plausible estimate degrades far better than NaN.
+    inputs = {
+        ...inputs,
+        sourceWidthPx: Number.isFinite(inputs.sourceWidthPx) ? inputs.sourceWidthPx : 0,
+        sourceHeightPx: Number.isFinite(inputs.sourceHeightPx) ? inputs.sourceHeightPx : 0,
+        colorCount: Number.isFinite(inputs.colorCount) ? inputs.colorCount : 1,
+        complexity: Number.isFinite(inputs.complexity) ? inputs.complexity : 0.5,
+    };
+
     const deviceCalibration = inputs.deviceFactor !== undefined
         ? { factor: inputs.deviceFactor, benchmarkMs: 0, measuredAt: Date.now() }
         : calibrateDeviceSpeed();
