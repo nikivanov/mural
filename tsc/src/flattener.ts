@@ -139,6 +139,24 @@ export function flattenPathsAcrossLayers(
     gapMm: number = 0,
 ) {
     const layerCount = layersLightToDark.length;
+
+    // The grown (trapping-gap) form of a darker path depends only on that
+    // path and gapMm, but the loops below visit each darker path once per
+    // *lighter* path above it - so computing it inline recomputed the same
+    // offset O(lighter paths) times. offsetPathItem is the single most
+    // expensive operation in this function (Clipper offset + ring
+    // reassembly), so it is computed once per darker path here and reused.
+    // Cached entries are owned by this function and disposed at the end;
+    // subtract() never mutates its argument, so sharing one grown item
+    // across every subtraction is safe.
+    const grownCache = new Map<paper.PathItem, paper.PathItem | null>();
+    const grownFor = (darkerPath: paper.PathItem): paper.PathItem | null => {
+        if (!grownCache.has(darkerPath)) {
+            grownCache.set(darkerPath, offsetPathItem(darkerPath, gapMm));
+        }
+        return grownCache.get(darkerPath)!;
+    };
+
     for (let layerIx = 0; layerIx < layerCount - 1; layerIx++) {
         updateStatusFn(`Cross-layer knockout: ${layerIx + 1} / ${layerCount}`);
         const currentLayer = layersLightToDark[layerIx];
@@ -153,7 +171,7 @@ export function flattenPathsAcrossLayers(
                         continue;
                     }
 
-                    const grown = offsetPathItem(darkerPath, gapMm);
+                    const grown = grownFor(darkerPath);
                     const candidate = grown
                         ? modified.subtract(grown, { insert: false })
                         : modified.subtract(darkerPath, { insert: false });
@@ -162,18 +180,18 @@ export function flattenPathsAcrossLayers(
                         const ungapped = modified.subtract(darkerPath, { insert: false });
                         if (!isNegligible(ungapped)) {
                             candidate.remove();
-                            grown?.remove();
                             modified = ungapped;
                             continue;
                         }
                         ungapped.remove();
                     }
 
-                    grown?.remove();
                     modified = candidate;
                 }
             }
             currentLayer[pathIx] = modified;
         }
     }
+
+    grownCache.forEach(grown => grown?.remove());
 }
