@@ -42,7 +42,8 @@ The density ladder now reaches 2.5mm spacing (was 7mm), which is what makes true
 
 ### Knowing what you're in for
 
-- **Estimates before you commit**: how long the browser will take to process the image, how long the machine will take to draw it, and roughly how much pen you'll use — measured in Sharpies. Processing time is calibrated against *your* device, so a phone and a desktop give different answers.
+- **Estimates before you commit**: how long the machine will take to draw the image, and roughly how much pen you'll use — measured in Sharpies. Drawing time is derived from the real command file, including the ~2 seconds every pen lift costs, and is accurate.
+- **A rough processing-time estimate too**, calibrated against *your* device so a phone and a desktop give different answers. Treat it as an order-of-magnitude guide only: it currently under-reads on dense, detailed images (a known gap — the model counts shapes but can't see how complex each one is).
 - **Plot dimensions in millimetres**, so you can tell whether it fits your paper before you start.
 - **Set the size you actually want** — type a target width or height (or pick A4/A3/A2) and the scale is worked out for you, instead of guessing at percentages.
 - **Live progress while drawing**, streamed from the machine, with a real ETA.
