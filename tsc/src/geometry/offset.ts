@@ -65,52 +65,77 @@ function clipperPathToPaperPath(clipperPath: ClipperLib.Path): paper.Path {
 }
 
 // Reassembles a Clipper solution (a flat list of outer-contour and hole
-// rings) into a single paper.js PathItem, using paper's own boolean
-// unite()/subtract() to combine them - this sidesteps having to trust any
-// particular winding-direction convention lining up with paper.js's own
-// nonzero fill rule, since paper's boolean ops determine containment
-// geometrically rather than by winding sign. ClipperLib.Clipper.Orientation
-// still tells us which rings are outer vs. holes so we route each to
-// unite() vs. subtract() appropriately.
+// rings) into a single paper.js PathItem.
+//
+// Clipper's solution is already in its canonical form: non-self-
+// intersecting, non-overlapping rings whose orientation encodes outer vs.
+// hole (ClipperLib.Clipper.Orientation), nested to whatever depth the shape
+// needs. That is exactly what a paper.js CompoundPath expresses natively
+// under its nonzero fill rule - so the rings can be handed over as children
+// directly, with holes wound opposite to outers, rather than being rebuilt
+// with boolean ops.
+//
+// This used to unite() every outer ring and then subtract() every hole from
+// that union, one paper.js boolean op per ring. That was both slow and
+// wrong:
+//
+//   - Slow: each op runs against an ever-growing accumulator, so a solution
+//     of N rings costs O(N) booleans over O(N)-sized geometry. MEASURED
+//     2026-08-18 on Bluey_Hero.png (500px, 4 colors, tsc/probe): 1.7-4.4
+//     SECONDS per offsetPathItem call for 33-83-ring solutions, against
+//     ~40ms for Clipper's own convert+simplify+offset work. Building the
+//     CompoundPath directly does the same job in 2-6ms - the whole reason
+//     cross-layer knockout (flattener.ts, the only caller) cost 3-14s on
+//     detailed multi-color raster art.
+//   - Wrong: "unite all outers, then subtract all holes" erases any outer
+//     ring nested INSIDE a hole (an island in a lake - Clipper nest depth
+//     3), because the hole is subtracted from the whole union including
+//     that island. Real traced art hits this: 2 of the 4 Bluey layers had
+//     depth-3 nesting, and the reassembled shape lost up to ~2.9% of its
+//     area there. Winding-encoded nesting has no such failure mode - a
+//     depth-3 ring is wound with the outers and fills normally.
+//
+// A solution with a single outer ring and no holes is returned as a plain
+// paper.Path (not a one-child CompoundPath), matching what the boolean
+// version returned in that case so the simple-shape path is unchanged.
 function clipperSolutionToPathItem(solution: ClipperLib.Paths): paper.PathItem | null {
     if (solution.length === 0) {
         return null;
     }
 
-    const outers: paper.Path[] = [];
-    const holes: paper.Path[] = [];
+    const rings: paper.Path[] = [];
+    let outerCount = 0;
     for (const ring of solution) {
         if (ring.length < 3) {
             continue;
         }
+        const isOuter = ClipperLib.Clipper.Orientation(ring);
         const paperRing = clipperPathToPaperPath(ring);
-        if (ClipperLib.Clipper.Orientation(ring)) {
-            outers.push(paperRing);
-        } else {
-            holes.push(paperRing);
+        // paper.js reads a CompoundPath's holes off winding direction under
+        // its nonzero fill rule, so force outers and holes to opposite
+        // orientations. Which of the two is "clockwise" is arbitrary as long
+        // as it is consistent; outers are normalized to clockwise here.
+        if (isOuter) {
+            outerCount++;
+            if (!paperRing.clockwise) {
+                paperRing.reverse();
+            }
+        } else if (paperRing.clockwise) {
+            paperRing.reverse();
         }
+        rings.push(paperRing);
     }
 
-    if (outers.length === 0) {
-        holes.forEach(h => h.remove());
+    if (outerCount === 0) {
+        rings.forEach(r => r.remove());
         return null;
     }
 
-    let result: paper.PathItem = outers[0];
-    for (let i = 1; i < outers.length; i++) {
-        const united = result.unite(outers[i], {insert: false});
-        result.remove();
-        outers[i].remove();
-        result = united;
-    }
-    for (const hole of holes) {
-        const subtracted = result.subtract(hole, {insert: false});
-        result.remove();
-        hole.remove();
-        result = subtracted;
+    if (rings.length === 1) {
+        return rings[0];
     }
 
-    return result;
+    return new paper.CompoundPath({children: rings, insert: false});
 }
 
 // Offsets `path` by `deltaMm`: positive grows the shape outward, negative
