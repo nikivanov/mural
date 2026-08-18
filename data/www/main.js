@@ -185,6 +185,139 @@ function markDirty() {
     updatePreviewStatusUI();
 }
 
+// --- Target plot size (task: "let the user specify a desired plotted
+// width or height") ---------------------------------------------------------
+//
+// svgControl's target width/height ARE the physical mm canvas fed to the
+// render pipeline (renderSvgInWorker's renderRequest.width/height, which
+// toCommands.ts hands straight to paper.setup() as the drawing's physical
+// bounds) - they default to filling the drawable width (see
+// svgControl.setSvgString), which is exactly today's behaviour and stays
+// untouched unless the user edits one of the inputs below. The pan/zoom
+// affine transform (d-pad + zoom controls, also on this slide) re-frames the
+// artwork INSIDE that canvas afterwards; it doesn't change the canvas's own
+// mm size (see svgControl.js's makeTransformedSvgWithHeight), so it's an
+// orthogonal, later step - setting a target size here doesn't fight it, and
+// resetting the pan/zoom transform on every target-size change (see
+// svgControl.setTargetWidth/setTargetHeight) just keeps the two from
+// compounding in a way the user never asked for.
+//
+// Only WIDTH is a hard machine limit (movement.h/movement.cpp:
+// beginLinearTravel rejects x outside [0, width]; y is only checked >= 0,
+// i.e. bounded by the user's paper, not the machine) - so whichever request
+// implies a width beyond the drawable area gets width clamped to that limit
+// and height re-derived from *that*, even if the user's original request was
+// a height. A request that stays within the drawable width is never blocked,
+// however tall the resulting height is - that's a paper concern for the user
+// to judge from the numbers shown, not a machine one.
+function roundMM(n) {
+    return Math.round(n * 10) / 10;
+}
+
+function getSafeWidth() {
+    return currentState && typeof currentState.safeWidth === 'number' && currentState.safeWidth > 0
+        ? currentState.safeWidth
+        : null;
+}
+
+function targetAspectRatio() {
+    // height / width - preserved by svgControl.setTargetWidth/setTargetHeight
+    // regardless of which one was last called, so this is stable to read at
+    // any point after an image is loaded.
+    return svgControl.getTargetHeight() / svgControl.getTargetWidth();
+}
+
+function updateTargetSizeInputs() {
+    $("#targetWidthInput").val(roundMM(svgControl.getTargetWidth()));
+    $("#targetHeightInput").val(roundMM(svgControl.getTargetHeight()));
+}
+
+function showTargetSizeWarning(text) {
+    if (text) {
+        $("#targetSizeWarning").text(text).show();
+    } else {
+        $("#targetSizeWarning").hide().empty();
+    }
+}
+
+// Exactly one of requestedWidthMM/requestedHeightMM should be non-null (the
+// dimension the user actually asked for); the other is derived from the
+// image's aspect ratio.
+function applyTargetSize(requestedWidthMM, requestedHeightMM) {
+    const aspect = targetAspectRatio();
+    const impliedWidth = requestedWidthMM != null ? requestedWidthMM : requestedHeightMM / aspect;
+    const safeWidth = getSafeWidth();
+
+    if (safeWidth && impliedWidth > safeWidth) {
+        svgControl.setTargetWidth(safeWidth);
+        updateTargetSizeInputs();
+        if (requestedWidthMM != null) {
+            showTargetSizeWarning(
+                `Width capped at ${roundMM(safeWidth)}mm, the drawable area for your current pin distance ` +
+                `— ${roundMM(requestedWidthMM)}mm can't be plotted; Mural would reject moves past the edge. ` +
+                `Height adjusted to ${roundMM(svgControl.getTargetHeight())}mm to keep the image's proportions.`
+            );
+        } else {
+            showTargetSizeWarning(
+                `A height of ${roundMM(requestedHeightMM)}mm needs ${roundMM(impliedWidth)}mm of width, wider ` +
+                `than the ${roundMM(safeWidth)}mm drawable area — Mural would reject moves past the edge. ` +
+                `Width capped at ${roundMM(safeWidth)}mm, so height is ${roundMM(svgControl.getTargetHeight())}mm instead.`
+            );
+        }
+        return;
+    }
+
+    if (requestedWidthMM != null) {
+        svgControl.setTargetWidth(requestedWidthMM);
+    } else {
+        svgControl.setTargetHeight(requestedHeightMM);
+    }
+    updateTargetSizeInputs();
+    showTargetSizeWarning(null);
+}
+
+const PAPER_PRESETS_MM = [
+    [210, 297], // A4
+    [297, 420], // A3
+    [420, 594], // A2
+];
+
+function applyPaperPreset(a, b) {
+    const aspect = targetAspectRatio();
+    // Orient the sheet to match the image (portrait image -> portrait sheet,
+    // landscape image -> landscape sheet), then fit-to-page: scale as large
+    // as possible while staying within the oriented sheet on both axes,
+    // preserving the image's own proportions.
+    const [paperW, paperH] = aspect > 1 ? [Math.min(a, b), Math.max(a, b)] : [Math.max(a, b), Math.min(a, b)];
+    let width = paperW;
+    let height = width * aspect;
+    if (height > paperH) {
+        height = paperH;
+        width = height / aspect;
+    }
+    applyTargetSize(width, null);
+}
+
+// --- Plot dimensions display (task: "show the actual plot dimensions") ----
+//
+// svgControl.getTargetWidth()/getTargetHeight() are the exact mm canvas size
+// that gets sent as the render request's width/height (see
+// renderSvgInWorker below) - i.e. the true physical footprint of what will
+// be drawn, already reflecting both the target size chosen above AND the
+// pan/zoom transform (which can grow the height when panning downward past
+// the canvas edge - see svgControl.js's makeTransformedSvgWithHeight; a
+// rightward/leftward/upward pan or a zoom only re-frames the artwork inside
+// the same canvas, so they don't change these numbers, which is correct:
+// the physical sheet area occupied is the canvas, regardless of how much of
+// it ends up inked). So this reads back the same numbers already fed to the
+// pipeline - not a separate estimate that could drift from what's actually
+// plotted.
+function updatePlotDimensionsDisplay() {
+    $("#plotSizeStat").text(`${roundMM(svgControl.getTargetWidth())} × ${roundMM(svgControl.getTargetHeight())}`);
+    const safeWidth = getSafeWidth();
+    $("#drawableWidthStat").text(safeWidth ? `${roundMM(safeWidth)}` : '—');
+}
+
 window.onload = function () {
     init();
 };
@@ -422,11 +555,14 @@ function init() {
 
         if (svgString) {
             svgControl.setSvgString(svgString, currentState);
+            updateTargetSizeInputs();
+            showTargetSizeWarning(null);
 
             $(".svg-control").show();
             $("#preview").removeAttr("disabled");
         } else {
             $("#preview").attr("disabled", "disabled");
+            showTargetSizeWarning(null);
             $(".svg-control").hide();
             $("#infillDensity").val(0);
             $("#turdSize").val(2);
@@ -847,6 +983,7 @@ function init() {
 
         $("#chooseRendererSlide").hide();
         $("#drawingPreviewSlide").show();
+        updatePlotDimensionsDisplay();
         rendererFn = render_PathTracing;
         await runPreRenderEstimateIfNeeded();
         await rendererFn();
@@ -867,6 +1004,7 @@ function init() {
 
         $("#chooseRendererSlide").hide();
         $("#drawingPreviewSlide").show();
+        updatePlotDimensionsDisplay();
         rendererFn = render_VectorRasterVector;
         await runPreRenderEstimateIfNeeded();
         await rendererFn();
@@ -1128,6 +1266,28 @@ function init() {
     $("#resumePenPlus").click(function() {
         $("#resumePenRange")[0].stepUp(5);
         $("#resumePenRange").trigger('input');
+    });
+
+    $("#targetWidthInput").on('change', function() {
+        const value = parseFloat($(this).val());
+        if (!isNaN(value) && value > 0) {
+            applyTargetSize(value, null);
+        } else {
+            updateTargetSizeInputs();
+        }
+    });
+
+    $("#targetHeightInput").on('change', function() {
+        const value = parseFloat($(this).val());
+        if (!isNaN(value) && value > 0) {
+            applyTargetSize(null, value);
+        } else {
+            updateTargetSizeInputs();
+        }
+    });
+
+    $(".paper-preset-btn").click(function() {
+        applyPaperPreset(parseFloat($(this).data('w')), parseFloat($(this).data('h')));
     });
 
     svgControl.initSvgControl();
