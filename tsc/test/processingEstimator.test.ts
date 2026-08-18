@@ -139,3 +139,106 @@ test("estimateProcessingSeconds: a small/simple real-world render estimates seco
         `REFERENCE_BENCHMARK_MS or a *_US_PER_* coefficient drifting wildly out of scale again.`,
     );
 });
+
+// --- Dense colour-separation under-read bug (2026-08-18) -----------------
+//
+// A raster colour separation traces to very FEW shapes that are
+// individually enormous/multi-hole compound paths (see
+// FLATTEN_US_PER_SHAPE_PAIR's own "KNOWN LIMITATION" comment in
+// processingEstimator.ts, and segmentModel.ts's shapeComplexity doc
+// comment) - shapeCount alone completely misses this, so a monotonicity
+// test ("more complexity -> more seconds") could never have caught the
+// actual historical bug: every one of this file's monotonicity tests above
+// would have passed identically whether the *scale* of the answer was
+// right or uniformly ~20-50x too low, because they only ever compare two
+// estimates produced by the SAME (buggy or fixed) formula against each
+// other - a uniform under-read is invisible to a same-formula comparison.
+// Only a check against an independent ground truth (real measured
+// wall-clock) can catch that class of bug - hence the absolute band below,
+// pinned to real hardware measurements rather than to another call of this
+// same function.
+//
+// MEASURED 2026-08-18 on the M5 Pro reference machine (see
+// tsc/bench/runBenchmarks.js's benchColorSeparationMatrix/benchEndToEnd,
+// SVG_Logo.svg at 900mm wide with colour separation on, 2 colour groups):
+//   density 3, crossHatch45: actual ~0.43s (task brief's own hand
+//     measurement was 0.59s; both this harness's Node run and a browser
+//     run vary somewhat machine-to-machine/run-to-run) - the *_OLD (buggy)
+//     coefficients estimated 0.03s, a ~20x under-read.
+//   density 5, spiral: actual ~1.03s (task brief: 1.81s, 147,901 commands)
+//     - the buggy coefficients estimated 0.04s, a ~50x under-read.
+// Inputs below mirror what estimateAndRecommend would derive for this
+// exact render (900x450px preview raster - the SVG's own 2:1 aspect ratio
+// at 900mm wide; colorCount=2; complexity=0.306, this image's real
+// analyzeImageCharacteristics()-derived 1-flatFraction; drawWidthMm/
+// drawHeightMm=900/450, the real requested physical output size).
+test("estimateProcessingSeconds: dense colour-separation render (SVG_Logo.svg, 900mm, colorSeparation) lands within this estimator's accuracy bar, not the historical ~20-50x under-read", () => {
+    const denseInputs = (fillStrategy: ProcessingEstimateInputs["fillStrategy"], infillDensity: ProcessingEstimateInputs["infillDensity"]) => ({
+        sourceWidthPx: 900,
+        sourceHeightPx: 450,
+        colorCount: 2,
+        fillStrategy,
+        infillDensity,
+        complexity: 0.306,
+        deviceFactor: 1,
+        drawWidthMm: 900,
+        drawHeightMm: 450,
+    });
+
+    const crossHatch = estimateProcessingSeconds(denseInputs("crossHatch45", 3));
+    // Lower bound (0.15s) sits well above the old buggy estimate (0.03s) -
+    // a regression back toward the old formula fails this immediately.
+    // Upper bound (2s) stays inside this estimator's usual +-2x-of-real
+    // band around the ~0.43-0.59s real measurements above, with headroom
+    // for slower CI/dev hardware.
+    assert.ok(
+        crossHatch.totalSeconds >= 0.15 && crossHatch.totalSeconds <= 2,
+        `crossHatch45/density3 colour-separation estimate ${crossHatch.totalSeconds}s outside the ` +
+        `[0.15s, 2s] band around the ~0.43-0.59s real measurement - this is the exact under-read bug ` +
+        `(shapeCount-only segment projection) this test exists to catch.`,
+    );
+
+    const spiral = estimateProcessingSeconds(denseInputs("spiral", 5));
+    // Lower bound (0.4s) sits well above the old buggy estimate (0.04s).
+    // Upper bound (5s) mirrors the same generous headroom above the
+    // ~1.03-1.81s real measurements.
+    assert.ok(
+        spiral.totalSeconds >= 0.4 && spiral.totalSeconds <= 5,
+        `spiral/density5 colour-separation estimate ${spiral.totalSeconds}s outside the [0.4s, 5s] band ` +
+        `around the ~1.03-1.81s real measurement - this is the exact under-read bug (spiral's per-shape ` +
+        `split factor not scaling with shape complexity) this test exists to catch.`,
+    );
+});
+
+// --- Segment-complexity signal (shapeComplexity, threaded via `complexity`) --
+//
+// crossHatch45's per-shape split factor doesn't use shapeComplexity (see
+// segmentModel.ts - only spiral's does, calibrated against the measured
+// under-read above), so this specifically exercises spiral, the strategy
+// the new signal was introduced for. Same pixel dimensions/shapeCount-
+// driving inputs both times - only `complexity` differs - isolating the
+// new signal's effect from the pre-existing shapeCount-driven scaling
+// already covered by the "higher complexity proxy" test above.
+test("estimateProcessingSeconds: for spiral fill, a highly-detailed image (high complexity) estimates substantially more processing time than a low-detail image of the same pixel dimensions", () => {
+    const lowDetail = estimateProcessingSeconds(baseInputs({
+        fillStrategy: "spiral",
+        infillDensity: 5,
+        complexity: 0.05,
+        drawWidthMm: 900,
+        drawHeightMm: 900,
+    }));
+    const highDetail = estimateProcessingSeconds(baseInputs({
+        fillStrategy: "spiral",
+        infillDensity: 5,
+        complexity: 0.9,
+        drawWidthMm: 900,
+        drawHeightMm: 900,
+    }));
+
+    assert.ok(
+        highDetail.estimatedTotalDrawSegments > lowDetail.estimatedTotalDrawSegments * 3,
+        `expected a highly-detailed image to project far more draw segments than a low-detail one at the ` +
+        `same pixel size (got ${highDetail.estimatedTotalDrawSegments} vs ${lowDetail.estimatedTotalDrawSegments})`,
+    );
+    assert.ok(highDetail.totalSeconds > lowDetail.totalSeconds * 2);
+});

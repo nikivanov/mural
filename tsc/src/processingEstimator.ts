@@ -62,6 +62,22 @@ export type ProcessingEstimateInputs = {
     // calibrateDeviceSpeed() once for the session). Omit to calibrate (or
     // reuse the cached calibration) automatically.
     deviceFactor?: number;
+    // Physical output size (mm), when known pre-render - the same value
+    // costEstimator.ts's CostEstimatorOptions.drawWidthMm/drawHeightMm
+    // already carries (with a DEFAULT_DRAW_WIDTH_MM/HEIGHT_MM fallback when
+    // the caller hasn't picked a size yet, so it's *always* available by
+    // the time estimateAndRecommend calls through to here - see that
+    // module). Used to derive avgShapeSpanMm for the infill/optimize/render
+    // segment-count projection below; when omitted (standalone callers with
+    // no physical size at all), falls back to a cruder raster-pixel-density
+    // guess - see estimateAvgShapeSpanMmFromPixelDensity's own comment for
+    // why that fallback badly under-predicts whenever the requested output
+    // size is much larger than the source raster's pixel dimensions would
+    // imply at a generic ~100dpi assumption (exactly the "20-50x under on a
+    // 900mm colour-separated render" bug this field fixes - see git history
+    // for the measurements).
+    drawWidthMm?: number;
+    drawHeightMm?: number;
 };
 
 export type ProcessingEstimateBreakdown = {
@@ -409,12 +425,27 @@ export function estimateProcessingSeconds(inputs: ProcessingEstimateInputs): Pro
     const levels = Math.max(1, inputs.grayscaleLevels ?? 1, inputs.colorCount);
 
     const shapeCount = estimateShapeCount(inputs, pixels);
-    const avgShapeSpanMm = estimateAvgShapeSpanMmFromPixelDensity(pixels, shapeCount);
+    // Prefer the real requested physical size (see ProcessingEstimateInputs'
+    // drawWidthMm/drawHeightMm doc comment for why the pixel-density
+    // fallback badly under-predicts without it) - only standalone callers
+    // with no physical size at all (or a non-finite/non-positive one) fall
+    // through to the cruder guess.
+    const drawAreaMm2 = Math.max(0, inputs.drawWidthMm ?? 0) * Math.max(0, inputs.drawHeightMm ?? 0);
+    const avgShapeSpanMm = drawAreaMm2 > 0
+        ? estimateAvgShapeSpanMmFromDrawArea(drawAreaMm2, shapeCount)
+        : estimateAvgShapeSpanMmFromPixelDensity(pixels, shapeCount);
     const segments = projectSegmentCounts({
         shapeCount,
         avgShapeSpanMm,
         fillStrategy: inputs.fillStrategy,
         infillDensity: inputs.infillDensity,
+        // How much more segment-dense each shape is likely to be than a
+        // clean, low-detail trace - see SegmentProjectionInputs'
+        // shapeComplexity doc comment for what this corrects (a raster
+        // colour separation traces to very few, but individually
+        // enormous/multi-hole, compound paths - shapeCount alone misses
+        // that entirely).
+        shapeComplexity: Math.min(1, Math.max(0, inputs.complexity)),
     });
 
     const breakdown: ProcessingEstimateBreakdown = {
@@ -436,17 +467,37 @@ export function estimateProcessingSeconds(inputs: ProcessingEstimateInputs): Pro
     };
 }
 
-// Without a physical output size, avgShapeSpanMm (segmentModel.ts's
-// per-shape "diameter", used for infill segment-count projection) is
-// approximated purely from pixel density: assume shapes are, on average,
-// spread evenly across the source raster in pixel terms, take a nominal
-// SOURCE_PX_TO_MM_ASSUMPTION px-per-mm scale (a mid-range print/display
-// resolution) to translate that into mm, and treat the whole thing as
-// square. costEstimator.ts's estimateAndRecommend() instead derives
-// avgShapeSpanMm from the caller's actual requested physical output size
-// when one is known - prefer that whenever it's available; this fallback
-// only exists so estimateProcessingSeconds() is usable standalone.
-const SOURCE_PX_TO_MM_ASSUMPTION = 4; // ~100 DPI-ish; only affects the standalone fallback above
+// Preferred path: a real physical output size is known (drawWidthMm/
+// drawHeightMm above - costEstimator.ts's estimateAndRecommend() always has
+// one, falling back to its own DEFAULT_DRAW_WIDTH_MM/HEIGHT_MM when the
+// caller hasn't picked a size yet, so this is the path production traffic
+// actually takes). Same "spread shapes evenly across the draw area, treat
+// as square" assumption as the pixel-density fallback below, just anchored
+// to the real mm² instead of a guessed px-to-mm ratio.
+//
+// MEASURED 2026-08-18: this is THE dominant fix for the reported under-read
+// bug. Before this, avgShapeSpanMm was derived from the pixel dimensions of
+// whatever raster happened to be used for image-characteristics analysis
+// (via estimateAvgShapeSpanMmFromPixelDensity below, SOURCE_PX_TO_MM_ASSUMPTION
+// = 4px/mm) - completely disconnected from the actual requested output size.
+// On SVG_Logo.svg's colour-separation case (2 groups, 8/10 large shapes)
+// rendered at 900mm, that fallback produced avgShapeSpanMm ~ 22mm; the real
+// shapes, spread across a 900mm canvas, average ~90-150mm - a 4-7x
+// under-estimate of shape size that alone accounts for most of this stage's
+// error, since infill segment count scales roughly linearly with span.
+function estimateAvgShapeSpanMmFromDrawArea(drawAreaMm2: number, shapeCount: number): number {
+    if (shapeCount <= 0) return 0;
+    return Math.sqrt(drawAreaMm2 / shapeCount);
+}
+
+// Fallback when no physical output size is known at all (rare - only a
+// standalone caller with neither a real drawWidthMm/drawHeightMm nor
+// costEstimator.ts's own default takes this path). Approximated purely from
+// pixel density: assume shapes are, on average, spread evenly across the
+// source raster in pixel terms, take a nominal SOURCE_PX_TO_MM_ASSUMPTION
+// px-per-mm scale (a mid-range print/display resolution) to translate that
+// into mm, and treat the whole thing as square.
+const SOURCE_PX_TO_MM_ASSUMPTION = 4; // ~100 DPI-ish; only affects the standalone fallback below
 
 function estimateAvgShapeSpanMmFromPixelDensity(pixels: number, shapeCount: number): number {
     if (shapeCount <= 0) return 0;
