@@ -8,10 +8,14 @@ void PenTask::startRunning() {
     Serial.println("Starting pen task " + String(up));
     if (up) {
         Serial.println("Pen is going up");
-        pen->slowUp();
+        if (!pen->slowUp()) {
+            Serial.println("Pen not ready, skipping move");
+        }
     } else {
         Serial.println("Pen is going down");
-        pen->slowDown();
+        if (!pen->slowDown()) {
+            Serial.println("Pen not ready, skipping move");
+        }
     }
     Serial.println("Pen task ran");
 }

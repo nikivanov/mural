@@ -6,9 +6,8 @@ class BeginDrawingPhase : public NotSupportedPhase {
     private:
     PhaseManager* manager;
     Runner* runner;
-    AsyncWebServer* server;
     public:
-    BeginDrawingPhase(PhaseManager* manager, Runner* runner, AsyncWebServer* server);
+    BeginDrawingPhase(PhaseManager* manager, Runner* runner);
     const char* getName();
     void run(AsyncWebServerRequest *request);
     void doneWithPhase(AsyncWebServerRequest *request);

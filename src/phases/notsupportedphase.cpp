@@ -1,4 +1,5 @@
 #include "notsupportedphase.h"
+#include <stdexcept>
 void NotSupportedPhase::handleCommand(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
@@ -36,6 +37,26 @@ void NotSupportedPhase::doneWithPhase(AsyncWebServerRequest *request) {
 }
 
 void NotSupportedPhase::estepsCalibration(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
+void NotSupportedPhase::installTestPattern(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
+void NotSupportedPhase::pauseDrawing(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
+void NotSupportedPhase::resumeDrawing(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
+void NotSupportedPhase::confirmResume(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
+void NotSupportedPhase::confirmPenSwap(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 

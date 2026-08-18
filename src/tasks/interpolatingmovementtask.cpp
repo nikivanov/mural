@@ -18,31 +18,60 @@ bool arePointsEqual(Movement::Point point1, Movement::Point point2) {
     return point1.x == point2.x && point1.y == point2.y;
 }
 
-InterpolatingMovementTask::InterpolatingMovementTask(Movement *movement, Movement::Point target) {
+InterpolatingMovementTask::InterpolatingMovementTask(Movement *movement, Pen *pen, Movement::Point target) {
     this->target = target;
     this->movement = movement;
+    this->pen = pen;
+}
+
+int InterpolatingMovementTask::currentSpeedSteps() {
+    // Pen up -> repositioning travel, safe to run at the faster moveSpeedSteps (already
+    // used elsewhere for pen-up travel, e.g. Movement::extendToHome). Pen down -> drawing,
+    // stays at printSpeedSteps.
+    return pen->isDown() ? printSpeedSteps : moveSpeedSteps;
 }
 
 void InterpolatingMovementTask::startRunning() {
     Serial.printf("Starting the move to %.1f, %.1f\n", target.x, target.y);
-    auto currentCoordinates = movement->getCoordinates();
+    Movement::Point currentCoordinates;
+    if (!movement->getCoordinates(currentCoordinates)) {
+        Serial.println("Not ready to start move, aborting task");
+        failed = true;
+        return;
+    }
     auto incrementPoint = getNextIncrement(currentCoordinates, target);
-    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, printSpeedSteps);
+    float moveTime;
+    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, currentSpeedSteps(), moveTime)) {
+        Serial.println("Failed to start move, aborting task");
+        failed = true;
+    }
 }
 
 bool InterpolatingMovementTask::isDone() {
+    if (failed) {
+        return true;
+    }
+
     if (movement->isMoving()) {
         return false;
     }
 
-    auto currentPosition = movement->getCoordinates();
+    Movement::Point currentPosition;
+    if (!movement->getCoordinates(currentPosition)) {
+        Serial.println("Not ready to get coordinates, aborting task");
+        return true;
+    }
     if (arePointsEqual(currentPosition, target)) {
         return true;
     }
 
-    auto incrementPoint = getNextIncrement(movement->getCoordinates(), target);
-    movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, printSpeedSteps);
-    
+    auto incrementPoint = getNextIncrement(currentPosition, target);
+    float moveTime;
+    if (!movement->beginLinearTravel(incrementPoint.x, incrementPoint.y, currentSpeedSteps(), moveTime)) {
+        Serial.println("Failed to start move, aborting task");
+        return true;
+    }
+
     return false;
 }
 

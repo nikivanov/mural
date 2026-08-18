@@ -1,3 +1,5 @@
+import { showError } from './alerts.js';
+
 export async function leftRetractDown() {
     await postCommand("l-ret");
 }
@@ -30,9 +32,15 @@ export async function rightExtendUp() {
     await postCommand("r-0");
 }
 
+// Starts the optional (MURAL_TMC_UART-only) StallGuard auto-retract; a no-op
+// on firmware built without it (see state.autoRetract in /getState, which
+// gates whether the UI shows the button that calls this).
+export async function autoRetractStart() {
+    await postCommand("auto-retract");
+}
+
 async function postCommand(command) {
     $.post("/command", {command}).fail(function() {
-        alert("Command failed");
-        location.reload();
+        showError(`Command "${command}" failed`, () => postCommand(command));
     });
 }

@@ -1,5 +1,7 @@
 #include "settopdistancephase.h"
 #include "commandhandlingphase.h"
+#include "../prefskeys.h"
+#include <Preferences.h>
 SetTopDistancePhase::SetTopDistancePhase(PhaseManager* manager, Movement* movement, Pen* pen) : CommandHandlingPhase(movement) {
     this->manager = manager;
     this->movement = movement;
@@ -10,7 +12,15 @@ void SetTopDistancePhase::setTopDistance(AsyncWebServerRequest *request) {
     const AsyncWebParameter* p = request->getParam(0);
     int distance = p->value().toInt();
     Serial.println("Setting distance");
-    movement->setTopDistance(distance); 
+    movement->setTopDistance(distance);
+
+    // Persist so the value survives a firmware restart and can be used to
+    // prefill the UI even though the in-memory Movement state resets.
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, false);
+    prefs.putInt(PREFS_TOP_DISTANCE_KEY, distance);
+    prefs.end();
+
     manager->setPhase(PhaseManager::SvgSelect);
     manager->respondWithState(request);
 }

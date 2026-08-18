@@ -1,0 +1,14 @@
+{
+  "test_line_horizontal.svg": {
+    "commandCount": 8,
+    "distance": 998
+  },
+  "test_rectangle_2x1.black.svg": {
+    "commandCount": 571,
+    "distance": 70563.3
+  },
+  "test_scattered_squares.svg": {
+    "commandCount": 298,
+    "distance": 5424.6
+  }
+}

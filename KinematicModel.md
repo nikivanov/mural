@@ -50,6 +50,19 @@ $q=\frac{d_{pulley}}{2\cdot \sqrt2}$
 So, for a typical pulley diameter of $d_{pulley}=12.69$ mm we get $q=4.4866$ mm .
 
 The lenght of the line connecting the tangent point is given as the distance of the pulley axes minus $2*q$ .
+With the stock 85.00mm axis distance and $d_{pulley}=12.69$mm this gives $d_t = 76.027$mm - the constants actually
+in `src/movement.h` (`d_t`, `d_p`, `d_m`) match these examples exactly.
+
+### Runtime-configurable constants
+
+Four of the physics inputs above - bot mass $m$, belt elongation coefficient, the
+effective pulley diameter (used for esteps/belt-length conversion, not the tangent-point
+geometry directly), and the homed step offset - are persisted in NVS via the `Preferences`
+library (`Movement::loadPhysicsConstants()`, `src/movement.cpp`) and can be tuned from the
+UI without reflashing; `src/movement.h`'s `default_*` constants are only the first-boot
+defaults. The tangent-point geometry constants ($d_t$, $d_p$, $d_m$, $q$) remain
+compile-time `constexpr` values in `src/movement.h` - they describe the bot's physical
+frame, not something a user recalibrates in the field.
 
 ## Solving for the Equilibrium State
 
@@ -133,7 +146,14 @@ In the static state the resulting torque is zero, so
 
 $T_R - T_L + T_m \stackrel{!}{=} 0$
 
-, and the implementation searches numerically for a $\gamma$ which fulfills this condition.
+, and the implementation searches numerically for a $\gamma$ which fulfills this condition
+(`Kinematics::solveTorqueEquilibrium`, `src/kinematics.cpp`): a secant search
+warm-started from the previous solve's $\gamma$, bracketed and with a bisection
+fallback for robustness if the secant step misbehaves (e.g. near-flat regions). There
+is exactly one zero crossing in the valid $\gamma \in [-90°, 90°]$ range, so this
+converges in a handful of evaluations. `computeTorqueDelta()` in the same file
+implements $T_R - T_L + T_m$ exactly as derived above - the maths here is unchanged,
+only the root-finding method (previously a coarser grid search over $\gamma$).
 
 ## Tangent Points given Pen Location
 

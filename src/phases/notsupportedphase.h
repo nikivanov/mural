@@ -15,6 +15,11 @@ class NotSupportedPhase : public Phase {
     void run(AsyncWebServerRequest *request);
     void doneWithPhase(AsyncWebServerRequest *request);
     void estepsCalibration(AsyncWebServerRequest *request);
+    void installTestPattern(AsyncWebServerRequest *request);
+    void pauseDrawing(AsyncWebServerRequest *request);
+    void resumeDrawing(AsyncWebServerRequest *request);
+    void confirmResume(AsyncWebServerRequest *request);
+    void confirmPenSwap(AsyncWebServerRequest *request);
     const char* getName();
     void loopPhase();
 };

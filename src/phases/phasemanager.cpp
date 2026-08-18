@@ -5,17 +5,25 @@
 #include "pencalibrationphase.h"
 #include "svgselectphase.h"
 #include "begindrawingphase.h"
+#include "drawingphase.h"
+#include "resumedrawingphase.h"
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
+#include "../prefskeys.h"
+#include <Preferences.h>
+#include <LittleFS.h>
 #include <stdexcept>
+#include <cstring>
 
-PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server) {
+PhaseManager::PhaseManager(Movement* movement, Pen* pen, Runner* runner) {
     retractBeltsPhase = new RetractBeltsPhase(this, movement);
     setTopDistancePhase = new SetTopDistancePhase(this, movement, pen);
-    extendToHomePhase = new ExtendToHomePhase(this, movement);
+    extendToHomePhase = new ExtendToHomePhase(this, movement, runner);
     penCalibrationPhase = new PenCalibrationPhase(this, pen);
     svgSelectPhase = new SvgSelectPhase(this);
-    beginDrawingPhase = new BeginDrawingPhase(this, runner, server);
+    beginDrawingPhase = new BeginDrawingPhase(this, runner);
+    drawingPhase = new DrawingPhase(this, runner);
+    resumeDrawingPhase = new ResumeDrawingPhase(this, movement, pen);
 
     this->movement = movement;
     reset();
@@ -52,6 +60,14 @@ void PhaseManager::setPhase(PhaseNames name) {
             Serial.println("BeginDrawing");
             currentPhase = beginDrawingPhase;
             break;
+        case PhaseNames::Drawing:
+            Serial.println("Drawing");
+            currentPhase = drawingPhase;
+            break;
+        case PhaseNames::ResumeDrawing:
+            Serial.println("ResumeDrawing");
+            currentPhase = resumeDrawingPhase;
+            break;
         default:
             throw std::invalid_argument("Invalid Phase");
     }
@@ -64,7 +80,29 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     auto homePosition = movement->getHomeCoordinates();
 
     auto topDistance = movement->getTopDistance();
-    auto safeWidth = topDistance != -1 ? movement->getWidth() : -1;
+    double widthValue;
+    auto safeWidth = movement->getWidth(widthValue) ? widthValue : -1;
+
+    // Values persisted in NVS survive firmware restarts even though the
+    // in-memory movement/pen state above does not. Exposing them separately
+    // lets the UI prefill the distance input and pen slider with the last
+    // known-good calibration instead of forcing the user to redo it.
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, true);
+    int storedTopDistance = prefs.getInt(PREFS_TOP_DISTANCE_KEY, -1);
+    int storedPenAngle = prefs.getInt(PREFS_PEN_ANGLE_KEY, -1);
+    prefs.end();
+
+    // While a resume-after-power-loss offer is pending/in-progress (see reset()),
+    // let the UI show what fraction of the job was already completed.
+    int resumePercent = -1;
+    if (resuming) {
+        int totalLines = Runner::countTotalCommandLines();
+        resumePercent = totalLines > 0 ? (pendingCheckpoint.executedLines * 100) / totalLines : 0;
+        if (resumePercent > 100) {
+            resumePercent = 100;
+        }
+    }
 
     AsyncResponseStream *response = request->beginResponseStream("application/json");
     DynamicJsonBuffer jsonBuffer;
@@ -76,11 +114,56 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["safeWidth"] = safeWidth;
     root["homeX"] = homePosition.x;
     root["homeY"] = homePosition.y;
+    root["storedTopDistance"] = storedTopDistance;
+    root["storedPenAngle"] = storedPenAngle;
+    root["uploadCrc32"] = svgSelectPhase->getUploadCrc32();
+    root["resuming"] = resuming;
+    root["resumePercent"] = resumePercent;
+    // Multi-color (docs/multi-color.md): which pen was mounted when the
+    // checkpointed job was interrupted, so the resume offer can warn the user
+    // which pen must be (re-)inserted. resumeColorName is "" for a
+    // single-color job/checkpoint (see Runner::writeCheckpoint()) - the UI
+    // omits the "pen must be inserted" line entirely in that case.
+    if (resuming) {
+        root["resumeColorIndex"] = pendingCheckpoint.colorIndex;
+        root["resumeColorName"] = pendingCheckpoint.colorName;
+    }
+
+#ifdef MURAL_TMC_UART
+    root["autoRetract"] = true;
+#else
+    root["autoRetract"] = false;
+#endif
+
+    if (strcmp(currentPhase, "RetractBelts") == 0) {
+        root["leftRetract"] = retractBeltsPhase->getLeftStatus();
+        root["rightRetract"] = retractBeltsPhase->getRightStatus();
+    }
 
     root.printTo(*response);
     request->send(response);
 }
 
 void PhaseManager::reset() {
-    setPhase(PhaseManager::SetTopDistance);
+    Runner::Checkpoint cp;
+    if (Runner::loadCheckpoint(cp) && LittleFS.exists("/commands")) {
+        pendingCheckpoint = cp;
+        resuming = true;
+        setPhase(PhaseManager::ResumeDrawing);
+    } else {
+        resuming = false;
+        setPhase(PhaseManager::SetTopDistance);
+    }
+}
+
+bool PhaseManager::isResuming() {
+    return resuming;
+}
+
+Runner::Checkpoint PhaseManager::getPendingCheckpoint() {
+    return pendingCheckpoint;
+}
+
+void PhaseManager::clearResuming() {
+    resuming = false;
 }

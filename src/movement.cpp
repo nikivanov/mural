@@ -1,11 +1,12 @@
 #include "movement.h"
 #include "display.h"
-#include <stdexcept>
 
 Movement::Movement(Display *display)
 {
     this->display = display;
-   
+
+    loadPhysicsConstants();
+
     leftMotor = new AccelStepper(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
     leftMotor->setEnablePin(LEFT_ENABLE_PIN);
     leftMotor->setMaxSpeed(moveSpeedSteps);
@@ -17,6 +18,14 @@ Movement::Movement(Display *display)
     rightMotor->setMaxSpeed(moveSpeedSteps);
     rightMotor->disableOutputs();
 
+#ifdef MURAL_TMC_UART
+    // UNTESTED ON HARDWARE: bring up the shared TMC2209 UART and configure
+    // both drivers. Motion is still driven via the existing STEP/DIR pins
+    // above (AccelStepper); UART is only used for configuration and for
+    // reading StallGuard/DIAG state.
+    setupTmcDrivers();
+#endif
+
     topDistance = -1;
    
     moving = false;
@@ -24,8 +33,171 @@ Movement::Movement(Display *display)
     startedHoming = false;
 };
 
+// Loads the runtime-configurable physics constants from NVS (via the Preferences
+// library), falling back to the compile-time defaults on first boot / if unset.
+void Movement::loadPhysicsConstants() {
+    preferences.begin("mural-phys", false);
+    diameter = preferences.getDouble("diameter", default_diameter);
+    homedStepOffsetMM = preferences.getDouble("homeOffsetMM", default_homedStepOffsetMM);
+    mass_bot = preferences.getDouble("massBot", default_mass_bot);
+    belt_elongation_coefficient = preferences.getDouble("beltElong", default_belt_elongation_coefficient);
+    preferences.end();
+
+    recomputeDerivedPhysicsConstants();
+}
+
+void Movement::recomputeDerivedPhysicsConstants() {
+    circumference = diameter * PI;
+    homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
+}
+
+Kinematics::PhysicsParams Movement::getPhysicsParams() const {
+    Kinematics::PhysicsParams params;
+    params.d_t = d_t;
+    params.d_p = d_p;
+    params.d_m = d_m;
+    params.mass_bot = mass_bot;
+    params.g_constant = g_constant;
+    params.belt_elongation_coefficient = belt_elongation_coefficient;
+    params.midPulleyToWall = midPulleyToWall;
+    return params;
+}
+
+double Movement::getMassBot() {
+    return mass_bot;
+}
+
+double Movement::getBeltElongationCoefficient() {
+    return belt_elongation_coefficient;
+}
+
+double Movement::getEffectiveDiameter() {
+    return diameter;
+}
+
+double Movement::getHomedStepOffsetMM() {
+    return homedStepOffsetMM;
+}
+
+void Movement::setMassBot(double value) {
+    mass_bot = value;
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("massBot", value);
+    preferences.end();
+}
+
+void Movement::setBeltElongationCoefficient(double value) {
+    belt_elongation_coefficient = value;
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("beltElong", value);
+    preferences.end();
+}
+
+void Movement::setEffectiveDiameter(double value) {
+    diameter = value;
+    recomputeDerivedPhysicsConstants();
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("diameter", value);
+    preferences.end();
+}
+
+void Movement::setHomedStepOffsetMM(double value) {
+    homedStepOffsetMM = value;
+    recomputeDerivedPhysicsConstants();
+    preferences.begin("mural-phys", false);
+    preferences.putDouble("homeOffsetMM", value);
+    preferences.end();
+}
+
+// Hooks into the existing E-steps calibration flow (see extend1000mm()): given how far
+// the bot actually traveled (measured by the user) for the commanded step count, backs
+// out and persists a corrected effective pulley diameter.
+bool Movement::calibrateEffectiveDiameterFromMeasurement(double measuredDistanceMM, double& correctedDiameter) {
+    if (lastEstepsCalibrationSteps <= 0 || measuredDistanceMM <= 0) {
+        Serial.println("No calibration extension has been performed yet");
+        return false;
+    }
+
+    const double correctedCircumference = (measuredDistanceMM * stepsPerRotation) / lastEstepsCalibrationSteps;
+    correctedDiameter = correctedCircumference / PI;
+    setEffectiveDiameter(correctedDiameter);
+    return true;
+}
+
+#ifdef MURAL_TMC_UART
+// UNTESTED ON HARDWARE: configure both TMC2209 drivers over the shared UART.
+// See docs/tmc-uart.md for wiring and for how to safely validate this on the
+// bench before trusting it for homing/stall-monitoring.
+void Movement::setupTmcDrivers() {
+    tmcSerial.begin(MURAL_TMC_UART_BAUD, SERIAL_8N1, MURAL_TMC_UART_RX_PIN, MURAL_TMC_UART_TX_PIN);
+
+    leftDriver = new TMC2209Stepper(&tmcSerial, TMC_R_SENSE, LEFT_TMC_ADDRESS);
+    rightDriver = new TMC2209Stepper(&tmcSerial, TMC_R_SENSE, RIGHT_TMC_ADDRESS);
+
+    leftDriver->begin();
+    rightDriver->begin();
+
+    leftDriver->toff(4);
+    rightDriver->toff(4);
+
+    leftDriver->rms_current(TMC_RUN_CURRENT_MA);
+    rightDriver->rms_current(TMC_RUN_CURRENT_MA);
+
+    // Microstepping is set via UART here (MS1/MS2 are repurposed as the UART
+    // address straps in this mode), and must match stepsPerRotation above.
+    leftDriver->microsteps(8);
+    rightDriver->microsteps(8);
+
+    // SpreadCycle (not StealthChop) for reliable StallGuard/DIAG stall
+    // detection. This is louder than StealthChop; once StallGuard behavior is
+    // validated on real hardware it's reasonable to explore StealthChop +
+    // pwm_autoscale-based stall detection instead if quieter running matters
+    // more than detection reliability.
+    leftDriver->en_spreadCycle(true);
+    rightDriver->en_spreadCycle(true);
+    leftDriver->pwm_autoscale(false);
+    rightDriver->pwm_autoscale(false);
+
+    leftDriver->TCOOLTHRS(TMC_TCOOLTHRS);
+    rightDriver->TCOOLTHRS(TMC_TCOOLTHRS);
+    leftDriver->SGTHRS(TMC_SGTHRS);
+    rightDriver->SGTHRS(TMC_SGTHRS);
+
+    pinMode(LEFT_DIAG_PIN, INPUT);
+    pinMode(RIGHT_DIAG_PIN, INPUT);
+}
+
+// UNTESTED ON HARDWARE: true if that driver's DIAG pin currently reports a
+// stall/error condition. Read independently per motor so a stall on one belt
+// doesn't get attributed to (or stop) the other.
+bool Movement::checkLeftStallGuard() {
+    return digitalRead(LEFT_DIAG_PIN) == HIGH;
+}
+
+bool Movement::checkRightStallGuard() {
+    return digitalRead(RIGHT_DIAG_PIN) == HIGH;
+}
+
+bool Movement::isStalled() {
+    return leftStalled || rightStalled;
+}
+
+bool Movement::isLeftStalled() {
+    return leftStalled;
+}
+
+bool Movement::isRightStalled() {
+    return rightStalled;
+}
+
+void Movement::clearStall() {
+    leftStalled = false;
+    rightStalled = false;
+}
+#endif
+
 void Movement::setTopDistance(const int distance) {
-    Serial.printf("Top distance set to %s\n", String(distance));
+    Serial.printf("Top distance set to %d\n", distance);
     topDistance = distance;                         // = d_pins [mm]
 
     minSafeY = safeYFraction * topDistance;         // = top_margin * d_pins [mm]
@@ -40,6 +212,7 @@ void Movement::resumeTopDistance(int distance /* = d_pin in mm */) {
     const Point homeCoordinates = getHomeCoordinates();
     X = homeCoordinates.x;
     Y = homeCoordinates.y;
+    positionKnown = true;
 
     const Lengths lengths = getBeltLengths(homeCoordinates.x, homeCoordinates.y);
     leftMotor->setCurrentPosition(lengths.left);
@@ -73,6 +246,14 @@ void Movement::leftStepper(const int dir)
         leftMotor->stop();
     }
 
+    leftCommandedDir = dir;
+
+#ifdef MURAL_TMC_UART
+    if (dir != 0) {
+        // A freshly-commanded move supersedes any previous stall.
+        leftStalled = false;
+    }
+#endif
     moving = true;
 };
 
@@ -94,8 +275,24 @@ void Movement::rightStepper(const int dir)
         rightMotor->stop();
     }
 
+    rightCommandedDir = dir;
+
+#ifdef MURAL_TMC_UART
+    if (dir != 0) {
+        // A freshly-commanded move supersedes any previous stall.
+        rightStalled = false;
+    }
+#endif
     moving = true;
 };
+
+bool Movement::isLeftRetracting() {
+    return leftCommandedDir < 0 && leftMotor->distanceToGo() != 0;
+}
+
+bool Movement::isRightRetracting() {
+    return rightCommandedDir < 0 && rightMotor->distanceToGo() != 0;
+}
 
 Movement::Point Movement::getHomeCoordinates() {
     if (topDistance == -1) {
@@ -105,145 +302,70 @@ Movement::Point Movement::getHomeCoordinates() {
     return Point(width / 2, HOME_Y_OFFSET_MM);
 }
 
-int Movement::extendToHome()
+bool Movement::extendToPoint(double x, double y, int& moveTime)
 {
     setOrigin();
 
-    auto homeCoordinates = getHomeCoordinates();
     startedHoming = true;
-    auto moveTime = beginLinearTravel(homeCoordinates.x, homeCoordinates.y, moveSpeedSteps);
-    return int(ceil(moveTime));
+    float moveTimeF;
+    if (!beginLinearTravel(x, y, moveSpeedSteps, moveTimeF)) {
+        return false;
+    }
+    moveTime = int(ceil(moveTimeF));
+    return true;
+};
+
+bool Movement::extendToHome(int& moveTime)
+{
+    auto homeCoordinates = getHomeCoordinates();
+    return extendToPoint(homeCoordinates.x, homeCoordinates.y, moveTime);
 };
 
 void Movement::runSteppers()
 {
     if (moving)
     {
+#ifdef MURAL_TMC_UART
+        // UNTESTED ON HARDWARE: stop feeding step pulses to each motor the
+        // moment its own DIAG pin reports a stall, instead of continuing to
+        // command motion into whatever is blocking that belt (which would
+        // just desync AccelStepper's step count from reality). Checked and
+        // latched per motor - rather than halting both the instant either
+        // one trips - so RetractBeltsPhase can track/stop each belt's
+        // StallGuard homing independently; Runner still treats a stall on
+        // either belt as reason to pause the whole job (see isStalled()).
+        if (checkLeftStallGuard()) {
+            leftMotor->setSpeed(0);
+            leftStalled = true;
+        }
+        if (checkRightStallGuard()) {
+            rightMotor->setSpeed(0);
+            rightStalled = true;
+        }
+
+        if (!leftStalled) {
+            leftMotor->runSpeedToPosition();
+        }
+        if (!rightStalled) {
+            rightMotor->runSpeedToPosition();
+        }
+
+        if ((leftStalled || leftMotor->distanceToGo() == 0) &&
+            (rightStalled || rightMotor->distanceToGo() == 0))
+        {
+            moving = false;
+        }
+        return;
+#endif
         leftMotor->runSpeedToPosition();
         rightMotor->runSpeedToPosition();
 
         if (leftMotor->distanceToGo() == 0 && rightMotor->distanceToGo() == 0)
         {
             moving = false;
-            //Serial.printf("Motion complete. Left steps: %ld, Right steps: %ld\n", leftMotor->currentPosition(), rightMotor->currentPosition());
         }
     }
 };
-
-inline void Movement::getLeftTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PL, double& y_PL) const {
-    // Input frameX and frameY are the coordinates of the pen center.
-    const double s_L = d_t / 2.0;   // Distance of left and right tangent point from point Q. [mm]
-    const double P_LX = s_L * cos(gamma) - d_p * sin(gamma); // [mm] distance from pen center in x
-    const double P_LY = s_L * sin(gamma) + d_p * cos(gamma); // [mm] .. and y
-    x_PL = frameX - P_LX;    // [mm] Left pulley tangent point in frame coordinate system.
-    y_PL = frameY - P_LY;    // [mm]
-}
-
-inline void Movement::getRightTangentPoint(const double frameX, const double frameY, const double gamma, double& x_PR, double& y_PR) const {
-    // Coordinates of right pulley tangent point:
-    const double s_R = d_t / 2.0;
-    const double P_RX = s_R * cos(gamma) + d_p * sin(gamma); // [mm]
-    const double P_RY = s_R * sin(gamma) - d_p * cos(gamma); // [mm]
-    x_PR = frameX + P_RX;    // [mm] Right pulley tangent point in frame coordinate system.
-    y_PR = frameY + P_RY;    // [mm]
-}
-
-// Compute angles of the belts and the forces on them.
-// Input: - Mural coordinates X and Y in frame coordinate system [mm].
-//        - Mural inclination gamma [rad].
-// Output: - belt angles phi_L, phi_R [rad], measured against the line connecting the pins.
-void Movement::getBeltAngles(const double frameX, const double frameY, const double gamma, double& phi_L, double& phi_R) const {
-    double x_PL;
-    double y_PL;
-    getLeftTangentPoint(frameX, frameY, gamma, x_PL, y_PL);
-    phi_L = atan2(y_PL, x_PL);     // Angle of left belt, measured from line connecting the pins. [rad]
-
-    double x_PR;
-    double y_PR;
-    getRightTangentPoint(frameX, frameY, gamma, x_PR, y_PR);
-    phi_R = atan2(y_PR, topDistance - x_PR);     // Angle of left belt, measured from line connecting the pins. [rad]
-}
-
-void Movement::getBeltForces(const double phi_L, const double phi_R, double& F_L, double&F_R) const {
-    // Computing the Forces. 
-    // Force vectors are parallel to their belts, so the direction is given by phi_R and phi_L.
-    // We assume that the bot is in a stable state (no torque), which allows us for having
-    // the force vectors of left (L) and right (R) pulley meet in a single point. 
-    // In this stable state the pulley forces cancel out the gravity force in x and y.
-    // Note this is an approximation which is refined due to iteratively updating the values (torque, angles, forces). 
-    const double F_G = mass_bot * g_constant;       // [N] Gravity force is pulling bot down. No x component.
-    F_R = F_G * cos(phi_L) / sin(phi_L + phi_R);    // [N] magnitude of the force vector
-    F_L = F_G * cos(phi_R) / sin(phi_L + phi_R);    // [N]
-    // double F_Ly = F_L * sin(phi_L);                         // [N] components in y and x
-    // double F_Lx = F_L * sin(phi_L);                         // [N] ...
-    // double F_Ry = F_R * sin(phi_R);                         // [N]
-    // double F_Rx = F_R * sin(phi_R);                         // [N]
-}
-
-double Movement::solveTorqueEquilibrium(const double phi_L, const double phi_R, const double F_L, const double F_R, const double gamma_init) const {
-    // Solve for torque equilibrium: As the belts are pulling on two distinct point, there's a torque rotating the
-    // bot around a reference point. Here, we assume this reference point corresponds to Q, where tangent line d_t
-    // and mass line d_m meet.
-    // In the static case the residual torque is zero, which occurs at a certain inclination gamma. The goal here is
-    // to find this gamma.
-    const double s_L = d_t / 2.0;   // [mm] Lenght of the effective arm for the left pulley.
-    const double s_R = d_t / 2.0;   // [mm]
-
-    double gamma_best = 99999999;
-    double T_delta_best = 99999999;
-
-    // Solver parameters.
-    constexpr double gamma_step = 0.20 * PI / 180.0;   // [rad] solver step width.
-    constexpr double gamma_min = -90.0 * PI / 180.0;   // [rad] Solver search range: max and min values.
-    constexpr double gamma_max = 90.0 * PI / 180.0;    // [rad]
-    constexpr double gamma_search_window = 2.0 * PI / 180.0;    // [rad] Solver will focus on gamma_init +- gamma_search_window.
-    
-    // Simple solver: finding the minimum T_delta by searching over the range specified above:
-    for (double gamma = gamma_init - gamma_search_window;
-            gamma > gamma_min &&
-            gamma < gamma_max &&
-            gamma <= gamma_init + gamma_search_window;
-            gamma += gamma_step){
-        const double alpha = phi_L - gamma;   // [rad] Angle between left belt and line connecting tangent points (of pulleys and belts).
-        const double beta = phi_R + gamma;    // [rad] Angle between right belt and line connecting tangent points.
-    
-        double T_L = /* s_L * F_L = */ s_L * sin(alpha) * F_L;  // [N * mm]
-        double T_R = s_R * sin(beta) * F_R;                     // [N * mm]
-
-        // The center of mass sits under the center of line connecting the tangent points.
-        double s_m = d_m * tan(gamma);                          // [mm]
-        const double F_G = mass_bot * g_constant;               // [N] Gravity force is pulling bot down. No x component.
-        double F_m = F_G * cos(gamma);
-        double T_m = s_m * F_m;                                 // [N * mm]
-
-        // Left pulley tries to turn the bot clockwise. Right pulley ccw. Gravity ccw if gamma is positive (i.e. the bot inclined to the right).
-        double T_delta = T_R - T_L + T_m;                       // [N * mm]
-        // Solve gamma for T_delta = 0.0 .
-        if (abs(T_delta) < abs(T_delta_best)){
-            T_delta_best = T_delta;
-            gamma_best = gamma;
-            // Serial.printf("  solveTorqueEquilibrium: T_delta=%1.4f @ gamma=%1.4f, T_delta_best=%1.4f @ gamma_best=%1.4f\n",
-            //     T_delta, gamma, T_delta_best, gamma_best);
-        } else {
-            // There is only one zero crossing: terminate early if T_delta gets worse than best one so far.
-
-            // Serial.printf("  solveTorqueEquilibrium: T_delta=%1.4f @ gamma=%1.4f, T_delta_best=%1.4f @ gamma_best=%1.4f Exit function.\n",
-            //     T_delta, gamma, T_delta_best, gamma_best);
-            return gamma_best;
-        }
-    }
-
-    return gamma_best;
-}
-
-inline double Movement::getDilationCorrectedBeltLength(double belt_length, double F_belt) const {
-    // Apply belt length correction: The belts stretch because of Mural's mass. 
-    // This function returns a (shorter) length of the belt, such that with gravity the belt
-    // exactly as long as required.
-    const double elongation_factor = 1 + belt_elongation_coefficient * F_belt;
-    const double belth_length_corrected = belt_length / elongation_factor;
-    return belth_length_corrected;
-}
 
 // Calculate the lengths of the left and right belt in mm based on the input coordinates.
 // input: x [mm], y [mm] ; both in image coordinate system
@@ -283,84 +405,57 @@ Movement::Lengths Movement::getBeltLengths(const double x, const double y) {
     const double frameX = x + minSafeXOffset;
     const double frameY = y + minSafeY;
 
-    double gamma = gamma_last_position;              // Inclination of the bot [rad]. 0: Bot is horizontal. gamma>0: Bot tilts to the right.
-    double phi_L = 0.0;
-    double phi_R = 0.0;
-    double F_L = 0.0;                               // [N] magnitude of the force vector (left belt)
-    double F_R = 0.0;                               // [N] magnitude of the force vector (right belt)
     constexpr int solver_max_iterations = 20;       // Maximum number of outer loop iterations of the solver.
-    constexpr double gamma_delta_termination = 0.25 / 180.0 * PI; // [rad] Outer loop of solver will stop if last update is smaller than this. 
-                                                                  // Value should be greater than gamma step size in solveTorqueEquilibrium.
+    constexpr double gamma_delta_termination = 0.01 / 180.0 * PI; // [rad] Outer loop of solver will stop if last update is smaller than this.
+                                                                  // The inner solver (Kinematics::solveTorqueEquilibrium) now converges to
+                                                                  // ~0.01 degree via root-finding rather than a coarse grid search, so this
+                                                                  // outer threshold can be tightened accordingly without costing extra
+                                                                  // iterations in practice.
 
-    // Solve for belt angles phi and bot inclination gamma by running a few rounds.
-    int debug_step_count = 0;
-    for (int i = 0; i < solver_max_iterations; i++){
-        getBeltAngles(frameX, frameY, gamma, phi_L, phi_R);
+    const Kinematics::BeltLengthsResult result = Kinematics::computeBeltLengths(
+        frameX, frameY, topDistance, gamma_last_position, getPhysicsParams(),
+        gamma_delta_termination, solver_max_iterations);
 
-        getBeltForces(phi_L, phi_R, F_L, F_R);
+    gamma_last_position = result.gamma;
 
-        const double gamma_last = gamma;
-        gamma = solveTorqueEquilibrium(phi_L, phi_R, F_L, F_R, gamma);
-        // Serial.printf(" Solver loop: i=%d, frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, gamma=%1.4f\n", 
-        //     i, frameX, frameY, phi_L, phi_R, F_L, F_R, gamma);
-        debug_step_count = i;
-        if (abs(gamma_last - gamma) < gamma_delta_termination) break;
-    }
-    gamma_last_position = gamma;
-    // Serial.printf("Solver found: frameX=%1.2f, frameY=%1.2f, phi_L=%1.4f, phi_R=%1.4f, F_L=%1.2f, F_R=%1.2f, debug_step_count=%d, gamma=%1.4f\n", 
-    //     frameX, frameY, phi_L, phi_R, F_L, F_R, debug_step_count, gamma);
-
-    double leftX, leftY;
-    double rightX, rightY;
-    getLeftTangentPoint(frameX, frameY, gamma, leftX, leftY);
-    getRightTangentPoint(frameX, frameY, gamma, rightX, rightY);
-
-    // Left and right leg distances flush to the wall.
-    const double leftLegFlat = sqrt(pow(leftX, 2) + pow(leftY, 2));
-    const double rightLegFlat = sqrt(pow(topDistance - rightX, 2) + pow(rightY, 2));
-
-    // Left and right leg distances including the standoff length.
-    double leftLeg = sqrt(pow(leftLegFlat, 2) + pow(midPulleyToWall, 2));
-    double rightLeg = sqrt(pow(rightLegFlat, 2) + pow(midPulleyToWall, 2));
-
-    leftLeg = getDilationCorrectedBeltLength(leftLeg, F_L);
-    rightLeg = getDilationCorrectedBeltLength(rightLeg, F_R);
-    
-    const double leftLegSteps = int((leftLeg / circumference) * stepsPerRotation);
-    const double rightLegSteps = int((rightLeg / circumference) * stepsPerRotation);
+    const long leftLegSteps = lround((result.leftLeg / circumference) * stepsPerRotation);
+    const long rightLegSteps = lround((result.rightLeg / circumference) * stepsPerRotation);
 
     return Lengths(leftLegSteps, rightLegSteps);
 }
 
-float Movement::beginLinearTravel(double x, double y, int speed)
+bool Movement::beginLinearTravel(double x, double y, int speed, float& moveTime)
 {
-    X = x;
-    Y = y;
+#ifdef MURAL_TMC_UART
+    // A freshly-commanded move supersedes any previous stall.
+    leftStalled = false;
+    rightStalled = false;
+#endif
     if (topDistance == -1 || !homed) {
         Serial.println("Not ready");
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     if (x < 0 || (x - 1) > width)
     {
         Serial.println("Invalid x");
-        throw std::invalid_argument("Invalid x");
+        return false;
     }
 
     if (y < 0)
     {
         Serial.println("Invalid y");
-        throw std::invalid_argument("Invalid y");
+        return false;
     }
 
     auto lengths = getBeltLengths(x, y);
     auto leftLegSteps = lengths.left;
     auto rightLegSteps = lengths.right;
 
-    auto deltaLeft = int(abs(abs(leftMotor->currentPosition()) - leftLegSteps));
-    auto deltaRight = int(abs(abs(rightMotor->currentPosition()) - rightLegSteps));
+    long deltaLeft = abs(abs(leftMotor->currentPosition()) - (long)leftLegSteps);
+    long deltaRight = abs(abs(rightMotor->currentPosition()) - (long)rightLegSteps);
 
-    float leftSpeed, rightSpeed, moveTime;
+    float leftSpeed, rightSpeed;
     if (deltaLeft >= deltaRight)
     {
         leftSpeed = speed;
@@ -374,42 +469,45 @@ float Movement::beginLinearTravel(double x, double y, int speed)
         leftSpeed = deltaLeft / moveTime;
     }
 
-    //Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
     leftMotor->moveTo(leftLegSteps);
     leftMotor->setSpeed(leftSpeed);
-    
+
     rightMotor->moveTo(rightLegSteps);
     rightMotor->setSpeed(rightSpeed);
 
-    //display->displayText(String(X) + ", " + String(Y));
-    // delay(sleepDurationAfterMove_ms);
+    X = x;
+    Y = y;
+    positionKnown = true;
 
     moving = true;
-    return moveTime;
+    return true;
 };
 
-double Movement::getWidth() {
+bool Movement::getWidth(double& width) {
     if (topDistance == -1) {
-        throw std::invalid_argument("not ready");
+        return false;
     }
-    return width;
+    width = this->width;
+    return true;
 }
 
-Movement::Point Movement::getCoordinates() {
-    if (X == -1 || Y == -1) {
+bool Movement::getCoordinates(Point& point) {
+    if (!positionKnown) {
         Serial.println("Not ready to get coordinates");
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     if (moving) {
         Serial.println("Can't get coordinates while moving");
-        throw std::invalid_argument("not ready");
+        return false;
     }
-    return Movement::Point(X, Y);
+    point = Movement::Point(X, Y);
+    return true;
 }
 
 void Movement::extend1000mm() {
-    const int steps = int((1000 / circumference) * stepsPerRotation);   
+    const int steps = int((1000 / circumference) * stepsPerRotation);
+    lastEstepsCalibrationSteps = steps; // remembered so a later measured-distance can be turned back into diameter.
 
     leftMotor->move(steps);
     leftMotor->setSpeed(moveSpeedSteps);

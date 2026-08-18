@@ -1,23 +1,245 @@
 import { loadPaper } from './paperLoader';
+import { PathDensityData } from './types';
+import { applyWhiteKnockout } from './flattener';
 
 const paper = loadPaper();
 
 export function generatePaths(svg: paper.Item): paper.PathItem[] {
-    return generatePathsRecursive(svg);
+    return generatePathsRecursive(svg, getOwnDensityData(svg));
 }
 
-function generatePathsRecursive(item: paper.Item): paper.PathItem[] {
+// Groups tagged with tonal density data (see vectorizer's grayscale mode,
+// carried in via the SVG `data-paper-data` attribute) pass that data down to
+// every Path/CompoundPath found within, so generateInfills can apply a
+// per-path density/outline override. Untagged trees leave every path's data
+// untouched, preserving the existing single-density behavior exactly.
+function generatePathsRecursive(item: paper.Item, inherited: PathDensityData | undefined): paper.PathItem[] {
     const paths: paper.PathItem[] = [];
     for (const child of item.children) {
+        const effective = getOwnDensityData(child) || inherited;
         if (child instanceof paper.Group) {
-            const innerPaths = generatePathsRecursive(child);
+            const innerPaths = generatePathsRecursive(child, effective);
             paths.push(...innerPaths);
         } else if (child instanceof paper.Path || child instanceof paper.CompoundPath) {
-            
+            if (effective) {
+                child.data.density = effective.density;
+                child.data.outline = effective.outline;
+                child.data.colorIndex = effective.colorIndex;
+                child.data.spacingMm = effective.spacingMm;
+                child.data.hatchAngleDegrees = effective.hatchAngleDegrees;
+            }
             paths.push(child);
         }
     }
 
     return paths;
+}
+
+function getOwnDensityData(item: paper.Item): PathDensityData | undefined {
+    const data = item.data as PathDensityData | undefined;
+    if (data && (data.density !== undefined || data.outline !== undefined || data.colorIndex !== undefined || data.spacingMm !== undefined || data.hatchAngleDegrees !== undefined)) {
+        return data;
+    }
+
+    return undefined;
+}
+
+export type ColorGroup = {
+    // 0-based, light-to-dark order (see docs/multi-color.md section 5).
+    colorIndex: number;
+    color: paper.Color;
+    paths: paper.PathItem[];
+}
+
+// Multi-color path-tracing mode (docs/multi-color.md section 1): groups
+// already-generated paths by their own literal fill/stroke color, instead of
+// by a `colorIndex` tag (which raster color mode assigns via
+// data-paper-data, before generatePaths() ever runs - see
+// vectorizeImageDataColor).
+//
+// Pure white (the wall's own color, same convention as
+// generateInfills()/vectorizeImageData()) is never a group of its own - see
+// applyWhiteKnockout in flattener.ts, which both drops those paths and
+// subtracts their geometry from whatever paint order puts beneath them,
+// fixing the fidelity bug where a white shape used to simply vanish while
+// still leaving whatever was under it hatched solid.
+//
+// A path with both a visible fill AND a visible stroke in a genuinely
+// different color contributes to BOTH layers (another fidelity fix): its
+// interior/infill to the fill color's layer (with `.data.outline = false`,
+// since the boundary belongs to the stroke color, not the fill color), and
+// a second, outline-only copy (`.data.outline = true`, `.data.density = 0`)
+// to the stroke color's layer. A path whose stroke is the same color as its
+// fill (or has no visible stroke at all) is unaffected and produces exactly
+// one group entry, as before - this is what keeps single-color/no-distinct-
+// stroke output byte-identical. Stroke *width* is not modeled: a thick
+// stroke still becomes a single-nib outline in the stroke layer.
+//
+// Mutates each contributed path's `.data.colorIndex` in place and returns
+// the groups ordered light -> dark.
+export function groupPathsByLiteralColor(paths: paper.PathItem[]): ColorGroup[] {
+    const buckets = new Map<string, { color: paper.Color, paths: paper.PathItem[] }>();
+
+    const knockedOutPaths = applyWhiteKnockout(paths);
+
+    for (const path of knockedOutPaths) {
+        const fill = path.fillColor;
+        const stroke = path.strokeColor;
+        const fillVisible = !!(fill && fill.alpha > 0);
+        const strokeVisible = !!(stroke && stroke.alpha > 0);
+        const fillIsWhite = fillVisible && fill!.toCSS(true) === '#ffffff';
+        const strokeIsDistinct = strokeVisible && (!fillVisible || fill!.toCSS(true) !== stroke!.toCSS(true));
+
+        if (fillVisible && !fillIsWhite) {
+            // Only need a separate clone when the stroke also contributes
+            // its own layer below - otherwise this path can be reused as-is,
+            // exactly like the original single-bucket behavior.
+            const fillPath = strokeIsDistinct ? path.clone({ insert: false }) : path;
+            if (strokeIsDistinct) {
+                fillPath.data.outline = false;
+            }
+            addToBucket(buckets, fill!, fillPath);
+        }
+
+        if (strokeIsDistinct) {
+            const strokePath = fillVisible ? path.clone({ insert: false }) : path;
+            if (fillVisible) {
+                strokePath.data.outline = true;
+                strokePath.data.density = 0;
+            }
+            addToBucket(buckets, stroke!, strokePath);
+        }
+    }
+
+    const ordered = [...buckets.values()].sort((a, b) => luminanceOf(b.color) - luminanceOf(a.color));
+
+    return ordered.map((bucket, colorIndex) => {
+        for (const path of bucket.paths) {
+            path.data.colorIndex = colorIndex;
+        }
+        return { colorIndex, color: bucket.color, paths: bucket.paths };
+    });
+}
+
+// Golden angle (degrees), the standard irrational-spread constant (360 /
+// phi^2). Used mod 180 rather than mod 360 below since a hatch line has no
+// direction - a line at angle theta is indistinguishable from one at
+// theta+180 - so spreading candidate angles across a 360-degree wheel would
+// waste half of them on visual duplicates of the other half.
+const GOLDEN_ANGLE_DEGREES = 137.50776405003785;
+
+// Assigns each multi-color layer's paths a distinct hatch angle (via
+// PathDensityData.hatchAngleDegrees) and switches them onto the
+// angle-aware crossHatchAngled fill strategy (PathDensityData.fillMethod;
+// see fillStrategies/registry.ts) - without this, hatchAngleDegrees would
+// be set but ignored, since the default strategy (crossHatch45) never reads
+// it and always hatches at a fixed 45 degrees.
+//
+// Called from toCommands.ts's renderMultiColor for every multi-color
+// render, regardless of whether the color groups came from raster mode's
+// pre-tagged colorIndex or from groupPathsByLiteralColor's literal-color
+// grouping above - both produce the same ColorGroup[] shape, so one call
+// site covers both origins.
+//
+// Why: two overlapping hatch layers at the same fixed 45-degree angle cross
+// at the same grid of points repeatedly, which reads as visual mud where
+// they overlap and (per the nib-contamination concern from earlier
+// multi-color work, docs/multi-color.md) means a pen re-tracing near-
+// identical lines to a previous layer's. Giving each layer its own angle,
+// spread with the golden angle for even, non-repeating coverage across the
+// 0-180 degree range, makes overlapping layers read as distinct textures
+// and means non-parallel layers' hatch lines cross at fewer, cleaner
+// points.
+//
+// A single-color render (colorGroups.length <= 1) is left alone - nothing
+// to disambiguate an angle against. Paths that already carry an explicit
+// hatchAngleDegrees or fillMethod (none do today, but future manual
+// overrides might) are left untouched rather than clobbered.
+//
+// `defaultFillMethod` is the request-level strategy (RenderSVGRequest.
+// fillMethod). It matters here because crossHatch45 - the default - is
+// hardcoded to 45 degrees and ignores hatchAngleDegrees entirely, so
+// per-layer angles only take effect if the paths are moved onto an
+// angle-aware strategy. Substituting crossHatchAngled achieves that, but it
+// must ONLY happen when the user hasn't chosen a strategy of their own:
+// stamping a per-path fillMethod unconditionally silently overrode every
+// request-level choice (per-path always wins in infill.ts), so picking
+// spiral/contour/gradientHatch appeared to do nothing on any multi-color
+// render. Leaving fillMethod unset lets the request-level default flow
+// through, and the angle-aware strategies (singleDirectionHatch,
+// crossHatchAngled, jitteredHatch) still honour the angle set above.
+export function assignHatchAnglesPerColorGroup(colorGroups: ColorGroup[], defaultFillMethod?: string): void {
+    if (colorGroups.length <= 1) {
+        return;
+    }
+
+    // Only the angle-blind default needs substituting; any explicit choice is
+    // the user's and must survive.
+    const substituteAngleAwareStrategy =
+        defaultFillMethod === undefined || defaultFillMethod === 'crossHatch45';
+
+    colorGroups.forEach((group, i) => {
+        const angleDegrees = (i * GOLDEN_ANGLE_DEGREES) % 180;
+        for (const path of group.paths) {
+            const data = path.data as PathDensityData;
+            if (data.hatchAngleDegrees === undefined) {
+                data.hatchAngleDegrees = angleDegrees;
+            }
+            if (substituteAngleAwareStrategy && data.fillMethod === undefined) {
+                data.fillMethod = 'crossHatchAngled';
+            }
+        }
+    });
+}
+
+function addToBucket(
+    buckets: Map<string, { color: paper.Color, paths: paper.PathItem[] }>,
+    color: paper.Color,
+    path: paper.PathItem,
+) {
+    const key = color.toCSS(true);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+        bucket = { color, paths: [] };
+        buckets.set(key, bucket);
+    }
+    bucket.paths.push(path);
+}
+
+function luminanceOf(color: paper.Color): number {
+    return 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue;
+}
+
+// Recovers the color groups a set of already-generatePaths()'d paths were
+// tagged into (via `.data.colorIndex`, either from raster color mode's
+// data-paper-data tags or from groupPathsByLiteralColor above), ordered
+// ascending by colorIndex (which is already light-to-dark - see both
+// producers). Returns null if no path carries a colorIndex tag, so callers
+// can fall back to the original single-color pipeline untouched.
+export function collectExistingColorGroups(paths: paper.PathItem[]): ColorGroup[] | null {
+    const buckets = new Map<number, paper.PathItem[]>();
+    let anyTagged = false;
+
+    for (const path of paths) {
+        const data = path.data as PathDensityData | undefined;
+        if (data && data.colorIndex !== undefined) {
+            anyTagged = true;
+            const bucket = buckets.get(data.colorIndex) || [];
+            bucket.push(path);
+            buckets.set(data.colorIndex, bucket);
+        }
+    }
+
+    if (!anyTagged) {
+        return null;
+    }
+
+    return [...buckets.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([colorIndex, groupPaths]) => ({
+            colorIndex,
+            color: (groupPaths[0].fillColor && groupPaths[0].fillColor.alpha > 0) ? groupPaths[0].fillColor : new paper.Color('#000000'),
+            paths: groupPaths,
+        }));
 }
 

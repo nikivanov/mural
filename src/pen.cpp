@@ -1,4 +1,5 @@
 #include "pen.h"
+#include <stdexcept>
 
 bool shouldStop(int currentDegree, int targetDegree, bool positive) {
     if (positive) {
@@ -61,22 +62,28 @@ void Pen::setPenDistance(int value) {
     this->penDistance = value;
 }
 
-void Pen::slowUp() {
+int Pen::getPenDistance() {
+    return penDistance;
+}
+
+bool Pen::slowUp() {
     if (penDistance == -1) {
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     doSlowMove(this, currentPosition, 90, slowSpeedDegPerSec);
     currentPosition = 90;
+    return true;
 }
 
-void Pen::slowDown() {
+bool Pen::slowDown() {
     if (penDistance == -1) {
-        throw std::invalid_argument("not ready");
+        return false;
     }
 
     doSlowMove(this, currentPosition, penDistance, slowSpeedDegPerSec);
     currentPosition = penDistance;
+    return true;
 }
 
 bool Pen::isDown() {

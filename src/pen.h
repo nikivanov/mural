@@ -12,8 +12,9 @@ class Pen {
     Pen();
     void setRawValue(int rawValue);
     void setPenDistance(int value);
-    void slowUp();
-    void slowDown();
+    int getPenDistance();
+    bool slowUp();
+    bool slowDown();
     bool isDown();
 };
 #endif
