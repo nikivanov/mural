@@ -39,7 +39,34 @@ export type DeviceCalibration = {
 // measurement is divided by. If the workload below is ever changed,
 // this MUST be re-measured on that reference machine and updated -
 // it is not derived from anything else.
-const REFERENCE_BENCHMARK_MS = 12;
+//
+// MEASURED 2026-08-18 on the primary M5 Pro dev machine, by calling the
+// real measureCalibrationBenchmark() (via the compiled dist-test build,
+// so it's the actual shipped code path, not a re-implementation) 15-25
+// times per process across 15 separate `node` invocations (330 samples
+// total, first 3 samples of each process run discarded as JIT warm-up),
+// then taking the pooled median: 133.6ms (p25=132.5ms, p75=135.8ms,
+// mean=136.4ms - a handful of >150ms outliers from OS scheduling/thermal
+// jitter pull the mean up but don't move the median). 134 is that median
+// rounded to a whole ms.
+//
+// The previous value here (12ms) was never actually measured - it was
+// off by ~11x, which alone produced a device factor of ~10 on this exact
+// machine instead of ~1.0, before the cost-model coefficients in
+// processingEstimator.ts even ran. See the git history of this file/PR
+// for the incident.
+//
+// Re-measure and update this constant whenever runCalibrationWorkload()
+// or CALIBRATION_ITERATIONS changes - it is a snapshot of one specific
+// workload on one specific machine, not something that can be derived
+// from the new workload's shape. To re-measure: build the test output
+// (`npx tsc -p tsconfig.test.json` from tsc/), then call
+// `measureCalibrationBenchmark()` from dist-test/src/deviceCalibration.js
+// repeatedly (ideally across several separate `node` process
+// invocations, to average out JIT-warmup and OS-scheduling variance) and
+// take the median, discarding the first few samples of each process as
+// warm-up.
+const REFERENCE_BENCHMARK_MS = 134;
 
 // Iteration count for the calibration workload. Chosen so the workload
 // itself finishes in single-digit milliseconds on the reference machine

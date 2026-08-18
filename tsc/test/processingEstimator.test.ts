@@ -93,3 +93,49 @@ test("estimateProcessingSeconds: deterministic given an explicit deviceFactor", 
     const b = estimateProcessingSeconds(baseInputs());
     assert.equal(a.totalSeconds, b.totalSeconds);
 });
+
+// Regression test for the actual incident that prompted this file's
+// coefficient recalibration: every test above only checks *relative*
+// ordering (denser costs more, more colors costs more, ...) - a model that
+// is uniformly 1000x too high (as this one was, before recalibration:
+// REFERENCE_BENCHMARK_MS was ~11x too low and the *_US_PER_* coefficients
+// here were collectively another ~100x too high) still passes every one of
+// them, because doubling a wildly-wrong number is still bigger than the
+// original wildly-wrong number. That's exactly why the bug shipped
+// undetected. An *absolute* band, anchored to a real measured render, is
+// the only kind of test that can catch a uniform scaling error like that.
+//
+// Reference case: a real end-to-end renderSvgJsonToCommands call on the
+// W3C SVG logo (images/test_images) at 300mm/infillDensity 3/crossHatch45
+// measured 0.20s wall-clock on the M5 Pro reference machine (see
+// tsc/bench/runBenchmarks.js's benchEndToEnd for how to reproduce this).
+// sourceWidthPx/sourceHeightPx below approximate the ~600x470px preview
+// raster the real UI (data/www/svgControl.js's getCurrentSvgImageData)
+// would characterize this same render from; complexity mirrors this
+// image's real analyzeImageCharacteristics()-derived value (~0.15 - a
+// mostly-flat logo).
+test("estimateProcessingSeconds: a small/simple real-world render estimates seconds, not minutes", () => {
+    const estimate = estimateProcessingSeconds({
+        sourceWidthPx: 600,
+        sourceHeightPx: 470,
+        colorCount: 1,
+        fillStrategy: "crossHatch45",
+        infillDensity: 3,
+        complexity: 0.15,
+        deviceFactor: 1, // reference-machine speed - see deviceCalibration.test.ts for the real-benchmark check
+    });
+
+    // Real measured wall-clock was 0.20s. The band here (0.02s-5s) is
+    // deliberately looser than this estimator's own +-2x accuracy target
+    // (see processingEstimator.ts's header and tsc/bench/runBenchmarks.js's
+    // PR notes for the tighter, harness-measured comparison) - this test's
+    // job is only to catch a GROSS scaling error (the actual historical
+    // bug: this would have failed at ~11 minutes) or a collapsed-to-zero
+    // formula, not to pin an exact figure.
+    assert.ok(
+        estimate.totalSeconds >= 0.02 && estimate.totalSeconds <= 5,
+        `expected order-of-magnitude agreement with the ~0.20s real measurement, got ` +
+        `${estimate.totalSeconds}s - this is the exact shape of bug this test exists to catch: ` +
+        `REFERENCE_BENCHMARK_MS or a *_US_PER_* coefficient drifting wildly out of scale again.`,
+    );
+});
