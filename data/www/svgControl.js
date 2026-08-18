@@ -70,6 +70,16 @@ let originalSvg;
 let transformedSvg;
 let currentWidth;
 let currentHeight;
+// Natural aspect of the loaded source SVG (its own width/height, in whatever
+// units normalizeSvg() resolved them to - viewBox user units, effectively).
+// currentWidth/currentHeight (the "target size", in mm) are always derived
+// from this ratio, whether the default (fill the drawable width, see
+// setSvgString) or a user-requested width/height (see setTargetWidth/
+// setTargetHeight below) - sourceWidth/sourceHeight themselves never change
+// for a given loaded image, so re-deriving from them is what lets width and
+// height edits stay reversible/idempotent instead of drifting.
+let sourceWidth;
+let sourceHeight;
 export function setSvgString(svgString, currentState) {
     resetTransform();
 
@@ -88,7 +98,7 @@ function normalizeSvg() {
         width = convertUnitsToPx(svgElement.getAttribute("width"));
         height = convertUnitsToPx(svgElement.getAttribute("height"));
     }
-    
+
     if (svgElement.hasAttribute("viewBox")) {
         if (!width || !height) {
             const viewBox = svgElement.getAttribute("viewBox").split(/[\s,]/).filter(s => s != "");;
@@ -98,12 +108,14 @@ function normalizeSvg() {
     } else {
         svgElement.setAttribute("viewBox", `0, 0, ${width}, ${height}`);
     }
-    
+
     if (!width || !height) {
         throw new Error("Invalid SVG");
     }
 
-    currentHeight = currentWidth / width * height;
+    sourceWidth = width;
+    sourceHeight = height;
+    currentHeight = currentWidth / sourceWidth * sourceHeight;
 
     svgElement.setAttribute("width", currentWidth);
     svgElement.setAttribute("height", currentHeight);
@@ -114,6 +126,47 @@ function normalizeSvg() {
         transformGroup.appendChild(svgElement.firstChild);
     }
     svgElement.appendChild(transformGroup);
+}
+
+// --- User-requested target size (task 2: "let the user specify a desired
+// plotted width or height") -------------------------------------------------
+//
+// currentWidth/currentHeight (set above from currentState.safeWidth, i.e.
+// "fill the drawable width" - the default/legacy behaviour) are also the
+// physical mm size of the canvas actually sent to the render pipeline (see
+// getTargetWidth/getTargetHeight below, and main.js's renderRequest.width/
+// height) - the pan/zoom affine transform re-frames the artwork INSIDE that
+// canvas (scaling/nudging it, and clipping or leaving margin), but does not
+// itself change the canvas's own mm footprint except when panning downward,
+// which grows the height to avoid clipping (see makeTransformedSvgWithHeight
+// below). So setting the target size here is exactly "pick the canvas size";
+// it's independent of, and always overridable by, the pan/zoom controls that
+// act afterward.
+//
+// Changing the target size resets the pan/zoom transform: the old transform's
+// nudge/zoom amounts were chosen by the user relative to the OLD canvas size,
+// so keeping them would silently re-frame the artwork in a way the user never
+// asked for against the new canvas.
+function applySizeToOriginalSvg() {
+    const svgElement = originalSvg.documentElement;
+    svgElement.setAttribute("width", currentWidth);
+    svgElement.setAttribute("height", currentHeight);
+}
+
+export function setTargetWidth(widthMM) {
+    currentWidth = widthMM;
+    currentHeight = currentWidth / sourceWidth * sourceHeight;
+    applySizeToOriginalSvg();
+    resetTransform();
+    applyTransform();
+}
+
+export function setTargetHeight(heightMM) {
+    currentHeight = heightMM;
+    currentWidth = currentHeight / sourceHeight * sourceWidth;
+    applySizeToOriginalSvg();
+    resetTransform();
+    applyTransform();
 }
 
 function convertUnitsToPx(dimension) {

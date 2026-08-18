@@ -94,6 +94,30 @@
         <h3 class="mb-2 fw-normal">Select SVG image</h3>
         <h6 class="mb-2"><small class="text-muted">Use black and white line art SVGs for now.</small></h6>
         <img id="sourceSvg" class="img-thumbnail mb-2 svg-control" style="display:none;width:100%;">
+        <div class="container svg-control mb-2" style="display: none;" id="targetSizeControl">
+          <div class="control-label-row">
+            <span class="control-value" style="font-size:12px;">Plot size</span>
+            <details class="info" name="muralInfo"><summary>i</summary>
+              <div class="info-panel">Sets the physical size of what gets drawn, in millimeters. Width and height stay locked to your image's proportions, so changing one updates the other. Width can't exceed the drawable area &mdash; that's a hard machine limit. Height isn't machine-limited; it's only as tall as your paper allows.</div>
+            </details>
+          </div>
+          <div class="d-flex" style="gap:12px;">
+            <div style="flex:1;">
+              <label for="targetWidthInput" class="form-label mb-0">Width (mm)</label>
+              <input type="number" class="form-control mb-2" id="targetWidthInput" min="1" step="1">
+            </div>
+            <div style="flex:1;">
+              <label for="targetHeightInput" class="form-label mb-0">Height (mm)</label>
+              <input type="number" class="form-control mb-2" id="targetHeightInput" min="1" step="1">
+            </div>
+          </div>
+          <div class="d-flex mb-2" style="gap:8px;">
+            <button type="button" class="btn btn-outline-secondary w-100 paper-preset-btn" style="flex:1;" data-w="210" data-h="297">A4</button>
+            <button type="button" class="btn btn-outline-secondary w-100 paper-preset-btn" style="flex:1;" data-w="297" data-h="420">A3</button>
+            <button type="button" class="btn btn-outline-secondary w-100 paper-preset-btn" style="flex:1;" data-w="420" data-h="594">A2</button>
+          </div>
+          <div id="targetSizeWarning" class="alert alert-warning py-2 mb-2" style="display:none;"></div>
+        </div>
         <div class="container svg-control mb-2" style="display: none;">
           <div class="row">
             <div class="col-10 align-self-center">
@@ -134,6 +158,23 @@
       <div id="drawingPreviewSlide" class="muralSlide two-col-desktop" style="display:none;">
         <div class="ui-topbar"><span class="eyebrow">Preview</span></div>
         <h3 class="mb-2 fw-normal">Drawing preview</h3>
+        <div class="stat-row mb-3" id="plotDimensionsRow">
+          <div class="stat-block">
+            <span class="stat-label">Plot size</span>
+            <span class="stat-num" id="plotSizeStat">&mdash;</span>
+            <span class="stat-unit">mm, width &times; height</span>
+          </div>
+          <div class="stat-block">
+            <div class="control-label-row">
+              <span class="stat-label">Drawable width</span>
+              <details class="info" name="muralInfo"><summary>i</summary>
+                <div class="info-panel">The drawable area is the rectangle Mural can physically reach between its two hanging points. It's 60% of the measured pin distance &mdash; the machine reserves a 20% margin on the left, right, and top edges so the pen can safely swing through hard turns. Height isn't limited by the machine, only by your paper.</div>
+              </details>
+            </div>
+            <span class="stat-num" id="drawableWidthStat">&mdash;</span>
+            <span class="stat-unit">mm (height: paper-limited)</span>
+          </div>
+        </div>
         <div class="two-col">
           <div class="col-media">
             <div class="preview-box">
