@@ -100,6 +100,9 @@ void setup()
     server.on("/setTopDistance", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->setTopDistance(request); });
 
+    server.on("/setPulleyDiameter", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->setPulleyDiameter(request); });
+
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->extendToHome(request); });
 

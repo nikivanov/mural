@@ -2,6 +2,11 @@
 #include "display.h"
 #include <stdexcept>
 
+namespace {
+    constexpr const char* PREFS_NAMESPACE = "mural";
+    constexpr const char* PULLEY_DIAMETER_KEY = "diameter";
+}
+
 Movement::Movement(Display *display)
 {
     this->display = display;
@@ -42,7 +47,10 @@ Movement::Movement(Display *display)
     rightMotor->disableOutputs();
 
     topDistance = -1;
-   
+    preferences.begin(PREFS_NAMESPACE, false);
+    diameter = preferences.getDouble(PULLEY_DIAMETER_KEY, defaultDiameter);
+    circumference = diameter * PI;
+
     moving = false;
     homed = false;
     startedHoming = false;
@@ -74,6 +82,7 @@ void Movement::resumeTopDistance(int distance /* = d_pin in mm */) {
 
 void Movement::setOrigin()
 {
+    const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
     leftMotor->setCurrentPosition(homedStepsOffset);
     rightMotor->setCurrentPosition(homedStepsOffset);
     homed = true;
@@ -459,4 +468,14 @@ bool Movement::hasStartedHoming() {
 
 int Movement::getTopDistance() {
     return topDistance;
+}
+
+double Movement::getPulleyDiameter() {
+    return diameter;
+}
+
+void Movement::setPulleyDiameter(const double diameter) {
+    this->diameter = diameter;
+    circumference = diameter * PI;
+    preferences.putDouble(PULLEY_DIAMETER_KEY, diameter);
 }

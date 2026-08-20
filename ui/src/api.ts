@@ -4,7 +4,7 @@ import type { BackendState } from './types'
 // Mock mode — activated automatically in dev when no backend is reachable
 // ---------------------------------------------------------------------------
 let _mockMode = false
-let _mockState: BackendState = { phase: 'SvgSelect', safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25 }
+let _mockState: BackendState = { phase: 'SvgSelect', safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25, pulleyDiameter: 10.14926 }
 let _mockUploadedBlob: Blob | null = null
 
 export function enableMockMode(state: BackendState) {
@@ -48,6 +48,9 @@ export const doneWithPhase = (): Promise<BackendState> => post('/doneWithPhase')
 
 export const setTopDistance = (distance: number): Promise<BackendState> =>
   post('/setTopDistance', { distance: String(distance) })
+
+export const setPulleyDiameter = (diameter: number): Promise<void> =>
+  post<void>('/setPulleyDiameter', { diameter: String(diameter) })
 
 export const extendToHome = (): Promise<number> => post<number>('/extendToHome')
 

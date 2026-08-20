@@ -15,6 +15,10 @@ void NotSupportedPhase::extendToHome(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }
 
+void NotSupportedPhase::setPulleyDiameter(AsyncWebServerRequest *request) {
+    handleNotSupported(request);
+}
+
 void NotSupportedPhase::setServo(AsyncWebServerRequest *request) {
     handleNotSupported(request);
 }

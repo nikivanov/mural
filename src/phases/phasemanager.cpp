@@ -87,6 +87,7 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["phase"] = currentPhase;
     root["moving"] = moving;
     root["topDistance"] = topDistance;
+    root["pulleyDiameter"] = movement->getPulleyDiameter();
     root["safeWidth"] = safeWidth;
     root["safeXFraction"] = safeXFraction;
     root["safeYFraction"] = safeYFraction;

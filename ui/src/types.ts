@@ -9,6 +9,7 @@ export type Phase =
 export interface BackendState {
   phase: Phase
   topDistance?: number
+  pulleyDiameter?: number
   safeWidth?: number
   safeXFraction: number
   safeYFraction: number

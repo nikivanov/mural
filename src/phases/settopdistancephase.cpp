@@ -15,6 +15,14 @@ void SetTopDistancePhase::setTopDistance(AsyncWebServerRequest *request) {
     manager->respondWithState(request);
 }
 
+void SetTopDistancePhase::setPulleyDiameter(AsyncWebServerRequest *request) {
+    const AsyncWebParameter* p = request->getParam(0);
+    double diameter = p->value().toDouble();
+    Serial.println("Setting pulley diameter to " + String(diameter));
+    movement->setPulleyDiameter(diameter);
+    request->send(200, "text/plain", "OK");
+}
+
 void SetTopDistancePhase::setServo(AsyncWebServerRequest *request) {
     const AsyncWebParameter* p = request->getParam(0);
     int angle = p->value().toInt();

@@ -11,6 +11,7 @@ class SetTopDistancePhase : public CommandHandlingPhase {
     public:
     SetTopDistancePhase(PhaseManager* manager, Movement* movement, Pen* pen);
     void setTopDistance(AsyncWebServerRequest *request);
+    void setPulleyDiameter(AsyncWebServerRequest *request);
     void setServo(AsyncWebServerRequest *request);
     void estepsCalibration(AsyncWebServerRequest *request);
     const char* getName();
