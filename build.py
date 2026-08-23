@@ -12,6 +12,8 @@ env.Execute("npm run build")
 if not os.path.exists("../data/www/worker/"):
     os.makedirs("../data/www/worker/")
 env.Execute("cp dist_packed/main.js ../data/www/worker/worker.js")
+env.Execute("cp dist_packed/oneline.js ../data/www/worker/oneline.js")
+env.Execute("cp dist_packed/oneline.wasm ../data/www/worker/oneline.wasm")
 os.chdir(currentPath)
 
 print("Building React UI")

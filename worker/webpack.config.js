@@ -1,6 +1,7 @@
 // Generated using webpack-cli https://github.com/webpack/webpack-cli
 
 const path = require('path');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 const isProduction = process.env.NODE_ENV == 'production';
 
@@ -11,8 +12,12 @@ const config = {
         path: path.resolve(__dirname, 'dist_packed'),
     },
     plugins: [
-        // Add your plugins here
-        // Learn more about plugins from https://webpack.js.org/configuration/plugins/
+        new CopyWebpackPlugin({
+            patterns: [
+                { from: 'vendor/finitecurve/oneline.js', to: 'oneline.js' },
+                { from: 'vendor/finitecurve/oneline.wasm', to: 'oneline.wasm' },
+            ],
+        }),
     ],
     module: {
         rules: [

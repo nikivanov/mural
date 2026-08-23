@@ -2,7 +2,7 @@ import { renderCommandsToSvgJson } from "./toSvgJson";
 import { renderSvgJsonToCommands } from "./toCommands";
 import { vectorizeImageData } from './vectorizer';
 import { renderRasterZigZag } from './zigzag';
-import { renderRasterSpaceFill } from './spaceFill';
+import { renderFiniteCurve } from './finiteCurve';
 import { renderTestPattern } from './testPattern';
 import { InfillDensities, RequestTypes } from "./types";
 
@@ -20,8 +20,8 @@ self.onmessage = async (e: MessageEvent<any>) => {
         await render(e.data);
     } else if (isRenderRasterZigZagRequest(e.data)) {
         renderZigZag(e.data);
-    } else if (isRenderRasterSpaceFillRequest(e.data)) {
-        renderSpaceFill(e.data);
+    } else if (isRenderFiniteCurveRequest(e.data)) {
+        await renderFiniteCurveRequest(e.data);
     } else if (isRenderTestPatternRequest(e.data)) {
         renderTestPatternRequest(e.data);
     } else {
@@ -87,8 +87,8 @@ function renderZigZag(request: RequestTypes.RenderRasterZigZagRequest) {
     });
 }
 
-function renderSpaceFill(request: RequestTypes.RenderRasterSpaceFillRequest) {
-    const result = renderRasterSpaceFill(request, updateStatusFn);
+async function renderFiniteCurveRequest(request: RequestTypes.RenderFiniteCurveRequest) {
+    const result = await renderFiniteCurve(request, updateStatusFn);
     self.postMessage({
         type: "renderer",
         payload: {
@@ -144,25 +144,16 @@ function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRaster
         && typeof obj.imageBottom === 'number';
 }
 
-function isRenderRasterSpaceFillRequest(obj: any): obj is RequestTypes.RenderRasterSpaceFillRequest {
-    return typeof obj === 'object' && obj !== null && obj.type === 'renderRasterSpaceFill'
+function isRenderFiniteCurveRequest(obj: any): obj is RequestTypes.RenderFiniteCurveRequest {
+    return typeof obj === 'object' && obj !== null && obj.type === 'renderFiniteCurve'
         && typeof obj.widthMm === 'number'
         && typeof obj.heightMm === 'number'
         && typeof obj.homeX === 'number'
         && typeof obj.homeY === 'number'
-        && typeof obj.maxSpacing === 'number'
-        && typeof obj.minSpacing === 'number'
-        && typeof obj.brightness === 'number'
+        && typeof obj.resolution === 'number'
         && typeof obj.contrast === 'number'
-        && typeof obj.blackPoint === 'number'
-        && typeof obj.whitePoint === 'number'
-        && typeof obj.gamma === 'number'
         && typeof obj.whiteCutoff === 'number'
-        && typeof obj.liftOnTransparent === 'boolean'
-        && typeof obj.imageLeft === 'number'
-        && typeof obj.imageTop === 'number'
-        && typeof obj.imageRight === 'number'
-        && typeof obj.imageBottom === 'number';
+        && typeof obj.invert === 'boolean';
 }
 
 function isRenderSvgRequest(obj: any): obj is RequestTypes.RenderSVGRequest {

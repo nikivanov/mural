@@ -9,15 +9,22 @@ export default defineConfig({
     {
       name: 'serve-worker',
       configureServer(server) {
-        server.middlewares.use('/worker/worker.js', (_req, res, next) => {
-          const workerPath = path.resolve(__dirname, '../worker/dist_packed/main.js')
-          if (fs.existsSync(workerPath)) {
-            res.setHeader('Content-Type', 'application/javascript')
-            res.end(fs.readFileSync(workerPath))
-          } else {
-            next()
-          }
-        })
+        const workerStaticFiles: Record<string, { file: string; contentType: string }> = {
+          '/worker/worker.js': { file: 'main.js', contentType: 'application/javascript' },
+          '/worker/oneline.js': { file: 'oneline.js', contentType: 'application/javascript' },
+          '/worker/oneline.wasm': { file: 'oneline.wasm', contentType: 'application/wasm' },
+        }
+        for (const [route, { file, contentType }] of Object.entries(workerStaticFiles)) {
+          server.middlewares.use(route, (_req, res, next) => {
+            const filePath = path.resolve(__dirname, '../worker/dist_packed', file)
+            if (fs.existsSync(filePath)) {
+              res.setHeader('Content-Type', contentType)
+              res.end(fs.readFileSync(filePath))
+            } else {
+              next()
+            }
+          })
+        }
       },
     },
   ],

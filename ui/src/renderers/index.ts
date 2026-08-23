@@ -98,14 +98,14 @@ export function listenForRendererResult(
 import { pathTracingRenderer } from './pathTracing'
 import { vectorRasterVectorRenderer } from './vectorRasterVector'
 import { rasterZigZagRenderer } from './rasterZigZag'
-import { rasterSpaceFillRenderer } from './rasterSpaceFill'
+import { finiteCurveRenderer } from './finiteCurve'
 import { testPatternRenderer } from './testPattern'
 
 export const RENDERERS: RendererDefinition[] = [
   pathTracingRenderer,
   vectorRasterVectorRenderer,
   rasterZigZagRenderer,
-  rasterSpaceFillRenderer,
+  finiteCurveRenderer,
   testPatternRenderer,
 ]
 

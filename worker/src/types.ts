@@ -67,29 +67,19 @@ export namespace RequestTypes {
         imageBottom: number,
     }
 
-    export type RenderRasterSpaceFillRequest = {
-        type: 'renderRasterSpaceFill',
+    export type RenderFiniteCurveRequest = {
+        type: 'renderFiniteCurve',
         imageData: ImageData,
         widthMm: number,
         heightMm: number,
         homeX: number,
         homeY: number,
-        /** Curve pitch in the lightest drawn areas (mm) */
-        maxSpacing: number,
-        /** Curve pitch in the darkest areas (mm), floor ~ pen width */
-        minSpacing: number,
-        brightness: number,
+        /** Working resolution; internal engine px size = round(resolution*150) */
+        resolution: number,
         contrast: number,
-        blackPoint: number,
-        whitePoint: number,
-        gamma: number,
-        /** Darkness (0..1) below which cells are left blank */
+        /** 0..255, matches the engine's internal raw scale */
         whiteCutoff: number,
-        liftOnTransparent: boolean,
-        imageLeft: number,
-        imageTop: number,
-        imageRight: number,
-        imageBottom: number,
+        invert: boolean,
     }
 
     export type RenderTestPatternRequest = {
