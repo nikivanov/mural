@@ -119,8 +119,7 @@ function isRenderTestPatternRequest(obj: any): obj is RequestTypes.RenderTestPat
         && typeof obj.homeY === 'number'
         && typeof obj.maxX === 'number'
         && typeof obj.rectHeight === 'number'
-        && typeof obj.squareSize === 'number'
-        && typeof obj.loops === 'number';
+        && typeof obj.squareSize === 'number';
 }
 
 function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRasterZigZagRequest {

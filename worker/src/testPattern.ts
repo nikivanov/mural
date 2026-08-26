@@ -4,11 +4,14 @@ import { dedupeCommands } from './deduplicator';
 import { measureDistance } from './measurer';
 import { renderCommandsToSvgJson } from './toSvgJson';
 
+const BOUNCE_DISTANCE_MM = 20;
+const BOUNCE_COUNT = 10;
+
 export function renderTestPattern(
     request: RequestTypes.RenderTestPatternRequest,
     updateStatus: updateStatusFn,
 ): { commands: string[]; svgJson: string; distance: number; drawDistance: number } {
-    const { homeX, homeY, maxX, rectHeight, squareSize, loops } = request;
+    const { homeX, homeY, maxX, rectHeight, squareSize } = request;
     updateStatus('Generating test pattern');
 
     const half = squareSize / 2;
@@ -18,13 +21,6 @@ export function renderTestPattern(
         br: { x: homeX + half, y: homeY + half },
         bl: { x: homeX - half, y: homeY + half },
     };
-    // Drawing-area corners, cyclic order TL, BL, BR, TR
-    const corners: { x: number; y: number }[] = [
-        { x: 0, y: 0 },
-        { x: 0, y: rectHeight },
-        { x: maxX, y: rectHeight },
-        { x: maxX, y: 0 },
-    ];
 
     const rawCommands: Command[] = [];
 
@@ -38,24 +34,25 @@ export function renderTestPattern(
         rawCommands.push('p0');
     };
 
+    // Moves to x, sitting BOUNCE_DISTANCE_MM below the top edge, then bounces
+    // up to the top edge and back down BOUNCE_COUNT times.
+    const bounceAt = (x: number, label: string) => {
+        updateStatus(label);
+        const yNear = homeY + BOUNCE_DISTANCE_MM;
+        rawCommands.push({ x, y: yNear });
+        for (let i = 0; i < BOUNCE_COUNT; i++) {
+            rawCommands.push({ x, y: homeY });
+            rawCommands.push({ x, y: yNear });
+        }
+    };
+
     rawCommands.push('p0');
     drawSquare();
 
-    // Transit (pen up) to the drawing-area corners, ending at TR (index 3).
-    rawCommands.push({ x: sq.tl.x, y: 0 });
-    rawCommands.push(corners[0]);
-    rawCommands.push(corners[1]);
-    rawCommands.push(corners[2]);
-    rawCommands.push(corners[3]);
-
-    // Stress-test loops, alternating perimeter / diagonal-bounce, always starting
-    // and ending at index 3 (TR) so loop shape can be freely alternated.
-    const startIdx = 3;
-    for (let k = 0; k < loops; k++) {
-        updateStatus(`Loop ${k + 1} of ${loops}`);
-        const offsets = k % 2 === 0 ? [1, 2, 3, 0] : [2, 3, 1, 0];
-        for (const o of offsets) rawCommands.push(corners[(startIdx + o) % 4]);
-    }
+    const halfWidth = maxX / 2;
+    bounceAt(homeX, 'Stress-testing at center');
+    bounceAt(homeX - halfWidth, 'Stress-testing at left');
+    bounceAt(homeX + halfWidth, 'Stress-testing at right');
 
     drawSquare();
 

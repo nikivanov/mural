@@ -89,6 +89,5 @@ export namespace RequestTypes {
         maxX: number,
         rectHeight: number,
         squareSize: number,
-        loops: number,
     }
 }
