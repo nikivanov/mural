@@ -1,6 +1,11 @@
 # ESP-IDF Partition Table
-# Name,   Type, SubType, Offset,  Size, Flags
-nvs,      data, nvs,     0x9000,  0x6000,
-phy_init, data, phy,     0xf000,  0x1000,
-factory,  app,  factory, 0x10000, 1600K,
-spiffs, data, spiffs, 0x1A0000, 2400K,
+# OTA layout following the Arduino-ESP32 convention (the framework hardcodes
+# boot_app0.bin at 0xe000, so otadata must live there): two 1600K app slots
+# (firmware is ~1.33MB) + an 832K filesystem (www UI + calibration data is
+# ~210K). No phy_init partition - Arduino uses embedded PHY data.
+# Name,   Type, SubType, Offset,   Size, Flags
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xe000,   0x2000,
+app0,     app,  ota_0,   0x10000,  0x190000,
+app1,     app,  ota_1,   0x1A0000, 0x190000,
+spiffs,   data, spiffs,  0x330000, 0xD0000,

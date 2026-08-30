@@ -10,12 +10,17 @@ Movement::Movement(Display *display)
     leftMotor = new AccelStepper(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
     leftMotor->setEnablePin(LEFT_ENABLE_PIN);
     leftMotor->setMaxSpeed(moveSpeedSteps);
-    leftMotor->setPinsInverted(true);
     leftMotor->disableOutputs();
 
     rightMotor = new AccelStepper(AccelStepper::DRIVER, RIGHT_STEP_PIN, RIGHT_DIR_PIN);
     rightMotor->setEnablePin(RIGHT_ENABLE_PIN);
     rightMotor->setMaxSpeed(moveSpeedSteps);
+    // Direction polarity verified on hardware 2026-08-30: with this build's
+    // motor coil wiring, retract (dir=-1) winds the belt in with the right
+    // motor inverted and the left motor at default polarity - the mirror of
+    // what the original code assumed. If a future build retracts backwards,
+    // flip the motor connector rather than these flags.
+    rightMotor->setPinsInverted(true);
     rightMotor->disableOutputs();
 
 #ifdef MURAL_TMC_UART

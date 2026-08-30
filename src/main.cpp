@@ -6,6 +6,7 @@
 #include <LittleFS.h>
 #include <Wire.h>
 #include <ESPmDNS.h>
+#include <ArduinoOTA.h>
 #include "movement.h"
 #include "runner.h"
 #include "pen.h"
@@ -134,9 +135,30 @@ void setup()
 
     Serial.println("Connected to wifi");
 
+    // Disable WiFi modem sleep: with it on, every packet waits for a DTIM
+    // beacon (~0.5-1s RTT), which made OTA uploads crawl at ~2KB/s and time
+    // out, and adds the same latency to every web UI request. The board is
+    // wall-powered, so the extra idle draw doesn't matter.
+    WiFi.setSleep(false);
+
     MDNS.begin("mural");
 
     Serial.println("Started mDNS for mural");
+
+    // Wireless firmware/filesystem updates (`pio run -e esp32dev-ota -t
+    // upload` / `-t uploadfs`), so reflashing doesn't require detaching the
+    // wiring to get at USB. Motors are left disabled/idle during an update:
+    // OTA writes stall loop() (no runSteppers() calls), so don't push an
+    // update mid-draw.
+    ArduinoOTA.setHostname("mural");
+    ArduinoOTA.onStart([]() {
+        if (ArduinoOTA.getCommand() == U_SPIFFS) {
+            // Filesystem image update: unmount so the partition isn't
+            // written while LittleFS has it open.
+            LittleFS.end();
+        }
+    });
+    ArduinoOTA.begin();
 
     runner = new Runner(movement, pen, display);
     runner->setEventSource(&events);
@@ -249,6 +271,16 @@ void setup()
 
 void loop()
 {
+    // Only service OTA while the machine is idle: an OTA transfer blocks
+    // loop() for its duration, which would freeze step generation (pen
+    // down against the wall, belts stalled mid-move). Gating on both the
+    // Drawing phase and any active movement means an update request simply
+    // waits (espota retries) until the machine isn't doing anything.
+    if (!movement->isMoving() &&
+        strcmp(phaseManager->getCurrentPhase()->getName(), "Drawing") != 0)
+    {
+        ArduinoOTA.handle();
+    }
     movement->runSteppers();
     runner->run();
     phaseManager->getCurrentPhase()->loopPhase();
