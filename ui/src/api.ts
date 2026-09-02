@@ -68,31 +68,22 @@ export const postMotorCommand = (command: string): Promise<void> =>
 
 export const run = (speed: number): Promise<void> => post<void>('/run', { speed: String(speed) })
 
-export function uploadCommands(
-  blob: Blob,
-  onUploadProgress: (pct: number) => void,
-): Promise<BackendState> {
-  if (_mockMode) {
-    _mockUploadedBlob = blob
-    return new Promise((resolve) => {
-      let pct = 0
-      const iv = setInterval(() => {
-        pct = Math.min(100, pct + 20)
-        onUploadProgress(pct)
-        if (pct === 100) { clearInterval(iv); resolve(_mockState) }
-      }, 80)
-    })
-  }
+const UPLOAD_CHUNK_SIZE = 32 * 1024
+const UPLOAD_MAX_RETRIES = 3
+const UPLOAD_RETRY_DELAY_MS = 500
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// Uploads one chunk as its own request, identified by its byte offset in
+// the overall file so the server can apply a retry idempotently (see
+// SvgSelectPhase::handleUpload).
+function sendChunk(chunk: Blob, offset: number, totalBytes: number, final: boolean): Promise<BackendState> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const formData = new FormData()
-    formData.append('commands', blob)
-
-    xhr.upload.addEventListener('progress', (evt) => {
-      if (evt.lengthComputable) {
-        onUploadProgress(Math.round((evt.loaded / evt.total) * 100))
-      }
-    })
+    formData.append('commands', chunk)
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -107,9 +98,62 @@ export function uploadCommands(
     }
 
     xhr.onerror = () => reject(new Error('Upload network error'))
-    xhr.open('POST', '/uploadCommands')
+    const params = new URLSearchParams({
+      offset: String(offset),
+      totalBytes: String(totalBytes),
+      final: String(final),
+    })
+    xhr.open('POST', `/uploadCommands?${params.toString()}`)
     xhr.send(formData)
   })
+}
+
+async function sendChunkWithRetry(
+  chunk: Blob,
+  offset: number,
+  totalBytes: number,
+  final: boolean,
+): Promise<BackendState> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await sendChunk(chunk, offset, totalBytes, final)
+    } catch (err) {
+      if (attempt >= UPLOAD_MAX_RETRIES) throw err
+      await delay(UPLOAD_RETRY_DELAY_MS * (attempt + 1))
+    }
+  }
+}
+
+export async function uploadCommands(
+  blob: Blob,
+  onUploadProgress: (pct: number) => void,
+): Promise<BackendState> {
+  if (_mockMode) {
+    _mockUploadedBlob = blob
+    return new Promise((resolve) => {
+      let pct = 0
+      const iv = setInterval(() => {
+        pct = Math.min(100, pct + 20)
+        onUploadProgress(pct)
+        if (pct === 100) { clearInterval(iv); resolve(_mockState) }
+      }, 80)
+    })
+  }
+
+  const totalBytes = blob.size
+  let offset = 0
+  let state: BackendState
+
+  do {
+    const end = Math.min(offset + UPLOAD_CHUNK_SIZE, totalBytes)
+    const chunk = blob.slice(offset, end)
+    const final = end === totalBytes
+    state = await sendChunkWithRetry(chunk, offset, totalBytes, final)
+    offset = end
+    onUploadProgress(totalBytes === 0 ? 100 : Math.round((offset / totalBytes) * 100))
+  } while (offset < totalBytes)
+
+  return state
 }
 
 export function downloadCommands(

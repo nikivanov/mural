@@ -8,7 +8,7 @@ namespace {
     constexpr int SD_MISO_PIN = 19;
     constexpr int SD_MOSI_PIN = 23;
     constexpr int SD_CS_PIN = 5;
-    constexpr uint32_t SD_FREQUENCY = 4000000;
+    constexpr uint32_t SD_FREQUENCY = 20000000;
     constexpr int FORMAT_COUNTDOWN_SECONDS = 10;
 
     void haltWithNoCard(Display *display) {
