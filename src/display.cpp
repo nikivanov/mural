@@ -39,6 +39,11 @@ void Display::showStarting() {
     drawLines(lines, 1);
 }
 
+void Display::showConnecting() {
+    String lines[] = {"Connecting", "to WiFi..."};
+    drawLines(lines, 2);
+}
+
 void Display::showHotspot() {
     String lines[] = {"Connect to hotspot", "SSID: Mural"};
     drawLines(lines, 2);

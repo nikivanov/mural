@@ -73,6 +73,10 @@ void setup()
     wifiManager.setAPCallback([](WiFiManager*) {
         display->showHotspot();
     });
+
+    display->showConnecting();
+    Serial.println("Connecting to wifi");
+
     wifiManager.autoConnect("Mural");
 
     if (resetAfterConnect) {
