@@ -20,6 +20,26 @@ const hatchStyle: React.CSSProperties = {
   backgroundSize: '8px 8px',
 }
 
+const fmtMm = (v: number) => `${Math.round(v)} mm`
+
+const dimLineClass = 'absolute border-dashed border-gray-500/60 pointer-events-none z-10'
+
+function DimLabel({ left, top, centerY = true, children }: {
+  left: string
+  top: string
+  centerY?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <span
+      className={`absolute -translate-x-1/2 ${centerY ? '-translate-y-1/2' : ''} text-[10px] leading-none px-1 py-0.5 rounded bg-gray-900/80 text-gray-300 whitespace-nowrap tabular-nums pointer-events-none z-20`}
+      style={{ left, top }}
+    >
+      {children}
+    </span>
+  )
+}
+
 interface Props {
   state: BackendState
   svgState?: SvgState
@@ -126,6 +146,10 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   const ctxDrawingTopPct   = topDist ? (ctxOffsetY / ctxTotalH) * 100 : 0
   const ctxDrawingWidthPct = topDist ? (previewWidth / topDist) * 100 : 100
   const ctxDrawingHeightPct = topDist ? (previewHeight / ctxTotalH) * 100 : 100
+  // Dimension annotation anchors: centre of the left margin, centre of the right margin, drawing mid-height
+  const ctxLeftGapXPct  = ctxDrawingLeftPct / 2
+  const ctxRightGapXPct = ctxDrawingLeftPct + ctxDrawingWidthPct + ctxDrawingLeftPct / 2
+  const ctxMidYPct      = ctxDrawingTopPct + ctxDrawingHeightPct / 2
 
   const contextActive = showContext && !!topDist && !!previewUrl
 
@@ -200,13 +224,13 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         {contextActive ? (
           <div
             className={`absolute inset-0 flex items-center justify-center ${isRendering ? 'cursor-wait' : 'cursor-zoom-in'}`}
-            style={hatchStyle}
+            style={{ ...hatchStyle, containerType: 'size' }}
             onClick={() => { if (!isRendering) setEnlarged(true) }}
           >
-            {/* Canvas context — scaled to fit the stable container */}
+            {/* Canvas context — contain-fit into the stable container without distorting its aspect ratio */}
             <div
-              className="relative w-full overflow-hidden"
-              style={{ aspectRatio: `${topDist} / ${ctxTotalH}`, maxHeight: '100%' }}
+              className="relative"
+              style={{ aspectRatio: `${topDist} / ${ctxTotalH}`, width: `min(100cqw, calc(100cqh * ${topDist! / ctxTotalH}))` }}
             >
               {/* Safe-area dashed outline */}
               <div className="absolute border border-dashed border-gray-600 pointer-events-none z-10" style={contextDrawingStyle} />
@@ -220,6 +244,22 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
                 className={`transition-opacity duration-150 ${isRendering ? 'opacity-40' : 'opacity-100'}`}
                 style={contextDrawingStyle}
               />
+              {/* Dimension annotations (mm) */}
+              {/* Pin to pin */}
+              <div className={`${dimLineClass} border-t`} style={{ left: 0, right: 0, top: 0 }} />
+              <DimLabel left="50%" top="2px" centerY={false}>{fmtMm(topDist!)}</DimLabel>
+              {/* Top (Y) margin */}
+              <div className={`${dimLineClass} border-l`} style={{ left: `${ctxLeftGapXPct}%`, top: 0, height: `${ctxDrawingTopPct}%` }} />
+              {/* Kept ≥60px left of centre so it never collides with the centred pin/width labels in narrow layouts */}
+              <DimLabel left={`min(${ctxLeftGapXPct}%, calc(50% - 60px))`} top={`max(${ctxDrawingTopPct / 2}%, 8px)`}>{fmtMm(ctxOffsetY)}</DimLabel>
+              {/* Side (X) margin */}
+              <div className={`${dimLineClass} border-t`} style={{ left: 0, width: `${ctxDrawingLeftPct}%`, top: `${ctxMidYPct}%` }} />
+              <DimLabel left={`${ctxLeftGapXPct}%`} top={`${ctxMidYPct}%`}>{fmtMm(ctxOffsetX)}</DimLabel>
+              {/* Drawing width — just above the drawing; slides onto its top edge rather than under the pin label when the top margin is tiny */}
+              <DimLabel left={`${ctxDrawingLeftPct + ctxDrawingWidthPct / 2}%`} top={`max(calc(${ctxDrawingTopPct}% - 9px), 25px)`}>{fmtMm(previewWidth)}</DimLabel>
+              {/* Drawing height */}
+              <div className={`${dimLineClass} border-l`} style={{ left: `${ctxRightGapXPct}%`, top: `${ctxDrawingTopPct}%`, bottom: 0 }} />
+              <DimLabel left={`${ctxRightGapXPct}%`} top={`${ctxMidYPct}%`}>{fmtMm(previewHeight)}</DimLabel>
             </div>
             {isRendering && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">

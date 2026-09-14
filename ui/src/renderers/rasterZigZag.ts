@@ -45,7 +45,7 @@ export const rasterZigZagRenderer: RendererDefinition = {
   params: [
     { type: 'row', items: [
       { type: 'slider', id: 'lineSpacing', label: 'Spacing (mm)', min: 1, max: 20, step: 1, default: 5 },
-      { type: 'slider', id: 'amplitude', label: 'Amplitude (mm)', min: 0.5, max: 10, step: 0.5, default: 3.5 },
+      { type: 'slider', id: 'amplitude', label: 'Amplitude (mm)', min: 0.5, max: 10, step: 0.5, default: 3 },
     ]},
     { type: 'row', items: [
       { type: 'slider', id: 'brightness', label: 'Brightness', min: -100, max: 100, step: 5, default: 0 },
@@ -57,7 +57,7 @@ export const rasterZigZagRenderer: RendererDefinition = {
       { type: 'slider', id: 'gamma', label: 'Gamma', min: 0.3, max: 3, step: 0.1, default: 1 },
     ]},
     { type: 'row', items: [
-      { type: 'slider', id: 'angle', label: 'Angle (°)', min: -90, max: 90, step: 15, default: 45 },
+      { type: 'slider', id: 'angle', label: 'Angle (°)', min: -90, max: 90, step: 15, default: 0 },
       { type: 'checkbox', id: 'liftOnTransparent', label: 'Lift On Transparent', default: false },
       { type: 'checkbox', id: 'continuousPath', label: 'Link Scan Lines', default: true },
     ]},
