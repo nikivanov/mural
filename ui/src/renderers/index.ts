@@ -41,7 +41,7 @@ export interface RendererDefinition {
   id: string
   label: string
   description?: string
-  inputType: 'svg' | 'raster' | 'testPattern'
+  inputType: 'svg' | 'raster'
   params: RendererParam[]
   execute(opts: ExecuteOpts): Promise<RenderResult>
 }
@@ -99,16 +99,14 @@ import { pathTracingRenderer } from './pathTracing'
 import { outlineTraceRenderer } from './outlineTrace'
 import { rasterZigZagRenderer } from './rasterZigZag'
 import { finiteCurveRenderer } from './finiteCurve'
-import { testPatternRenderer } from './testPattern'
 
 export const RENDERERS: RendererDefinition[] = [
   pathTracingRenderer,
   outlineTraceRenderer,
   rasterZigZagRenderer,
   finiteCurveRenderer,
-  testPatternRenderer,
 ]
 
-export function getRenderersByInputType(type: 'svg' | 'raster' | 'testPattern'): RendererDefinition[] {
+export function getRenderersByInputType(type: 'svg' | 'raster'): RendererDefinition[] {
   return RENDERERS.filter((r) => r.inputType === type)
 }

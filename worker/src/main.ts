@@ -3,7 +3,6 @@ import { renderSvgJsonToCommands } from "./toCommands";
 import { vectorizeImageData } from './vectorizer';
 import { renderRasterZigZag } from './zigzag';
 import { renderFiniteCurve } from './finiteCurve';
-import { renderTestPattern } from './testPattern';
 import { InfillDensities, RequestTypes } from "./types";
 
 const updateStatusFn = (status: string) => {
@@ -22,8 +21,6 @@ self.onmessage = async (e: MessageEvent<any>) => {
         renderZigZag(e.data);
     } else if (isRenderFiniteCurveRequest(e.data)) {
         await renderFiniteCurveRequest(e.data);
-    } else if (isRenderTestPatternRequest(e.data)) {
-        renderTestPatternRequest(e.data);
     } else {
         throw new Error("Bad request");
     }
@@ -98,28 +95,6 @@ async function renderFiniteCurveRequest(request: RequestTypes.RenderFiniteCurveR
             drawDistance: result.drawDistance,
         }
     });
-}
-
-function renderTestPatternRequest(request: RequestTypes.RenderTestPatternRequest) {
-    const result = renderTestPattern(request, updateStatusFn);
-    self.postMessage({
-        type: "renderer",
-        payload: {
-            commands: result.commands,
-            svgJson: result.svgJson,
-            distance: result.distance,
-            drawDistance: result.drawDistance,
-        }
-    });
-}
-
-function isRenderTestPatternRequest(obj: any): obj is RequestTypes.RenderTestPatternRequest {
-    return typeof obj === 'object' && obj !== null && obj.type === 'renderTestPattern'
-        && typeof obj.homeX === 'number'
-        && typeof obj.homeY === 'number'
-        && typeof obj.maxX === 'number'
-        && typeof obj.rectHeight === 'number'
-        && typeof obj.squareSize === 'number';
 }
 
 function isRenderRasterZigZagRequest(obj: any): obj is RequestTypes.RenderRasterZigZagRequest {

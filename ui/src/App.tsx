@@ -28,7 +28,7 @@ export default function App() {
   // SVG pipeline state
   const [svgState, setSvgState] = useState<SvgState | null>(null)
   const [rasterState, setRasterState] = useState<RasterImageState | null>(null)
-  const [inputType, setInputType] = useState<'svg' | 'raster' | 'testPattern' | null>(null)
+  const [inputType, setInputType] = useState<'svg' | 'raster' | null>(null)
   const [selectedRenderer, setSelectedRenderer] = useState<RendererDefinition | null>(null)
   const [renderedCommands, setRenderedCommands] = useState<string | null>(null)
 
@@ -73,12 +73,6 @@ export default function App() {
     setUiPhase('RasterSelect')
   }
 
-  function handleSelectTestPattern() {
-    setInputType('testPattern')
-    setSelectedRenderer(getRenderersByInputType('testPattern')[0])
-    setUiPhase('DrawingPreview')
-  }
-
   function handleBackToInputSelect() {
     setSvgState(null)
     setRasterState(null)
@@ -113,9 +107,7 @@ export default function App() {
   }
 
   function handleBackFromDrawingPreview() {
-    if (inputType === 'testPattern') {
-      handleBackToInputSelect()
-    } else if (inputType === 'raster' && getRenderersByInputType('raster').length === 1) {
+    if (inputType === 'raster' && getRenderersByInputType('raster').length === 1) {
       setUiPhase('RasterSelect')
     } else {
       setUiPhase('ChooseRenderer')
@@ -158,7 +150,6 @@ export default function App() {
         <InputSelectScreen
           onSelectSvg={handleSelectSvg}
           onSelectRaster={handleSelectRaster}
-          onSelectTestPattern={handleSelectTestPattern}
         />
       )
       break

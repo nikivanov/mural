@@ -4,7 +4,6 @@ import type { SvgState } from '../svgControl'
 import type { RasterImageState } from '../rasterControl'
 import { jsonToPreviewDataUrl } from '../svgControl'
 import { type RendererDefinition, type RendererParamLeaf, type RendererParamValue } from '../renderers/index'
-import { TEST_PATTERN_HEIGHT_MM } from '../renderers/testPattern'
 import { useWorkerRenderer } from '../hooks/useWorkerRenderer'
 import { Card } from '../components/Card'
 import { Slider } from '../components/Slider'
@@ -135,7 +134,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
   const [commandsText, setCommandsText] = useState<string | null>(null)
 
   const previewWidth = svgState?.width ?? imageState?.width ?? state.safeWidth ?? 1000
-  const previewHeight = svgState?.baseHeight ?? imageState?.height ?? TEST_PATTERN_HEIGHT_MM
+  const previewHeight = svgState?.baseHeight ?? imageState?.height ?? 1000
 
   // Context-view geometry (only valid when topDistance is known)
   const topDist = (state.topDistance && state.topDistance > 0) ? state.topDistance : null

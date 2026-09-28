@@ -81,13 +81,4 @@ export namespace RequestTypes {
         whiteCutoff: number,
         invert: boolean,
     }
-
-    export type RenderTestPatternRequest = {
-        type: 'renderTestPattern',
-        homeX: number,
-        homeY: number,
-        maxX: number,
-        rectHeight: number,
-        squareSize: number,
-    }
 }
