@@ -158,7 +158,7 @@ export function getTransformedSvgString(state: SvgState): string {
   return new XMLSerializer().serializeToString(doc)
 }
 
-/** Rasterizes the SVG to ImageData at 2× scale (for vector-raster-vector renderer) */
+/** Rasterizes the SVG to ImageData at 2× scale (for outline-trace renderer) */
 export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
   const scaledW = state.width * RENDER_SCALE
   const { doc } = makeTransformedDoc(state)

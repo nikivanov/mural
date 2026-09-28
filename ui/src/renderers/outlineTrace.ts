@@ -8,7 +8,7 @@ import {
 import type { RenderResult } from '../types'
 
 async function execute({ svgState, params, backendState, onStatus, worker }: ExecuteOpts): Promise<RenderResult> {
-  if (!svgState) throw new Error('vectorRasterVector requires svgState')
+  if (!svgState) throw new Error('outlineTrace requires svgState')
   // Step 1: Rasterize SVG → ImageData
   onStatus('Rasterizing')
   const raster = await rasterizeSvg(svgState)
@@ -51,9 +51,9 @@ async function execute({ svgState, params, backendState, onStatus, worker }: Exe
   return resultPromise
 }
 
-export const vectorRasterVectorRenderer: RendererDefinition = {
-  id: 'vectorRasterVector',
-  label: 'Vector → Raster → Vector',
+export const outlineTraceRenderer: RendererDefinition = {
+  id: 'outlineTrace',
+  label: 'Outline Trace',
   description: 'Preserves stroke width',
   inputType: 'svg',
   params: [

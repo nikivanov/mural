@@ -14,7 +14,7 @@ function updater(status: string) {
     console.log(status);
 }
 
-async function main_vectorRasterVector() {
+async function main_outlineTrace() {
     const dirPath = path.join(__dirname, '../svgs');
     const inDir = fs.opendirSync(dirPath);
 
