@@ -5,9 +5,18 @@
 class Display {
     private:
     Adafruit_SSD1306 *display;
+    String ip;
+    void drawLines(String lines[], int n);
     public:
     Display();
-    void displayText(String text);
-    void displayHomeScreen(String ipLine, String orLine, String mdnsLine);
+    void showStarting();
+    void showConnecting();
+    void showHotspot();
+    void showConnected(String ipAddress);
+    void showCalibration(double x, double y);
+    void showDrawing(int progress);
+    void showNoCard();
+    void showFormatCountdown(int secondsLeft);
+    void showFormatting();
 };
 #endif

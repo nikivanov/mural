@@ -4,12 +4,15 @@
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <LittleFS.h>
+#include <SPI.h>
+#include <SD.h>
 #include <Wire.h>
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
+#include "sdcard.h"
 #include "phases/phasemanager.h"
 
 AsyncWebServer server(80);
@@ -46,7 +49,11 @@ void setup()
     }
 
     display = new Display();
+    display->showStarting();
     Serial.println("Initialized display");
+
+    initSdCardOrHalt(display);
+    Serial.println("Initialized SD card");
 
     // initialize movement right away or the motors can start creeping due to floating output
     movement = new Movement(display);
@@ -63,6 +70,13 @@ void setup()
     wifiManager.setTitle("Connect to WiFi");
     wifiManager.setMenu(menu);
     wifiManager.setWebServerCallback(serverCallback);
+    wifiManager.setAPCallback([](WiFiManager*) {
+        display->showHotspot();
+    });
+
+    display->showConnecting();
+    Serial.println("Connecting to wifi");
+
     wifiManager.autoConnect("Mural");
 
     if (resetAfterConnect) {
@@ -89,6 +103,9 @@ void setup()
 
     server.on("/setTopDistance", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->setTopDistance(request); });
+
+    server.on("/setPulleyDiameter", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->setPulleyDiameter(request); });
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->extendToHome(request); });
@@ -125,7 +142,7 @@ void setup()
     server.on(
         "/downloadCommands", HTTP_GET,
         [](AsyncWebServerRequest *request) {
-            request->send(LittleFS, "/commands", "text/plain");
+            request->send(SD, "/commands", "text/plain");
         }
     );
 
@@ -133,12 +150,12 @@ void setup()
 
     Serial.println("Finished setting up the server");
 
-    phaseManager = new PhaseManager(movement, pen, runner, &server);
+    phaseManager = new PhaseManager(movement, pen, runner, &server, display);
 
     server.begin();
     Serial.println("Server started");
 
-    display->displayHomeScreen("http://" + WiFi.localIP().toString(), "or", "http://mural.local");
+    display->showConnected(WiFi.localIP().toString());
     
 }
 

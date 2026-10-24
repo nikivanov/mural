@@ -6,7 +6,14 @@ RUN sudo apt-get update \
  && sudo apt-get -y install --no-install-recommends \
       clang \
       python3-venv \
-      udev
+      udev \
+      pkg-config \
+      libcairo2-dev \
+      libpango1.0-dev \
+      libjpeg-dev \
+      libgif-dev \
+      librsvg2-dev \
+      libpixman-1-dev
 
 ## Set up udev rules for PlatformIO
 RUN curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules

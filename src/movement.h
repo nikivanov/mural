@@ -2,29 +2,30 @@
 #define Movement_h
 
 #include "AccelStepper.h"
-#include "Arduino.h" 
+#include "Arduino.h"
 #include "display.h"
+#include "TMCStepper.h"
+#include "Preferences.h"
 
 // Motor driver parameters.
-constexpr int printSpeedSteps = 500;
-constexpr int  moveSpeedSteps = 1500;
+constexpr int printSpeedSteps = 650;
+constexpr int  moveSpeedSteps = 2000;
 constexpr long INFINITE_STEPS = 999999999;
 constexpr long acceleration = 999999999;  // Essentially infinite, causing instant stop / start
 constexpr int stepsPerRotation = 200 * 8; // 1/8 microstepping
 
 // Geometry parameters:
-// Effective diameter of the pulley+belts. Use EStep calibration to refine this value.
-constexpr double diameter = 12.69;          // [mm]
-const double circumference = diameter * PI; // [mm]
+// Effective diameter of the pulley+belts. Settable from the UI (see Movement::setPulleyDiameter);
+// this is only the starting value. Use EStep calibration to refine it.
+constexpr double defaultDiameter = 10.14926;          // [mm]
 constexpr double midPulleyToWall = 41.0;    // (Height) distance from mid of pulley to wall [mm].
 constexpr float homedStepOffsetMM = 40.0;   // Length of fully retracted belt hitting stop screw.
                                             // Measured from outer edge of screw to the point
                                             // of tangency between belt and pulley. [mm]
-const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
 constexpr double mass_bot = 0.55;   // Mass of the mural bot [kg].
 constexpr double g_constant = 9.81; // Earth's gravitational acceleration constant [m/s^2]. Please adjust when running Mural on other planets!
-constexpr double d_t = 76.027;      // [mm] Distance of tangent points, where belts touch the pulleys.
-                                    // Calculated as (axis distance) 85.00 - (diameter) 12.69/sqrt(2).
+constexpr double d_t = 76.927;      // [mm] Distance of tangent points, where belts touch the pulleys.
+                                    // Calculated as (axis distance) 85.90 - (diameter) 12.69/sqrt(2).
 constexpr double d_p = 4.4866;      // [mm] distance from Q to center of pen. Calculated as diameter/(2 * sqrt(2)).
 constexpr double d_m = 10.0 + d_p;  // [mm] Distance from line connecting tangent points to center of mass of bot (projected onto wall plane).
                                     // The point where d_m and d_t meet shall be called Q.
@@ -34,24 +35,30 @@ const int HOME_Y_OFFSET_MM = 350;   // Y coordinate of mural home position in im
 
 
 // Margins used for transformations of the coordinate systems:
-constexpr double safeYFraction = 0.2;           // Top Margin: Image top to topDistance line.
+constexpr double safeYFraction = 0.25;           // Top Margin: Image top to topDistance line.
 constexpr double safeXFraction = 0.2;           // Left and right margin: from draw area boundaries to line from each pin straight down.
 
 // Variables used for debugging:
 // constexpr int sleepDurationAfterMove_ms = 0;    // Delay after linear movement [ms], e.g. 50.
 
-// ESP setup:
-constexpr int LEFT_STEP_PIN = 13;
+constexpr int LEFT_STEP_PIN = 14;
 constexpr int LEFT_DIR_PIN = 12;
-constexpr int LEFT_ENABLE_PIN = 14;
+constexpr int LEFT_UART_ADDR = 0;
+constexpr int LEFT_DIAG_PIN = 36;
 
-constexpr int RIGHT_STEP_PIN = 27;
+constexpr int RIGHT_STEP_PIN = 25;
 constexpr int RIGHT_DIR_PIN = 26;
-constexpr int RIGHT_ENABLE_PIN = 25;
+constexpr int RIGHT_UART_ADDR = 1;
+constexpr int RIGHT_DIAG_PIN = 39;
+
+constexpr int MOTOR_ENABLE_PIN = 13;
 
 class Movement{
 private:
     int topDistance;            // Distance between pins (d_pins) [mm].
+    double diameter;             // Effective diameter of the pulley+belts [mm]. Settable from the UI, persisted in NVS.
+    double circumference;        // = diameter * PI [mm]. Kept in sync with diameter.
+    Preferences preferences;
     double minSafeY;
     double minSafeXOffset;
     double width;               // width of the drawing area [mm]
@@ -62,6 +69,9 @@ private:
     bool startedHoming;
     AccelStepper *leftMotor;
     AccelStepper *rightMotor;
+    HardwareSerial *tmcSerial;
+    TMC2209Stepper *leftDriver;
+    TMC2209Stepper *rightDriver;
     Display *display;
     void setOrigin();
 
@@ -112,6 +122,8 @@ public:
     void setTopDistance(const int distance);
     void resumeTopDistance(const int distance);
     int getTopDistance();
+    double getPulleyDiameter();
+    void setPulleyDiameter(const double diameter);
     void leftStepper(const int dir);
     void rightStepper(const int dir);
     int extendToHome();
@@ -119,7 +131,7 @@ public:
     float beginLinearTravel(double x, double y, int speed);
 
     // Used for calibration of the esteps.
-    void extend1000mm(); 
+    void extendBelts(int distanceMm);
 
     Point getHomeCoordinates();
     void disableMotors();

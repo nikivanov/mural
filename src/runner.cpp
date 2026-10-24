@@ -4,7 +4,7 @@
 #include "tasks/pentask.h"
 #include "pen.h"
 #include "display.h"
-#include "LittleFS.h"
+#include "SD.h"
 using namespace std;
 
 Runner::Runner(Movement *movement, Pen *pen, Display *display) {
@@ -15,7 +15,7 @@ Runner::Runner(Movement *movement, Pen *pen, Display *display) {
 }
 
 void Runner::initTaskProvider() {
-    openedFile = LittleFS.open("/commands");
+    openedFile = SD.open("/commands");
     if (!openedFile || !openedFile.available()) {
         Serial.println("Failed to open file");
         throw std::invalid_argument("No File");
@@ -45,10 +45,11 @@ void Runner::initTaskProvider() {
     startPosition = movement->getCoordinates();
 
     auto homeCoordinates = movement->getHomeCoordinates();
-    finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates);
+    finishingSequence[0] = new InterpolatingMovementTask(movement, homeCoordinates, speed);
 }
 
-void Runner::start() {
+void Runner::start(int speed) {
+    this->speed = speed;
     initTaskProvider();
     currentTask = getNextTask();
     currentTask->startRunning();
@@ -78,7 +79,7 @@ Task *Runner::getNextTask()
             auto x = line.substring(0, line.indexOf(" ")).toDouble();
             auto y = line.substring(line.indexOf(" ") + 1).toDouble();
             targetPosition = Movement::Point(x, y);
-            return new InterpolatingMovementTask(movement, targetPosition);
+            return new InterpolatingMovementTask(movement, targetPosition, speed);
         }
     }
     else
@@ -117,9 +118,8 @@ void Runner::run()
             if (progress != newProgress) {
                 Serial.println("Progress: " + String(newProgress));
                 progress = newProgress;
-                display->displayText(String(progress) + "%");
+                display->showDrawing(progress);
             }
-
         }
         delete currentTask;
         currentTask = getNextTask();

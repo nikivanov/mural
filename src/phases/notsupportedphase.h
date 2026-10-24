@@ -8,6 +8,7 @@ class NotSupportedPhase : public Phase {
     void handleCommand(AsyncWebServerRequest *request);
     void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
     void setTopDistance(AsyncWebServerRequest *request);
+    void setPulleyDiameter(AsyncWebServerRequest *request);
     void extendToHome(AsyncWebServerRequest *request);
     void setServo(AsyncWebServerRequest *request);
     void setPenDistance(AsyncWebServerRequest *request);
