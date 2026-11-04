@@ -38,6 +38,7 @@ export interface RenderResult {
   svgJson: string
   distance: number
   drawDistance: number
+  penLiftCount: number
 }
 
 export interface WorkerMessage {
