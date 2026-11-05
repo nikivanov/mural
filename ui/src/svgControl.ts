@@ -109,6 +109,12 @@ export function transformText(t: AffineTransform): string {
 // Rendering helpers
 // ---------------------------------------------------------------------------
 
+/** Height (mm) of the drawing canvas after the transform is applied — shifting
+ *  down (t[5] > 0) extends the canvas so the moved content isn't cropped. */
+export function getRenderedHeight(state: SvgState): number {
+  return state.baseHeight * (1 + Math.max(0, state.transform[5]))
+}
+
 function makeTransformedDoc(state: SvgState): { doc: Document; renderedHeight: number } {
   const clone = state.originalDoc.cloneNode(true) as Document
   const svgEl = clone.documentElement
@@ -119,11 +125,9 @@ function makeTransformedDoc(state: SvgState): { doc: Document; renderedHeight: n
   const scaled = [...state.transform] as AffineTransform
   scaled[4] = scaled[4] * vbW
 
-  let renderedHeight = parseFloat(svgEl.getAttribute('height')!)
+  const renderedHeight = getRenderedHeight(state)
 
   if (scaled[5] > 0) {
-    const heightOffset = scaled[5] * renderedHeight
-    renderedHeight = renderedHeight + heightOffset
     svgEl.setAttribute('height', String(renderedHeight))
     scaled[5] = scaled[5] * vbH
     const newVbH = vbH + scaled[5]
@@ -161,9 +165,8 @@ export function getTransformedSvgString(state: SvgState): string {
 /** Rasterizes the SVG to ImageData at 2× scale (for outline-trace renderer) */
 export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
   const scaledW = state.width * RENDER_SCALE
-  const { doc } = makeTransformedDoc(state)
+  const { doc, renderedHeight } = makeTransformedDoc(state)
   const svgStr = new XMLSerializer().serializeToString(doc)
-  const { renderedHeight } = makeTransformedDoc(state)
   const scaledH = renderedHeight * RENDER_SCALE
 
   const dataUrl = `data:image/svg+xml;base64,${svgToBase64(svgStr)}`

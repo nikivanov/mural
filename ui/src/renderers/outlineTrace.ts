@@ -1,4 +1,4 @@
-import { rasterizeSvg, svgStringToJson, RENDER_SCALE } from '../svgControl'
+import { rasterizeSvg, svgStringToJson, getRenderedHeight, RENDER_SCALE } from '../svgControl'
 import {
   getInfillDensity,
   listenForRendererResult,
@@ -32,6 +32,7 @@ async function execute({ svgState, params, backendState, onStatus, worker }: Exe
   // Step 3: Render vectorized SVG → commands
   onStatus('Preparing vectorized SVG')
   const svgJson = svgStringToJson(vectorizedSvg)
+  const height = getRenderedHeight(svgState)
 
   const resultPromise = listenForRendererResult(worker, onStatus)
 
@@ -39,9 +40,9 @@ async function execute({ svgState, params, backendState, onStatus, worker }: Exe
     type: 'renderSvg',
     svgJson,
     width: svgState.width,
-    height: svgState.baseHeight,
+    height,
     svgWidth: svgState.width * RENDER_SCALE,
-    svgHeight: svgState.baseHeight * RENDER_SCALE,
+    svgHeight: height * RENDER_SCALE,
     homeX: backendState.homeX ?? 0,
     homeY: backendState.homeY ?? 0,
     infillDensity: getInfillDensity(params),

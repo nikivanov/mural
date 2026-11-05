@@ -42,6 +42,14 @@ export async function parseRasterImage(file: File, safeWidth: number): Promise<R
   }
 }
 
+/** Height (mm) of the drawing canvas after the transform is applied — mirrors
+ *  the canvas expansion in rasterizeImage when the image is shifted down. */
+export function getRasterRenderedHeight(state: RasterImageState): number {
+  const H = state.naturalHeight
+  const extraH = state.transform[5] > 0 ? Math.round(state.transform[5] * H) : 0
+  return (H + extraH) * (state.height / H)
+}
+
 /**
  * Render a transformed preview of the image. Returns a blob URL — caller must
  * revoke it when done (URL.revokeObjectURL).
