@@ -175,6 +175,9 @@ export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
 
   const img = await loadImage(dataUrl)
   const bitmap = await createImageBitmap(img, { resizeWidth: scaledW, resizeHeight: scaledH })
+
+  ctx.fillStyle = 'white'
+  ctx.fillRect(0, 0, scaledW, scaledH)
   ctx.drawImage(bitmap, 0, 0, scaledW, scaledH)
 
   return ctx.getImageData(0, 0, scaledW, scaledH)
