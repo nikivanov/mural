@@ -38,8 +38,6 @@ void handleGetState(AsyncWebServerRequest *request) {
     phaseManager->respondWithState(request);
 }
 
-std::vector<const char *> menu = {"wifi", "custom", "sep"};
-
 const char *HOTSPOT_SSID = "Mural";
 
 // Survives ESP.restart() but not a power cycle, so "use without WiFi" only applies to the next boot.
@@ -93,9 +91,7 @@ void setup()
         };
 
         wifiManager.setConnectTimeout(20);
-        wifiManager.setTitle("Connect to WiFi");
-        wifiManager.setMenu(menu);
-        wifiManager.setCustomMenuHTML(OFFLINE_MENU_HTML);
+        applyPortalTheme(wifiManager);
         wifiManager.setWebServerCallback(serverCallback);
         wifiManager.setAPCallback([](WiFiManager*) {
             display->showHotspot();
