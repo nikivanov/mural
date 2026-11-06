@@ -109,6 +109,12 @@ export function transformText(t: AffineTransform): string {
 // Rendering helpers
 // ---------------------------------------------------------------------------
 
+/** Height (mm) of the drawing canvas after the transform is applied — shifting
+ *  down (t[5] > 0) extends the canvas so the moved content isn't cropped. */
+export function getRenderedHeight(state: SvgState): number {
+  return state.baseHeight * (1 + Math.max(0, state.transform[5]))
+}
+
 function makeTransformedDoc(state: SvgState): { doc: Document; renderedHeight: number } {
   const clone = state.originalDoc.cloneNode(true) as Document
   const svgEl = clone.documentElement
@@ -119,11 +125,9 @@ function makeTransformedDoc(state: SvgState): { doc: Document; renderedHeight: n
   const scaled = [...state.transform] as AffineTransform
   scaled[4] = scaled[4] * vbW
 
-  let renderedHeight = parseFloat(svgEl.getAttribute('height')!)
+  const renderedHeight = getRenderedHeight(state)
 
   if (scaled[5] > 0) {
-    const heightOffset = scaled[5] * renderedHeight
-    renderedHeight = renderedHeight + heightOffset
     svgEl.setAttribute('height', String(renderedHeight))
     scaled[5] = scaled[5] * vbH
     const newVbH = vbH + scaled[5]
@@ -161,9 +165,8 @@ export function getTransformedSvgString(state: SvgState): string {
 /** Rasterizes the SVG to ImageData at 2× scale (for outline-trace renderer) */
 export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
   const scaledW = state.width * RENDER_SCALE
-  const { doc } = makeTransformedDoc(state)
+  const { doc, renderedHeight } = makeTransformedDoc(state)
   const svgStr = new XMLSerializer().serializeToString(doc)
-  const { renderedHeight } = makeTransformedDoc(state)
   const scaledH = renderedHeight * RENDER_SCALE
 
   const dataUrl = `data:image/svg+xml;base64,${svgToBase64(svgStr)}`
@@ -172,6 +175,9 @@ export async function rasterizeSvg(state: SvgState): Promise<ImageData> {
 
   const img = await loadImage(dataUrl)
   const bitmap = await createImageBitmap(img, { resizeWidth: scaledW, resizeHeight: scaledH })
+
+  ctx.fillStyle = 'white'
+  ctx.fillRect(0, 0, scaledW, scaledH)
   ctx.drawImage(bitmap, 0, 0, scaledW, scaledH)
 
   return ctx.getImageData(0, 0, scaledW, scaledH)
@@ -199,6 +205,25 @@ export function svgStringToJson(svgString: string): string {
   return json
 }
 
+// Chrome's hardware-accelerated canvas silently skips stroking a single path
+// beyond ~1.5–2M segments (e.g. finiteCurve's one continuous line at high
+// resolution), leaving the preview blank. Stay well under that.
+const MAX_PREVIEW_PATH_SEGMENTS = 500_000
+
+/** Splits overly long paths into consecutive chunks that share endpoints */
+function splitLongPaths(scope: paper.PaperScope) {
+  scope.project.getItems({ class: scope.Path, match: (item: any) => item.segments.length > MAX_PREVIEW_PATH_SEGMENTS })
+    .forEach((path: any) => {
+      const segments = path.closed ? [...path.segments, path.firstSegment] : path.segments
+      for (let i = 0; i < segments.length - 1; i += MAX_PREVIEW_PATH_SEGMENTS) {
+        const chunk = new scope.Path({ segments: segments.slice(i, i + MAX_PREVIEW_PATH_SEGMENTS + 1), insert: false })
+        chunk.style = path.style
+        chunk.insertBelow(path)
+      }
+      path.remove()
+    })
+}
+
 /** Converts Paper.js JSON back to a canvas data URL for preview.
  *  penWidthMm: physical pen stroke width — used to set correct stroke thickness and
  *  upscale the canvas so thin strokes remain visible. Defaults to 1mm. */
@@ -217,6 +242,7 @@ export function jsonToPreviewDataUrl(json: string, width: number, height: number
   scope.view.zoom = scale
   scope.view.center = new paper.Point(width / 2, height / 2)
   scope.project.importJSON(json)
+  splitLongPaths(scope)
   // Override stroke width to match actual pen so ink coverage per area is correct
   scope.project.getItems({ match: (item: any) => item.strokeColor != null })
     .forEach((item: any) => { item.strokeWidth = penWidthMm })

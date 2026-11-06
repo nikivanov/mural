@@ -49,6 +49,12 @@ void Display::showHotspot() {
     drawLines(lines, 2);
 }
 
+void Display::showHotspotReady(String ipAddress) {
+    ip = ipAddress;
+    String lines[] = {"SSID: Mural", "http://" + ip};
+    drawLines(lines, 2);
+}
+
 void Display::showConnected(String ipAddress) {
     ip = ipAddress;
     String lines[] = {ip, "http://mural.local"};

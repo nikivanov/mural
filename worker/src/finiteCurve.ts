@@ -127,7 +127,7 @@ function parseSvgPath(svg: string): { x: number; y: number }[] {
 export async function renderFiniteCurve(
     request: RequestTypes.RenderFiniteCurveRequest,
     updateStatus: updateStatusFn,
-): Promise<{ commands: string[]; svgJson: string; distance: number; drawDistance: number }> {
+): Promise<{ commands: string[]; svgJson: string; distance: number; drawDistance: number; penLiftCount: number }> {
     const { imageData, widthMm, heightMm, homeX, homeY, resolution, contrast, whiteCutoff, invert } = request;
 
     updateStatus('Loading engine');
@@ -197,6 +197,7 @@ export async function renderFiniteCurve(
             svgJson,
             distance: totalDistance,
             drawDistance: +distances.drawDistance.toFixed(1),
+            penLiftCount: distances.penLiftCount,
         };
     } finally {
         oneLine.delete?.();

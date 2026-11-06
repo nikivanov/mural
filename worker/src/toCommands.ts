@@ -61,6 +61,7 @@ export async function renderSvgJsonToCommands(
         commands: commandStrings,
         distance: totalDistance,
         drawDistance: +distances.drawDistance.toFixed(1),
+        penLiftCount: distances.penLiftCount,
     };
 }
 

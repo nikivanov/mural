@@ -50,6 +50,7 @@ async function render(request: RequestTypes.RenderSVGRequest) {
             svgJson: resultSvgJson,
             distance: renderResult.distance,
             drawDistance: renderResult.drawDistance,
+            penLiftCount: renderResult.penLiftCount,
         }
     });
 }
@@ -80,6 +81,7 @@ function renderZigZag(request: RequestTypes.RenderRasterZigZagRequest) {
             svgJson: result.svgJson,
             distance: result.distance,
             drawDistance: result.drawDistance,
+            penLiftCount: result.penLiftCount,
         }
     });
 }
@@ -93,6 +95,7 @@ async function renderFiniteCurveRequest(request: RequestTypes.RenderFiniteCurveR
             svgJson: result.svgJson,
             distance: result.distance,
             drawDistance: result.drawDistance,
+            penLiftCount: result.penLiftCount,
         }
     });
 }

@@ -12,6 +12,7 @@ class Display {
     void showStarting();
     void showConnecting();
     void showHotspot();
+    void showHotspotReady(String ipAddress);
     void showConnected(String ipAddress);
     void showCalibration(double x, double y);
     void showDrawing(int progress);

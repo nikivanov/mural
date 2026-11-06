@@ -1,4 +1,4 @@
-import { svgStringToJson, getTransformedSvgString } from '../svgControl'
+import { svgStringToJson, getTransformedSvgString, getRenderedHeight } from '../svgControl'
 import {
   getInfillDensity,
   listenForRendererResult,
@@ -11,6 +11,7 @@ async function execute({ svgState, params, backendState, onStatus, worker }: Exe
   const svgString = getTransformedSvgString(svgState)
   onStatus('Preparing SVG')
   const svgJson = svgStringToJson(svgString)
+  const height = getRenderedHeight(svgState)
 
   const resultPromise = listenForRendererResult(worker, onStatus)
 
@@ -18,9 +19,9 @@ async function execute({ svgState, params, backendState, onStatus, worker }: Exe
     type: 'renderSvg',
     svgJson,
     width: svgState.width,
-    height: svgState.baseHeight,
+    height,
     svgWidth: svgState.width,
-    svgHeight: svgState.baseHeight,
+    svgHeight: height,
     homeX: backendState.homeX ?? 0,
     homeY: backendState.homeY ?? 0,
     infillDensity: getInfillDensity(params),
