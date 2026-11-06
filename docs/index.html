@@ -509,6 +509,8 @@
             if (reduceMotion && reduceMotion.matches) {
                 video.removeAttribute('autoplay');
                 video.pause();
+                // Show the finished portrait instead of the blank-wall first frame
+                video.poster = 'images/hero-poster-finished.webp';
             }
 
             sync();
