@@ -49,7 +49,7 @@ Movement::Movement(Display *display)
     topDistance = -1;
     preferences.begin(PREFS_NAMESPACE, false);
     diameter = preferences.getDouble(PULLEY_DIAMETER_KEY, defaultDiameter);
-    circumference = diameter * PI;
+    updatePulleyGeometry();
 
     moving = false;
     homed = false;
@@ -476,6 +476,15 @@ double Movement::getPulleyDiameter() {
 
 void Movement::setPulleyDiameter(const double diameter) {
     this->diameter = diameter;
-    circumference = diameter * PI;
+    updatePulleyGeometry();
     preferences.putDouble(PULLEY_DIAMETER_KEY, diameter);
+}
+
+void Movement::updatePulleyGeometry() {
+    circumference = diameter * PI;
+    const double q = diameter / (2.0 * sqrt(2.0));  // [mm] Tangent point offset from pulley center in x and y.
+    d_t = pulleyAxisDistance - 2.0 * q;
+    d_p = q;
+    d_m = axesToCenterOfMass + q;
+    Serial.printf("Pulley geometry: diameter=%.4f d_t=%.4f d_p=%.4f d_m=%.4f [mm]\n", diameter, d_t, d_p, d_m);
 }
