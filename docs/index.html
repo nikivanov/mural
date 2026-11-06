@@ -5,67 +5,157 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mural - Low Cost Open Source Wall Plotter</title>
     <style>
+        /* Mural UI theme (matches ui/ and the captive portal): Tailwind gray-950 background,
+           gray-900 cards, gray-800 tiles, cyan-600 accents */
         :root {
-            --primary: #4b5563;
-            --text: #1f2937;
-            --background: #ffffff;
-            --secondary-bg: #f3f4f6;
-            --border: #e5e7eb;
+            color-scheme: dark;
+            --bg: #030712;          /* gray-950 */
+            --card: #111827;        /* gray-900 */
+            --tile: #1f2937;        /* gray-800 */
+            --tile-hover: #374151;  /* gray-700 */
+            --border: #1f2937;      /* gray-800 */
+            --tile-border: #374151; /* gray-700 */
+            --text: #f3f4f6;        /* gray-100 */
+            --heading: #ffffff;
+            --muted: #9ca3af;       /* gray-400 */
+            --faint: #6b7280;       /* gray-500 */
+            --accent: #0891b2;      /* cyan-600 */
+            --accent-hover: #06b6d4;/* cyan-500 */
+            --accent-active: #0e7490;/* cyan-700 */
+            --link: #22d3ee;        /* cyan-400 */
+            --link-hover: #67e8f9;  /* cyan-300 */
+            --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
 
         body {
+            min-height: 100vh;
             color: var(--text);
-            background-color: var(--background);
+            background-color: var(--bg);
             line-height: 1.6;
+            font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a {
+            color: var(--link);
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+
+        a:hover {
+            color: var(--link-hover);
+        }
+
+        a:focus-visible,
+        .hero:focus-visible {
+            outline: 2px solid var(--accent-hover);
+            outline-offset: 2px;
         }
 
         .container {
-            max-width: 1100px;
+            max-width: calc(1000px + 4rem); /* 1000px content + side padding */
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 0 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .container {
+                padding: 0 2rem;
+            }
         }
 
         header {
-            padding: 3rem 0;
+            padding: 3rem 0 2rem;
             text-align: center;
-            border-bottom: 1px solid var(--border);
         }
 
         .logo {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: var(--primary);
+            font-size: 2.25rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--heading);
+            margin-bottom: 0.25rem;
         }
 
         .subtitle {
-            font-size: 1.2rem;
-            color: #4b5563;
-            margin-bottom: 2rem;
+            font-size: 1.125rem;
+            color: var(--muted);
+        }
+
+        .hero-wrap {
+            position: relative;
+            margin: 1rem 0 2rem;
         }
 
         .hero {
             display: flex;
             justify-content: center;
-            margin: 2rem 0;
             position: relative;
             cursor: pointer;
+            border-radius: 1rem;
         }
 
         .hero-image {
+            display: block;
             width: 100%;
-            max-width: 1000px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            height: auto;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            background-color: var(--card);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
         }
-        
+
+        .hero-toggle {
+            position: absolute;
+            right: 0.75rem;
+            bottom: 0.75rem;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--tile-border);
+            border-radius: 50%;
+            background-color: rgba(3, 7, 18, 0.7);
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .hero-toggle:hover {
+            background-color: rgba(3, 7, 18, 0.9);
+            border-color: var(--accent-hover);
+        }
+
+        .hero-toggle:focus-visible {
+            outline: 2px solid var(--accent-hover);
+            outline-offset: 2px;
+        }
+
+        .hero-toggle svg {
+            width: 1.125rem;
+            height: 1.125rem;
+            fill: currentColor;
+        }
+
+        .hero-toggle .icon-play,
+        .hero-toggle.is-paused .icon-pause {
+            display: none;
+        }
+
+        .hero-toggle.is-paused .icon-play {
+            display: block;
+        }
+
         .play-button {
             position: absolute;
             top: 50%;
@@ -73,103 +163,203 @@
             transform: translate(-50%, -50%);
             width: 80px;
             height: 80px;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: var(--accent);
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
+            box-shadow: var(--shadow);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.3s ease, background-color 0.15s ease;
         }
-        
+
         .play-triangle {
             width: 0;
             height: 0;
-            border-top: 20px solid transparent;
-            border-bottom: 20px solid transparent;
-            border-left: 30px solid white;
-            margin-left: 5px;
+            border-top: 18px solid transparent;
+            border-bottom: 18px solid transparent;
+            border-left: 28px solid #fff;
+            margin-left: 6px;
         }
-        
-        .hero:hover .play-button {
+
+        .hero:hover .play-button,
+        .hero:focus-visible .play-button {
             opacity: 1;
         }
 
+        .hero:hover .play-button {
+            background-color: var(--accent-hover);
+        }
+
         section {
-            padding: 3rem 0;
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (min-width: 640px) {
+            section {
+                padding: 2rem;
+            }
         }
 
         h2 {
-            font-size: 1.8rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--heading);
+            margin-bottom: 1rem;
         }
 
         p {
-            margin-bottom: 1.5rem;
+            color: #d1d5db; /* gray-300 */
+            margin-bottom: 1rem;
+        }
+
+        p:last-child {
+            margin-bottom: 0;
+        }
+
+        p img {
+            vertical-align: middle;
         }
 
         .features {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
+            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+            gap: 0.75rem;
+            margin: 1.5rem 0;
         }
 
         .feature-card {
-            background-color: var(--secondary-bg);
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            background-color: var(--tile);
+            border: 1px solid var(--tile-border);
+            padding: 1.25rem;
+            border-radius: 0.75rem;
         }
 
         .feature-title {
-            font-size: 1.2rem;
+            font-size: 1rem;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            color: var(--heading);
+            margin-bottom: 0.25rem;
         }
 
         .resources {
-            background-color: var(--secondary-bg);
-            padding: 2rem;
-            border-radius: 8px;
-            margin: 2rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
 
         .resource-link {
             display: block;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            background-color: var(--background);
-            border-radius: 4px;
-            text-decoration: none;
-            color: var(--primary);
+            padding: 1rem 1.25rem;
+            background-color: var(--tile);
+            border: 1px solid var(--tile-border);
+            border-radius: 0.75rem;
+            color: var(--heading);
             font-weight: 500;
-            border: 1px solid var(--border);
-            transition: all 0.2s ease;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
         }
 
         .resource-link:hover {
-            background-color: #f8fafc;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            color: var(--heading);
+            background-color: var(--tile-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .resource-group {
+            padding: 1rem 1.25rem 1.25rem;
+            background-color: var(--tile);
+            border: 1px solid var(--tile-border);
+            border-radius: 0.75rem;
+        }
+
+        .resource-group-title {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            column-gap: 0.5rem;
+            color: var(--heading);
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 0.875rem;
+            font-weight: 400;
+            white-space: nowrap;
+        }
+
+        .choices {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        @media (min-width: 640px) {
+            .choices {
+                grid-template-columns: 1fr auto 1fr;
+                gap: 0.75rem;
+            }
+        }
+
+        .choice {
+            display: block;
+            padding: 1rem 1.25rem;
+            text-align: center;
+            background-color: var(--card);
+            border: 1px solid var(--tile-border);
+            border-radius: 0.75rem;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .choice:hover {
+            background-color: var(--tile-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .choice-title {
+            display: block;
+            color: var(--heading);
+            font-weight: 600;
+        }
+
+        .choice-sub {
+            display: block;
+            margin-top: 0.25rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+            font-weight: 400;
+        }
+
+        .or {
+            color: var(--faint);
+            font-size: 0.875rem;
+            text-align: center;
         }
 
         .button {
-            
             display: inline-block;
-            background-color: #2563eb;
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            text-decoration: none;
+            background-color: var(--accent);
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.75rem;
             font-weight: 500;
-            transition: background-color 0.2s ease;
+            transition: background-color 0.15s ease;
         }
 
         .button:hover {
-            background-color: #1d4ed8;
+            color: #fff;
+            background-color: var(--accent-hover);
+        }
+
+        .button:active {
+            background-color: var(--accent-active);
         }
 
         .github-link {
@@ -182,25 +372,30 @@
 
         footer {
             text-align: center;
-            padding: 3rem 0;
-            color: #6b7280;
-            border-top: 1px solid var(--border);
+            padding: 2rem 0 3rem;
+            font-size: 0.875rem;
+        }
+
+        footer p {
+            color: var(--faint);
+            margin-bottom: 0.25rem;
         }
 
         .gallery {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin: 2rem 0;
+            grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+            gap: 0.75rem;
+            margin: 1.5rem 0;
         }
 
         .gallery-item {
-            border-radius: 8px;
+            border-radius: 0.75rem;
+            border: 1px solid var(--tile-border);
             overflow: hidden;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
         }
 
         .gallery-item img {
+            display: block;
             width: 100%;
             height: 200px;
             object-fit: cover;
@@ -221,29 +416,50 @@
     </header>
 
     <main class="container">
-        <div class="hero" id="hero-container">
-            <img src="images/mural-einstein.jpg" alt="Mural Wall Plotter in action" class="hero-image">
-            <div class="play-button">
-                <div class="play-triangle"></div>
+        <div class="hero-wrap">
+            <div class="hero" id="hero-container" role="link" tabindex="0" aria-label="Mural v2.0">
+                <!-- Silent timelapse. AV1 first (smaller), H.264 fallback for browsers without AV1 decode. -->
+                <video id="hero-video" class="hero-image" width="1280" height="720"
+                       autoplay muted loop playsinline disablepictureinpicture
+                       poster="images/hero-poster.webp" aria-hidden="true">
+                    <source src="images/hero-av1.mp4" type='video/mp4; codecs="av01.0.05M.08"'>
+                    <source src="images/hero-h264.mp4" type='video/mp4; codecs="avc1.64001F"'>
+                </video>
+                <div class="play-button">
+                    <div class="play-triangle"></div>
+                </div>
             </div>
+            <button type="button" class="hero-toggle" id="hero-toggle" aria-label="Pause animation">
+                <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
+            </button>
         </div>
         
         <section id="about">
             <h2>About Mural</h2>
-            <p>Mural is a low cost high precision wall plotter made of readily available parts enclosed in a 3D printed case.</p>
-            <p>If you've enjoyed this project and want to buy me a beer (no pressure): <a href="https://paypal.me/nikvivanov"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg"></a></p>
+            <p>Open source, low cost, high precision wall plotter made of readily available parts enclosed in a 3D printed case</p>
             
         </section>
         <section id="get-started">
-            <h2>Get Started</h2>
+            <h2>Make Your Own Mural</h2>
             <div class="resources">
-                <a href="bom.html" class="resource-link">1. Bill of Materials (BOM) - Amazon affiliates</a>
-                <a href="https://github.com/nikivanov/mural/blob/main/BOM.md" class="resource-link">2. Bill of Materials (BOM) - Github</a>
-                <a href="https://github.com/nikivanov/mural/tree/main/STLs" class="resource-link">3. 3D Printed Parts (STL Files)</a>
-                <a href="firmware_flasher.html" class="resource-link">4. Firmware</a>
-                <a target="_blank" href="https://www.youtube.com/watch?v=Yg7z5wKEo0o" class="resource-link">5. Step By Step Assembly Video - <b>v1.0</b></a>
-                <a target="_blank" href="https://www.youtube.com/watch?v=QDJyDLlvLoo" class="resource-link">6. Update - <b>v1.1</b></a>
-                
+                <div class="resource-group">
+                    <div class="resource-group-title">1. Buy the parts (BOM) <span class="hint">pick one</span></div>
+                    <div class="choices">
+                        <a href="bom.html" class="choice">
+                            <span class="choice-title">Amazon / Elecrow (affiliate)</span>
+                            <span class="choice-sub">Parts list with affiliate links</span>
+                        </a>
+                        <span class="or" aria-hidden="true">or</span>
+                        <a href="https://github.com/nikivanov/mural/blob/main/BOM.md" class="choice">
+                            <span class="choice-title">GitHub</span>
+                            <span class="choice-sub">Parts list in the GitHub repo</span>
+                        </a>
+                    </div>
+                </div>
+                <a href="https://github.com/nikivanov/mural/tree/main/STLs" class="resource-link">2. 3D Printed Parts (STL Files)</a>
+                <a href="firmware_flasher.html" class="resource-link">3. Firmware</a>
+                <a target="_blank" href="https://www.youtube.com/watch?v=REPLACE_ME" class="resource-link">4. Assembly Video - <b>v2.0</b></a>
             </div>
         </section>
     </main>
@@ -260,6 +476,43 @@
             // Replace this URL with your actual YouTube video URL
             window.open('https://www.youtube.com/watch?v=MOENFOZCs54',  '_blank').focus();
         });
+        document.getElementById('hero-container').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+
+        // Hero timelapse: pause/play toggle, and start paused for reduced-motion users
+        (function() {
+            var video = document.getElementById('hero-video');
+            var toggle = document.getElementById('hero-toggle');
+
+            function sync() {
+                var paused = video.paused;
+                toggle.classList.toggle('is-paused', paused);
+                toggle.setAttribute('aria-label', paused ? 'Play animation' : 'Pause animation');
+            }
+
+            video.addEventListener('play', sync);
+            video.addEventListener('pause', sync);
+
+            toggle.addEventListener('click', function() {
+                if (video.paused) {
+                    video.play().catch(function() {});
+                } else {
+                    video.pause();
+                }
+            });
+
+            var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+            if (reduceMotion && reduceMotion.matches) {
+                video.removeAttribute('autoplay');
+                video.pause();
+            }
+
+            sync();
+        })();
     </script>
 </body>
 </html>
