@@ -24,12 +24,11 @@ constexpr float homedStepOffsetMM = 40.0;   // Length of fully retracted belt hi
                                             // of tangency between belt and pulley. [mm]
 constexpr double mass_bot = 0.55;   // Mass of the mural bot [kg].
 constexpr double g_constant = 9.81; // Earth's gravitational acceleration constant [m/s^2]. Please adjust when running Mural on other planets!
-constexpr double d_t = 76.927;      // [mm] Distance of tangent points, where belts touch the pulleys.
-                                    // Calculated as (axis distance) 85.90 - (diameter) 12.69/sqrt(2).
-constexpr double d_p = 4.4866;      // [mm] distance from Q to center of pen. Calculated as diameter/(2 * sqrt(2)).
-constexpr double d_m = 10.0 + d_p;  // [mm] Distance from line connecting tangent points to center of mass of bot (projected onto wall plane).
-                                    // The point where d_m and d_t meet shall be called Q.
-                                    // The center of mass sits roughly at the bottom of the pen opening.
+constexpr double pulleyAxisDistance = 89.50;  // [mm] Distance between the two pulley axes.
+constexpr double axesToCenterOfMass = 10.0;   // [mm] Distance from line connecting pulley axes to center of mass of bot (projected onto wall plane).
+                                              
+// The tangent-point geometry (d_t, d_p, d_m) depends on the pulley diameter, so it's derived from it
+// at runtime in Movement::updatePulleyGeometry() - see KinematicModel.md.
 constexpr double belt_elongation_coefficient = 5e-5; // [m/N] elongation of the belts under force.
 const int HOME_Y_OFFSET_MM = 350;   // Y coordinate of mural home position in image coordinate system [mm].
 
@@ -58,6 +57,13 @@ private:
     int topDistance;            // Distance between pins (d_pins) [mm].
     double diameter;             // Effective diameter of the pulley+belts [mm]. Settable from the UI, persisted in NVS.
     double circumference;        // = diameter * PI [mm]. Kept in sync with diameter.
+    // Derived from diameter by updatePulleyGeometry(). q = diameter / (2 * sqrt(2)) is the offset of each
+    // belt tangent point from its pulley center, in both x and y.
+    double d_t;                  // [mm] Distance of tangent points, where belts touch the pulleys. = axis distance - 2q.
+    double d_p;                  // [mm] Distance from Q to center of pen. = q.
+    double d_m;                  // [mm] Distance from line connecting tangent points to center of mass of bot (projected onto wall plane).
+                                 // The point where d_m and d_t meet shall be called Q. = axesToCenterOfMass + q.
+    void updatePulleyGeometry(); // Recomputes circumference, d_t, d_p and d_m from diameter.
     Preferences preferences;
     double minSafeY;
     double minSafeXOffset;
