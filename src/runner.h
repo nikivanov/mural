@@ -4,7 +4,7 @@
 #include "tasks/task.h"
 #include "pen.h"
 #include "display.h"
-#include "LittleFS.h"
+#include "SD.h"
 class Runner {
     private:
     Movement *movement;
@@ -20,11 +20,12 @@ class Runner {
     Movement::Point startPosition;
     Movement::Point targetPosition;
     int progress;
+    int speed;
     Task *finishingSequence[1];
     int sequenceIx = 0;
     public:
     Runner(Movement *movement, Pen *pen, Display *display);
-    void start();
+    void start(int speed);
     void run();
     void dryRun();
 };
