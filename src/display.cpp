@@ -1,59 +1,109 @@
 #include "display.h"
 #include <Adafruit_SSD1306.h>
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 32
+#define TEXT_HEIGHT 8
+
 Display::Display() {
+    auto i2c_valid = Wire.begin(15, 4);
+    Serial.printf("I2C changed OK to pins 15 and 4: %d\n", i2c_valid);
     display = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-    if (!display->begin(SSD1306_SWITCHCAPVCC, 0x3C))
-    { // Address 0x3D for 128x64
+    if (!display->begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println(F("SSD1306 allocation failed"));
         throw std::invalid_argument("not ready");
     }
-    delay(2000);
-    display->setRotation(2);
+    display->setRotation(0);
     display->clearDisplay();
     display->setTextColor(WHITE);
     display->setTextSize(1);
     display->display();
 }
 
-void Display::displayText(String text)
-{
-    int16_t x1;
-    int16_t y1;
-    uint16_t width;
-    uint16_t height;
-
-    display->getTextBounds(text, 0, 0, &x1, &y1, &width, &height);
-
-    // display on horizontal and vertical center
-    display->clearDisplay(); // clear display
-    display->setCursor((SCREEN_WIDTH - width) / 2, (SCREEN_HEIGHT - height) / 2);
-    display->println(text); // text to display
+void Display::drawLines(String lines[], int n) {
+    display->clearDisplay();
+    int16_t x1, y1;
+    uint16_t w, h;
+    int zoneH = SCREEN_HEIGHT / n;
+    for (int i = 0; i < n; i++) {
+        int y = i * zoneH + (zoneH - TEXT_HEIGHT) / 2;
+        display->getTextBounds(lines[i], 0, 0, &x1, &y1, &w, &h);
+        display->setCursor((SCREEN_WIDTH - w) / 2, y);
+        display->print(lines[i]);
+    }
     display->display();
-    Serial.println("Displayed " + text);
 }
 
-void Display::displayHomeScreen(String ipLine, String orLine, String mdnsLine) {
-    display->clearDisplay();
+void Display::showStarting() {
+    String lines[] = {"Starting up..."};
+    drawLines(lines, 1);
+}
 
-    int16_t x1;
-    int16_t y1;
-    uint16_t width;
-    uint16_t height;
+void Display::showConnecting() {
+    String lines[] = {"Connecting", "to WiFi..."};
+    drawLines(lines, 2);
+}
 
-    display->getTextBounds(ipLine, 0, 0, &x1, &y1, &width, &height);
-    display->setCursor((SCREEN_WIDTH - width) / 2, 10);
-    display->println(ipLine);
+void Display::showHotspot() {
+    String lines[] = {"Connect to hotspot", "SSID: Mural"};
+    drawLines(lines, 2);
+}
 
-    display->getTextBounds(orLine, 0, 0, &x1, &y1, &width, &height);
-    display->setCursor((SCREEN_WIDTH - width) / 2, 10 + SCREEN_HEIGHT / 3);
-    display->println(orLine);
+void Display::showHotspotReady(String ipAddress) {
+    ip = ipAddress;
+    String lines[] = {"SSID: Mural", "http://" + ip};
+    drawLines(lines, 2);
+}
 
-    display->getTextBounds(mdnsLine, 0, 0, &x1, &y1, &width, &height);
-    display->setCursor((SCREEN_WIDTH - width) / 2, 10 + SCREEN_HEIGHT / 3 * 2);
-    display->println(mdnsLine);
+void Display::showConnected(String ipAddress) {
+    ip = ipAddress;
+    String lines[] = {ip, "http://mural.local"};
+    drawLines(lines, 2);
+}
+
+void Display::showCalibration(double x, double y) {
+    String lines[] = {"X:" + String(x, 1) + " Y:" + String(y, 1)};
+    drawLines(lines, 1);
+}
+
+void Display::showNoCard() {
+    String lines[] = {"NO CARD"};
+    drawLines(lines, 1);
+}
+
+void Display::showFormatCountdown(int secondsLeft) {
+    String lines[] = {"Formatting SD in", String(secondsLeft) + "s..."};
+    drawLines(lines, 2);
+}
+
+void Display::showFormatting() {
+    String lines[] = {"Formatting", "SD Card..."};
+    drawLines(lines, 2);
+}
+
+void Display::showDrawing(int progress) {
+   display->clearDisplay();
+
+    const int x = 8;
+    const int y = 8;
+    const int width = SCREEN_WIDTH - 16;
+    const int height = SCREEN_HEIGHT - 16;
+
+    display->drawRect(x, y, width, height, WHITE);
+
+    int fillWidth = (width - 2) * progress / 100;
+    if (fillWidth > 0) {
+        display->fillRect(x + 1, y + 1, fillWidth, height - 2, WHITE);
+    }
+
+    String label = String(progress) + "%";
+    int16_t x1, y1;
+    uint16_t w, h;
+    display->getTextBounds(label, 0, 0, &x1, &y1, &w, &h);
+    display->setCursor(x + (width - w) / 2, y + (height - h) / 2 - y1);
+    display->setTextColor(INVERSE);
+    display->print(label);
+    display->setTextColor(WHITE);
 
     display->display();
 }

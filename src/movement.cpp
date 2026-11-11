@@ -2,23 +2,55 @@
 #include "display.h"
 #include <stdexcept>
 
+namespace {
+    constexpr const char* PREFS_NAMESPACE = "mural";
+    constexpr const char* PULLEY_DIAMETER_KEY = "diameter";
+}
+
 Movement::Movement(Display *display)
 {
     this->display = display;
-   
+
+    tmcSerial = new HardwareSerial(1);
+    tmcSerial->begin(115200, SERIAL_8N1, 16, 17);
+    delay(100); // Allow TMC2209 drivers to power-on and UART to settle
+
+    leftDriver = new TMC2209Stepper(tmcSerial, 0.11, LEFT_UART_ADDR);
+    leftDriver->begin();
+    leftDriver->toff(5);
+    leftDriver->rms_current(707);
+    leftDriver->microsteps(8);
+    leftDriver->pwm_autoscale(true);
+    Serial.printf("Left driver: conn=%d microsteps=%d rms: %d \n",
+                  leftDriver->test_connection(), leftDriver->microsteps(), leftDriver->rms_current());
+
+    rightDriver = new TMC2209Stepper(tmcSerial, 0.11, RIGHT_UART_ADDR);
+    rightDriver->begin();
+    rightDriver->toff(5);
+    rightDriver->rms_current(707);
+    rightDriver->microsteps(8);
+    rightDriver->pwm_autoscale(true);
+    Serial.printf("Right driver: conn=%d microsteps=%d rms: %d \n",
+                  rightDriver->test_connection(), rightDriver->microsteps(), rightDriver->rms_current());
+
+    // enable all motors
+    pinMode(MOTOR_ENABLE_PIN, OUTPUT);
+    digitalWrite(MOTOR_ENABLE_PIN, LOW);
+
     leftMotor = new AccelStepper(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
-    leftMotor->setEnablePin(LEFT_ENABLE_PIN);
     leftMotor->setMaxSpeed(moveSpeedSteps);
     leftMotor->setPinsInverted(true);
     leftMotor->disableOutputs();
 
     rightMotor = new AccelStepper(AccelStepper::DRIVER, RIGHT_STEP_PIN, RIGHT_DIR_PIN);
-    rightMotor->setEnablePin(RIGHT_ENABLE_PIN);
     rightMotor->setMaxSpeed(moveSpeedSteps);
     rightMotor->disableOutputs();
 
     topDistance = -1;
-   
+    preferences.begin(PREFS_NAMESPACE, false);
+    diameter = preferences.getDouble(PULLEY_DIAMETER_KEY, defaultDiameter);
+    updatePulleyGeometry();
+
     moving = false;
     homed = false;
     startedHoming = false;
@@ -50,6 +82,7 @@ void Movement::resumeTopDistance(int distance /* = d_pin in mm */) {
 
 void Movement::setOrigin()
 {
+    const int homedStepsOffset = int((homedStepOffsetMM / circumference) * stepsPerRotation);
     leftMotor->setCurrentPosition(homedStepsOffset);
     rightMotor->setCurrentPosition(homedStepsOffset);
     homed = true;
@@ -408,8 +441,8 @@ Movement::Point Movement::getCoordinates() {
     return Movement::Point(X, Y);
 }
 
-void Movement::extend1000mm() {
-    const int steps = int((1000 / circumference) * stepsPerRotation);   
+void Movement::extendBelts(int distanceMm) {
+    const int steps = int((distanceMm / circumference) * stepsPerRotation);
 
     leftMotor->move(steps);
     leftMotor->setSpeed(moveSpeedSteps);
@@ -435,4 +468,23 @@ bool Movement::hasStartedHoming() {
 
 int Movement::getTopDistance() {
     return topDistance;
+}
+
+double Movement::getPulleyDiameter() {
+    return diameter;
+}
+
+void Movement::setPulleyDiameter(const double diameter) {
+    this->diameter = diameter;
+    updatePulleyGeometry();
+    preferences.putDouble(PULLEY_DIAMETER_KEY, diameter);
+}
+
+void Movement::updatePulleyGeometry() {
+    circumference = diameter * PI;
+    const double q = diameter / (2.0 * sqrt(2.0));  // [mm] Tangent point offset from pulley center in x and y.
+    d_t = pulleyAxisDistance - 2.0 * q;
+    d_p = q;
+    d_m = axesToCenterOfMass + q;
+    Serial.printf("Pulley geometry: diameter=%.4f d_t=%.4f d_p=%.4f d_m=%.4f [mm]\n", diameter, d_t, d_p, d_m);
 }

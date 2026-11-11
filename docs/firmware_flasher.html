@@ -5,321 +5,359 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mural Firmware Flasher</title>
     <style>
+        /* Palette mirrors the Mural web UI (Tailwind gray / cyan / emerald / red / amber). */
         :root {
-            --primary: #4b5563;
-            --text: #1f2937;
-            --background: #ffffff;
-            --secondary-bg: #f3f4f6;
-            --border: #e5e7eb;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
+            --bg: #030712;          /* gray-950 */
+            --card: #111827;        /* gray-900 */
+            --card-border: #1f2937; /* gray-800 */
+            --inset: #1f2937;       /* gray-800 */
+            --track: #374151;       /* gray-700 */
+            --text: #f3f4f6;        /* gray-100 */
+            --text-strong: #ffffff;
+            --text-body: #e5e7eb;   /* gray-200 */
+            --text-muted: #9ca3af;  /* gray-400 */
+            --text-faint: #6b7280;  /* gray-500 */
+            --accent: #06b6d4;      /* cyan-500 */
+            --accent-btn: #0891b2;  /* cyan-600 */
+            --accent-btn-hover: #06b6d4;
+            --accent-btn-active: #0e7490; /* cyan-700 */
+            --success: #10b981;     /* emerald-500 */
+            --warning: #fbbf24;     /* amber-400 */
+            --error: #f87171;       /* red-400 */
+        }
+
+        /* Scale the whole page with the viewport on large screens (15.2px up to 2560px wide, 22.8px at 3840px).
+           Everything below is in rem, so the layout is unchanged, just bigger. */
+        html {
+            font-size: clamp(15.2px, 0.594vw, 38px);
+        }
+
+        /* Portrait displays are narrow relative to their height, so scale a bit faster with width. */
+        @media (orientation: portrait) and (min-width: 1200px) {
+            html {
+                font-size: clamp(15.2px, 1.1vw, 38px);
+            }
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
 
         body {
+            font-family: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
             color: var(--text);
-            background-color: var(--background);
-            line-height: 1.6;
+            background-color: var(--bg);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
         }
 
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 0 2rem;
+        .page {
+            width: 100%;
+            max-width: 36rem;
+            margin: auto 0;
         }
 
-        header {
-            padding: 3rem 0;
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 1rem;
+            box-shadow: 0 1.5625rem 3.125rem -0.75rem rgba(0, 0, 0, 0.6);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .card-header {
             text-align: center;
-            border-bottom: 1px solid var(--border);
         }
 
-        .logo {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: var(--primary);
+        .card-header h1 {
+            font-size: 1.25rem;
+            line-height: 1.75rem;
+            font-weight: 600;
+            color: var(--text-strong);
         }
 
-        .subtitle {
-            font-size: 1.2rem;
-            color: #4b5563;
-            margin-bottom: 2rem;
+        .card-header p {
+            margin-top: 0.25rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            line-height: 1.625;
         }
 
-        section {
-            padding: 3rem 0;
-        }
-
-        h2 {
-            font-size: 1.8rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.5rem;
+        h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-strong);
+            margin-bottom: 0.25rem;
         }
 
         p {
-            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            line-height: 1.625;
+        }
+
+        .step p {
+            margin-bottom: 0.75rem;
         }
 
         .button {
             display: inline-block;
-            background-color: #2563eb;
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: background-color 0.2s ease;
+            background-color: var(--accent-btn);
+            color: #ffffff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.75rem;
             border: none;
+            font: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
             cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.15s ease;
         }
 
         .button:hover {
-            background-color: #1d4ed8;
+            background-color: var(--accent-btn-hover);
+        }
+
+        .button:active {
+            background-color: var(--accent-btn-active);
+        }
+
+        .button:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 0.125rem var(--card), 0 0 0 0.25rem var(--accent);
         }
 
         .button:disabled {
-            background-color: #93c5fd;
+            opacity: 0.4;
             cursor: not-allowed;
+            background-color: var(--accent-btn);
         }
 
-        footer {
-            text-align: center;
-            padding: 3rem 0;
-            color: #6b7280;
-            border-top: 1px solid var(--border);
+        .note {
+            background-color: var(--inset);
+            border: 1px solid var(--track);
+            border-left: 0.25rem solid var(--warning);
+            border-radius: 0.75rem;
+            padding: 1rem 1.25rem;
         }
 
-        .flash-container {
-            background-color: var(--secondary-bg);
-            padding: 2rem;
-            border-radius: 8px;
-            margin: 2rem 0;
+        .note-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--warning);
+            margin-bottom: 0.25rem;
         }
 
-        .file-input-container {
-            margin-bottom: 2rem;
+        .note p {
+            margin-bottom: 0.25rem;
         }
 
-        .file-input-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-
-        .file-input {
-            display: block;
-            width: 100%;
-            padding: 0.5rem;
-            margin-bottom: 1rem;
-            border: 1px solid var(--border);
-            border-radius: 4px;
+        .note ul {
+            padding-left: 1.25rem;
+            font-size: 0.875rem;
+            color: var(--text-body);
         }
 
         .steps {
-            margin: 2rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
 
         .step {
             display: flex;
-            margin-bottom: 1.5rem;
             align-items: flex-start;
         }
 
         .step-number {
-            background-color: var(--primary);
-            color: white;
+            background-color: var(--accent-btn);
+            color: #ffffff;
             width: 2rem;
             height: 2rem;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 600;
             margin-right: 1rem;
             flex-shrink: 0;
         }
 
         .step-content {
             flex-grow: 1;
-        }
-
-        .log-container {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            padding: 1rem;
-            border-radius: 4px;
-            font-family: monospace;
-            height: 400px;
-            overflow-y: auto;
-            margin-bottom: 1.5rem;
-        }
-
-        .log-line {
-            margin-bottom: 0.25rem;
-            line-height: 1.4;
-        }
-
-        .success {
-            color: var(--success);
-        }
-
-        .warning {
-            color: var(--warning);
-        }
-
-        .error {
-            color: var(--error);
+            min-width: 0;
         }
 
         .device-info {
-            background-color: white;
-            border: 1px solid var(--border);
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 1.5rem;
+            background-color: var(--inset);
+            border: 1px solid var(--track);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
         }
 
         .info-row {
             display: flex;
-            margin-bottom: 0.5rem;
+            gap: 0.5rem;
+            padding: 0.125rem 0;
         }
 
         .info-label {
-            font-weight: 500;
-            width: 150px;
+            width: 5rem;
+            flex-shrink: 0;
+            color: var(--text-muted);
         }
 
-        .progress-container {
-            width: 100%;
-            height: 20px;
-            background-color: var(--secondary-bg);
-            border-radius: 10px;
-            margin-bottom: 1.5rem;
-            overflow: hidden;
+        .success { color: var(--success); }
+        .warning { color: var(--warning); }
+        .error { color: var(--error); }
+
+        .console {
+            border-top: 1px solid var(--card-border);
+            padding-top: 1.25rem;
         }
 
-        .progress-bar {
-            height: 100%;
-            background-color: var(--primary);
-            border-radius: 10px;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .status {
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .note {
-            background-color: #fffbeb;
-            border-left: 4px solid #f59e0b;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            border-radius: 0 4px 4px 0;
-        }
-
-        .note-title {
-            font-weight: 600;
+        .console h3 {
             margin-bottom: 0.5rem;
-            color: #92400e;
         }
 
-        .xterm-helpers {
-            visibility: hidden;
+        .log-container {
+            background-color: var(--bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-body);
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-all;
+            height: 18.75rem;
+            overflow-y: auto;
+        }
+
+        .footer {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-faint);
+        }
+
+        .footer p {
+            font-size: inherit;
+            color: inherit;
+        }
+
+        @media (min-width: 640px) {
+            body { padding: 1.5rem; }
+            .card { padding: 2rem; gap: 1.5rem; }
+            .card-header h1 { font-size: 1.5rem; line-height: 2rem; }
+            .card-header p { font-size: 1rem; }
+            .button { font-size: 1rem; }
+            .footer { font-size: 0.875rem; }
+        }
+
+        @media (min-width: 1024px) {
+            body { padding: 2rem; }
+            .page { max-width: 56rem; }
+            .card-header h1 { font-size: 1.875rem; line-height: 2.25rem; }
         }
     </style>
     <script src="crypto-js.js"></script>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <div class="logo">Mural Firmware Flasher</div>
-            <div class="subtitle">Install latest Mural plotter software on your ESP32 microcontroller</div>
-        </div>
-    </header>
+    <main class="page">
+        <div class="card">
+            <div class="card-header">
+                <h1>Mural Firmware Flasher</h1>
+                <p>Install latest Mural plotter software</p>
+            </div>
 
-    <main class="container">
-        <section>
             <div class="note">
-                <div class="note-title">Important:</div>
+                <div class="note-title">Important</div>
                 <p>For this web flasher to work, you need:</p>
                 <ul>
                     <li>Chrome or Edge browser (version 89 or later)</li>
                     <li>A USB data cable (not just a charging cable)</li>
-                    <li>ESP32 in boot mode (hold BOOT button while connecting)</li>
                 </ul>
             </div>
 
-            <div class="flash-container">
-                <div class="steps">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <h3>Connect your ESP32</h3>
-                            <p>Connect your ESP32 to your computer using a USB cable. Hold the BOOT button while connecting to enter flash mode.</p>
-                            <button id="connect-device" class="button">Connect Device</button>
-                        </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Connect your Mural</h3>
+                        <p>Connect your Mural to your computer using a USB cable.</p>
+                        <button id="connect-device" class="button">Connect Device</button>
                     </div>
+                </div>
 
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <h3>Device Information</h3>
-                            <div class="device-info">
-                                <div class="info-row">
-                                    <div class="info-label">Status:</div>
-                                    <div id="connection-status">Not connected</div>
-                                </div>
-                                <div class="info-row">
-                                    <div class="info-label">Device:</div>
-                                    <div id="device-info">-</div>
-                                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Device Information</h3>
+                        <div class="device-info">
+                            <div class="info-row">
+                                <div class="info-label">Status:</div>
+                                <div id="connection-status">Not connected</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Device:</div>
+                                <div id="device-info">-</div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <h3>Flash Firmware</h3>
-                            <p>Click "Flash Firmware" to begin.</p>
-                            <button id="flash-button" class="button" disabled>Flash Firmware</button>
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">4</div>
-                        <div class="step-content">
-                            <h3>Connect to Mural WiFi hotspot and connect it to your home WiFi</h3>
-                            <p>Once Mural is connected to your home WiFi, you can access it on your phone or computer at <a href="http://mural.local/">http://mural.local/</a> or by its IP</p>
-                        </div>
-                    </div>
-
-                    
                 </div>
-                
-                <h3>Console Output</h3>
-                <div id="terminal" class="log-container"></div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Flash Firmware</h3>
+                        <p>Click "Flash Firmware" to begin. Wait until you see "Firmware flashed successfully!" before disconnecting Mural.</p>
+                        <button id="flash-button" class="button" disabled>Flash Firmware</button>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Connect to Mural WiFi hotspot and connect it to your home WiFi</h3>
+                        <p>Once Mural is connected to your home WiFi, you can access it on your phone or computer at <a href="http://mural.local/">http://mural.local/</a> or by its IP</p>
+                    </div>
                 </div>
             </div>
-        </section>
-    </main>
 
-    <footer>
-        <div class="container">
+            <div class="console">
+                <h3>Console Output</h3>
+                <div id="terminal" class="log-container"></div>
+            </div>
+        </div>
+
+        <footer class="footer">
             <p>Released under the CC BY-NC 4.0 License</p>
             <p>&copy; 2025 Nik Ivanov</p>
-        </div>
-    </footer>
+        </footer>
+    </main>
 
     <script type="module">
         import { Transport, ESPLoader } from "./bundle.js";
@@ -421,12 +459,10 @@
             };
             
             const flashOptions = {
+                // Single image from `pio run -t mergebin` (bootloader, partitions, boot_app0, app and
+                // filesystem already combined), flashed at 0x0. Flash params are baked in by the merge.
                 fileArray: [
-                    {data: await loadData("firmware/bootloader.bin"), address: parseInt("0x1000") },
-                    {data: await loadData("firmware/partitions.bin"), address: parseInt("0x8000") },
-                    {data: await loadData("firmware/boot_app0.bin"), address: parseInt("0xe000") },
-                    {data: await loadData("firmware/firmware.bin"), address: parseInt("0x10000") },
-                    {data: await loadData("firmware/littlefs.bin"), address: parseInt("0x13C000") },
+                    {data: await loadData("firmware/firmware-merged.bin"), address: 0x0 },
                 ],
                 flashSize: "4MB",
                 flashMode: "dio",

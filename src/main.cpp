@@ -4,12 +4,16 @@
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <LittleFS.h>
+#include <SPI.h>
+#include <SD.h>
 #include <Wire.h>
 #include <ESPmDNS.h>
 #include "movement.h"
 #include "runner.h"
 #include "pen.h"
 #include "display.h"
+#include "sdcard.h"
+#include "portalhtml.h"
 #include "phases/phasemanager.h"
 
 AsyncWebServer server(80);
@@ -34,7 +38,13 @@ void handleGetState(AsyncWebServerRequest *request) {
     phaseManager->respondWithState(request);
 }
 
-std::vector<const char *> menu = {"wifi", "sep"};
+const char *HOTSPOT_SSID = "Mural";
+
+// Survives ESP.restart() but not a power cycle, so "use without WiFi" only applies to the next boot.
+// RTC memory holds garbage after power-on, hence the magic value rather than a plain bool.
+const uint32_t HOTSPOT_BOOT_MAGIC = 0x4D555241; // "MURA"
+RTC_NOINIT_ATTR uint32_t hotspotBootFlag;
+
 void setup()
 {
     delay(10);
@@ -46,31 +56,62 @@ void setup()
     }
 
     display = new Display();
+    display->showStarting();
     Serial.println("Initialized display");
+
+    initSdCardOrHalt(display);
+    Serial.println("Initialized SD card");
 
     // initialize movement right away or the motors can start creeping due to floating output
     movement = new Movement(display);
     Serial.println("Initialized steppers");
 
-    bool resetAfterConnect = false;
-    std::function<void()> serverCallback = [&] () {
-        resetAfterConnect = true;
-    };
-    
-    WiFiManager wifiManager;
-    
-    wifiManager.setConnectTimeout(20);
-    wifiManager.setTitle("Connect to WiFi");
-    wifiManager.setMenu(menu);
-    wifiManager.setWebServerCallback(serverCallback);
-    wifiManager.autoConnect("Mural");
+    // Consume the flag so any later restart goes back to the normal WiFi flow
+    bool hotspotMode = hotspotBootFlag == HOTSPOT_BOOT_MAGIC;
+    hotspotBootFlag = 0;
 
-    if (resetAfterConnect) {
-        Serial.println("Connected to WiFi through captive portal, restarting...");
-        ESP.restart();
+    String ipAddress;
+    if (hotspotMode) {
+        Serial.println("Running without WiFi, starting hotspot");
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(HOTSPOT_SSID);
+        ipAddress = WiFi.softAPIP().toString();
+    } else {
+        WiFiManager wifiManager;
+
+        bool resetAfterConnect = false;
+        std::function<void()> serverCallback = [&] () {
+            resetAfterConnect = true;
+            // Lets the user skip WiFi setup and run Mural off its own hotspot after a restart
+            wifiManager.server->on("/offline", HTTP_POST, [&] () {
+                hotspotBootFlag = HOTSPOT_BOOT_MAGIC;
+                wifiManager.server->send(200, "text/html", OFFLINE_PAGE_HTML);
+                wifiManager.stopConfigPortal();
+            });
+        };
+
+        wifiManager.setConnectTimeout(20);
+        applyPortalTheme(wifiManager);
+        wifiManager.setWebServerCallback(serverCallback);
+        wifiManager.setAPCallback([](WiFiManager*) {
+            display->showHotspot();
+        });
+
+        display->showConnecting();
+        Serial.println("Connecting to wifi");
+
+        wifiManager.autoConnect(HOTSPOT_SSID);
+
+        if (resetAfterConnect) {
+            Serial.println(hotspotBootFlag == HOTSPOT_BOOT_MAGIC
+                ? "Hotspot mode chosen in captive portal, restarting..."
+                : "Connected to WiFi through captive portal, restarting...");
+            ESP.restart();
+        }
+
+        Serial.println("Connected to wifi");
+        ipAddress = WiFi.localIP().toString();
     }
-    
-    Serial.println("Connected to wifi");
 
     MDNS.begin("mural");
 
@@ -89,6 +130,9 @@ void setup()
 
     server.on("/setTopDistance", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->setTopDistance(request); });
+
+    server.on("/setPulleyDiameter", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->getCurrentPhase()->setPulleyDiameter(request); });
 
     server.on("/extendToHome", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->extendToHome(request); });
@@ -125,7 +169,7 @@ void setup()
     server.on(
         "/downloadCommands", HTTP_GET,
         [](AsyncWebServerRequest *request) {
-            request->send(LittleFS, "/commands", "text/plain");
+            request->send(SD, "/commands", "text/plain");
         }
     );
 
@@ -133,13 +177,16 @@ void setup()
 
     Serial.println("Finished setting up the server");
 
-    phaseManager = new PhaseManager(movement, pen, runner, &server);
+    phaseManager = new PhaseManager(movement, pen, runner, &server, display);
 
     server.begin();
     Serial.println("Server started");
 
-    display->displayHomeScreen("http://" + WiFi.localIP().toString(), "or", "http://mural.local");
-    
+    if (hotspotMode) {
+        display->showHotspotReady(ipAddress);
+    } else {
+        display->showConnected(ipAddress);
+    }
 }
 
 void loop()

@@ -4,6 +4,7 @@
 #include "movement.h"
 #include "pen.h"
 #include "runner.h"
+#include "display.h"
 #include <ESPAsyncWebServer.h>
 class PhaseManager {
     private:
@@ -15,12 +16,15 @@ class PhaseManager {
     Phase* svgSelectPhase;
     Phase* beginDrawingPhase;
     Movement* movement;
+    Display* display;
+    int cachedFreeKb;
     public:
     enum PhaseNames {RetractBelts, SetTopDistance, ExtendToHome, PenCalibration, SvgSelect, BeginDrawing};
-    PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server);
+    PhaseManager(Movement* movement, Pen* pen, Runner* runner, AsyncWebServer* server, Display* display);
     Phase* getCurrentPhase();
     void setPhase(PhaseNames name);
     void respondWithState(AsyncWebServerRequest *request);
+    void updateFreeKb();
     void reset();
 };
 #endif

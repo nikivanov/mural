@@ -5,443 +5,459 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bill of Materials for Mural</title>
     <style>
+        /* Mural UI theme (matches index.html, ui/ and the captive portal): Tailwind gray-950 background,
+           gray-900 cards, gray-800 tiles, cyan-600 accents */
         :root {
-            --primary: #3a86ff;
-            --text: #333;
-            --background: #f8f9fa;
-            --card: #ffffff;
-            --border: #eaeaea;
+            color-scheme: dark;
+            --bg: #030712;          /* gray-950 */
+            --card: #111827;        /* gray-900 */
+            --tile: #1f2937;        /* gray-800 */
+            --tile-hover: #374151;  /* gray-700 */
+            --border: #1f2937;      /* gray-800 */
+            --tile-border: #374151; /* gray-700 */
+            --text: #f3f4f6;        /* gray-100 */
+            --body: #d1d5db;        /* gray-300 */
+            --heading: #ffffff;
+            --muted: #9ca3af;       /* gray-400 */
+            --faint: #6b7280;       /* gray-500 */
+            --accent: #0891b2;      /* cyan-600 */
+            --accent-hover: #06b6d4;/* cyan-500 */
+            --link: #22d3ee;        /* cyan-400 */
+            --link-hover: #67e8f9;  /* cyan-300 */
+            --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        
+
         body {
-            background-color: var(--background);
+            min-height: 100vh;
             color: var(--text);
+            background-color: var(--bg);
             line-height: 1.6;
-            padding: 2rem;
+            font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
-        
-        header {
-            margin-bottom: 2rem;
+
+        a {
+            color: var(--link);
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.15s ease;
         }
-        
-        h1 {
-            font-weight: 700;
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-            color: var(--text);
+
+        a:hover {
+            color: var(--link-hover);
         }
-        
-        .subtitle {
-            color: #666;
-            font-size: 1rem;
+
+        a:focus-visible {
+            outline: 2px solid var(--accent-hover);
+            outline-offset: 2px;
+        }
+
+        .container {
+            max-width: calc(1000px + 4rem);
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .container {
+                padding: 0 2rem;
+            }
+        }
+
+        header.container {
+            padding-top: 2rem;
+            padding-bottom: 1.5rem;
+        }
+
+        .back {
+            display: inline-block;
             margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: var(--muted);
         }
-        
+
+        .back:hover {
+            color: var(--heading);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            color: var(--heading);
+            margin-bottom: 1rem;
+        }
+
+        .disclosures {
+            padding: 1rem 1.25rem;
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+        }
+
+        .disclosures p {
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+
         .card-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+            gap: 1rem;
         }
-        
-        .card-link {
-            text-decoration: none;
-            color: inherit;
-            display: block;
-            height: 100%;
-        }
-        
+
         .card {
-            background: var(--card);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
             display: flex;
             flex-direction: column;
             height: 100%;
-            position: relative;
+            overflow: hidden;
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            color: inherit;
+            font-weight: 400;
+            transition: border-color 0.15s ease, background-color 0.15s ease;
         }
-        
+
         .card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+            color: inherit;
+            border-color: var(--accent-hover);
         }
-        
-        .card::after {
-            content: "Buy Now";
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            background: var(--primary);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-top-left-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            opacity: 0;
-            transform: translateY(100%);
-            transition: all 0.2s ease;
-        }
-        
-        .card:hover::after {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        
+
+        /* Product photos are shot on white, so they sit in a white well */
         .card-image {
             height: 180px;
-            overflow: hidden;
-            position: relative;
-            background-color: #f0f0f0;
+            padding: 1rem;
+            background-color: #fff;
         }
-        
+
         .card-image img {
+            display: block;
             width: 100%;
             height: 100%;
             object-fit: contain;
             transition: transform 0.3s ease;
         }
-        
+
         .card:hover .card-image img {
             transform: scale(1.05);
         }
-        
-        .card-header {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .card-title {
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-        
-        .tag {
-            background: #edf2ff;
-            color: var(--primary);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        
+
         .card-body {
-            padding: 1rem;
-            flex-grow: 1;
             display: flex;
             flex-direction: column;
+            flex-grow: 1;
+            padding: 1rem 1.25rem 1.25rem;
         }
-        
-        .part-details {
-            margin-bottom: 0.75rem;
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.4;
+            color: var(--heading);
         }
-        
-        .part-details p {
-            margin-bottom: 0.25rem;
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .part-details span:first-child {
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
+
         .description {
-            margin-bottom: auto;
+            margin-top: 0.375rem;
+            color: var(--muted);
+            font-size: 0.875rem;
         }
-        
-        .status {
+
+        .card-footer {
             display: flex;
             align-items: center;
-            margin-top: 1rem;
+            justify-content: space-between;
+            margin-top: auto;
             padding-top: 1rem;
-            border-top: 1px solid var(--border);
         }
-        
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-        
-        .status-available .status-indicator {
-            background: #10b981;
-        }
-        
-        .status-limited .status-indicator {
-            background: #f59e0b;
-        }
-        
-        .status-unavailable .status-indicator {
-            background: #ef4444;
-        }
-        
-        .status-text {
-            font-size: 0.9rem;
+
+        .tag {
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            background-color: var(--tile);
+            border: 1px solid var(--tile-border);
+            color: var(--body);
+            font-size: 0.75rem;
             font-weight: 500;
         }
-        
-        .status-available .status-text {
-            color: #10b981;
+
+        .buy {
+            color: var(--link);
+            font-size: 0.875rem;
+            font-weight: 500;
         }
-        
-        .status-limited .status-text {
-            color: #f59e0b;
+
+        .card:hover .buy {
+            color: var(--link-hover);
         }
-        
-        .status-unavailable .status-text {
-            color: #ef4444;
-        }
-        
+
         footer {
-            margin-top: 3rem;
             text-align: center;
-            color: #666;
-            font-size: 0.9rem;
+            padding: 2rem 0 3rem;
+            font-size: 0.875rem;
         }
-        
-        @media (max-width: 768px) {
-            body {
-                padding: 1rem;
-            }
-            
-            .card-container {
-                grid-template-columns: 1fr;
-            }
+
+        footer p {
+            color: var(--faint);
+            margin-bottom: 0.25rem;
         }
     </style>
 </head>
 <body>
-    <header>
+    <header class="container">
+        <a href="index.html" class="back">&larr; Mural</a>
         <h1>Mural Bill of Materials</h1>
-        <p class="subtitle">As an Amazon Associate, I earn commission from qualifying purchases.</p>
+        <div class="disclosures">
+            <p>As an Amazon Associate, I earn commission from qualifying purchases.</p>
+            <p>As an Awin partner, I earn commission on products from Elecrow.</p>
+        </div>
     </header>
-    
-    <main>
+
+    <main class="container">
         <div class="card-container">
-            <a href="https://amzn.to/4io47C9" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/esp32.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">NodeMCU ESP32 ESP-WROOM-32</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description">30 pin version</p>
+            <!-- One card per part. Copy this block, then set href, image, title, note and store. -->
+            <a href="https://tidd.ly/4iOAIDz" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/fluidnc-pen-laser.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">TMC2209 Pen/Laser FluidNC CNC Controller</h2>
+                    <div class="card-footer">
+                        <span class="tag">Elecrow</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/3Khy9uQ" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/nema17.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">2x STEPPERONLINE Nema 17 pancake stepper motors</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B0gLjSLSP" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/microsd-32gb.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">Micro SD Card 32GB</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4iMoQ29" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/driverboard.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">2x Stepper Motor Driver control extension boards</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B0adm6UTK" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/nema17-pancake.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">STEPPERONLINE Nema 17 Pancake Stepper Motor 1A 17Ncm</h2>
+                    <p class="description">You'll need 2</p>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4ipCEQu" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/tmc2209.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">2x BigTreeTech TMC2209 Stepper motor drivers</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B074O4wsz" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/gt2-pulley-16t.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">GT2 Timing Belt Pulley 16 Teeth, 5mm Bore, for 6mm Width Belt</h2>
+                    <p class="description">Make sure you don't use the 20 teeth version from Mural v1</p>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4bLTvug" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/pulley.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">2x GT2 Pulley 20 teeth 5mm bore 6mm shaft</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B03Jlmf8b" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/623zz-bearing.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">623ZZ ball bearings</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4hqpIZi" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/belt.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">GT2 Timing belt 2mm pitch 6mm width</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B05fOoI5p" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/gt2-belt.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">3D Printing GT2 Timing Belt, 10m length, 2mm pitch, 6mm width</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4iq2kfR" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/mg90s.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">MG90s metal gear servo</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B03LRG9Qd" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/mg90s-servo.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">MG90S 9g Metal Gear Micro Servo</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4iMUDA8" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/pd.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">USB-C PD trigger module</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B05Rr2QR2" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/usbc-pd-trigger.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">USB-C Power Delivery trigger module</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4hpWVUN" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/buck.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">LM2596 step down voltage regulator</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B07pwljnt" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/m3-bolt-kit.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">M3 bolt kit</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4bKZ8c9" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/power.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">30W USB-C power delivery adapter</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description">with 10ft USB-C M-M cable</p>
+            <a href="https://link.amazon/B0hTSx3gT" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/m3-heat-inserts.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">Threaded Heat Set Inserts Kit M3x4x5</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4ipSJFP" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/wire.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">M-F and F-F breadboard jumper wire 10cm and 20cm</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B02mRQpYj" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/m3-thumbscrew.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">M3 thumb screw</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/41HZL1z" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/m3.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">M3 hex bolt set</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description">You'll need 6/8/12/25 mm bolt lengths</p>
+            <a href="https://link.amazon/B0ckNvCHB" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/usbc-100w-power-supply.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">100W USB-C power supply</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/41L7Y54" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/header.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">2.54m pitch male headers</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description"></p>
+            <a href="https://link.amazon/B08wGFQ3v" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/usbc-cable-10ft.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">10FT USB-C cable</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4iI1eM7" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/inserts.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">M3 heat inserts</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description">Optional - only one is used for the pen, and you can use an M3 bolt without it</p>
+            <a href="https://link.amazon/B06Ea99xc" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/oled-display.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">OLED Display Module</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://amzn.to/4bUXS6f" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/thumbscrews.jpg" />
-                    </div>
-                    <div class="card-header">
-                        <h2 class="card-title">12mm M3 thumbscrew</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="description">Optional, but sure is nicer. You only need 1</p>
+            <a href="https://link.amazon/B0561ayeX" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/dupont-mf-20cm.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">20CM M-F Dupont Wire</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
-            <a href="https://www.aliexpress.us/item/2251832624960694.html" class="card-link">
-                <div class="card">
-                    <div class="card-image">
-                        <img src="images/bom/steppercable.webp" />
+            <a href="https://link.amazon/B0ejES7pY" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/18awg-wire.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">18 AWG wire</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
-                    <div class="card-header">
-                        <h2 class="card-title">10cm stepper motor cable</h2>
+                </div>
+            </a>
+            <a href="https://link.amazon/B00xcqtLp" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/thumbtacks.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">Thumbtacks</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
-                    <div class="card-body">
-                        <p class="description">These are surprisingly hard to find, I bought mine on AliExpress. You can also simply cut and solder together the long cables that came with your steppers</p>
+                </div>
+            </a>
+            <a href="https://link.amazon/B05DvLnSL" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/crayola-markers-black.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">Crayola Ultra Washable Markers, Black</h2>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
+                    </div>
+                </div>
+            </a>
+            <a href="https://link.amazon/B08VOUrXD" class="card" rel="sponsored">
+                <div class="card-image">
+                    <img src="images/bom/crayola-markers-multicolor.webp" alt="" loading="lazy">
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">Crayola Ultra Washable Markers, Multicolor</h2>
+                    <p class="description">For the upcoming multi-color update</p>
+                    <div class="card-footer">
+                        <span class="tag">Amazon</span>
+                        <span class="buy">Buy &rarr;</span>
                     </div>
                 </div>
             </a>
         </div>
     </main>
-    
+
     <footer>
         <div class="container">
             <p>Creative Commons Attribution - NonCommercial (CC BY-NC) license</p>
