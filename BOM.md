@@ -16,7 +16,7 @@ All parts can be found on Amazon, AliExpress, Ebay etc.
 | M3 thumb screw | ![thumbscrew](/docs/images/bom/m3-thumbscrew.webp) | 1 | |
 | 100W USB-C power supply | ![power](/docs/images/bom/usbc-100w-power-supply.webp) | 1 | 60W should be OK as well |
 | 10FT USB-C cable | ![cable](/docs/images/bom/usbc-cable-10ft.webp) | 1 | |
-| OLED Display Module | ![oled](/docs/images/bom/oled-display.webp) | 1 | |
+| 0.91 Inch I2C OLED Display Module | ![oled](/docs/images/bom/oled-display.webp) | 1 | |
 | 20CM M-F Dupont Wire | ![dupont](/docs/images/bom/dupont-mf-20cm.webp) | 4 | |
 | 18AWG wire | ![wire](/docs/images/bom/18awg-wire.webp) | | |
 | Thumbtacks | ![tacks](/docs/images/bom/thumbtacks.webp) | | |
