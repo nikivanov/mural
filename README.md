@@ -2,6 +2,8 @@
 
 Please find the main documentation on https://getmural.me. 
 
+Discord: https://discord.gg/J3ZautHMTw
+
 # Additional Information
 
 ## Positioning of the Drawing on the Wall
