@@ -381,6 +381,25 @@
             margin-bottom: 0.25rem;
         }
 
+        .spacer {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 3rem 0 1.5rem;
+            color: var(--faint);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .spacer::before,
+        .spacer::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background-color: var(--tile-border);
+        }
+
         .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
@@ -460,6 +479,30 @@
                 <a href="https://github.com/nikivanov/mural/tree/main/STLs" class="resource-link">2. 3D Printed Parts (STL Files)</a>
                 <a href="firmware_flasher.html" class="resource-link">3. Firmware</a>
                 <a target="_blank" href="https://youtu.be/Hjp9P1Shx5E" class="resource-link">4. Assembly Video - <b>v2.0</b></a>
+            </div>
+        </section>
+
+        <div class="spacer" role="separator">Previous version</div>
+
+        <section id="v1-1">
+            <h2>Mural V1.1</h2>
+            <p>Already built a V1.1 Mural? Its parts list and firmware are kept here.</p>
+            <div class="resources">
+                <div class="resource-group">
+                    <div class="resource-group-title">V1.1 Bill of Materials (BOM) <span class="hint">pick one</span></div>
+                    <div class="choices">
+                        <a href="v1.1/bom.html" class="choice">
+                            <span class="choice-title">Amazon (affiliate)</span>
+                            <span class="choice-sub">V1.1 parts list with affiliate links</span>
+                        </a>
+                        <span class="or" aria-hidden="true">or</span>
+                        <a href="https://github.com/nikivanov/mural/blob/88fabfa/BOM.md" class="choice">
+                            <span class="choice-title">GitHub</span>
+                            <span class="choice-sub">V1.1 parts list in the GitHub repo</span>
+                        </a>
+                    </div>
+                </div>
+                <a href="v1.1/firmware_flasher.html" class="resource-link">V1.1 Firmware</a>
             </div>
         </section>
     </main>
