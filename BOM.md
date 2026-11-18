@@ -1,6 +1,8 @@
 # Bill of Materials
 All parts can be found on Amazon, AliExpress, Ebay etc. 
 
+Using an MKS DLC32 v2.1 instead of the FluidNC controller? See [MKS DLC32 setup](docs/mks-dlc32.md).
+
 | Part | Reference Photo | Qty | Notes |
 |---|---|---|---|
 | TMC2209 Pen/Laser FluidNC CNC Controller | ![controller](/docs/images/bom/fluidnc-pen-laser.webp) | 1 | |

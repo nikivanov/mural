@@ -13,6 +13,7 @@
 #include "pen.h"
 #include "display.h"
 #include "sdcard.h"
+#include "shiftregister.h"
 #include "portalhtml.h"
 #include "phases/phasemanager.h"
 
@@ -47,6 +48,10 @@ RTC_NOINIT_ATTR uint32_t hotspotBootFlag;
 
 void setup()
 {
+#if defined(MURAL_BOARD_MKS_DLC32)
+    // The 74HC595 driving STEP/DIR/EN powers up with random outputs; latch a safe state first.
+    ShiftRegister::begin();
+#endif
     delay(10);
     Serial.begin(9600);
 

@@ -1,4 +1,5 @@
 #include "display.h"
+#include "board.h"
 #include <Adafruit_SSD1306.h>
 
 #define SCREEN_WIDTH 128
@@ -6,8 +7,8 @@
 #define TEXT_HEIGHT 8
 
 Display::Display() {
-    auto i2c_valid = Wire.begin(15, 4);
-    Serial.printf("I2C changed OK to pins 15 and 4: %d\n", i2c_valid);
+    auto i2c_valid = Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+    Serial.printf("I2C on SDA %d / SCL %d: %d\n", I2C_SDA_PIN, I2C_SCL_PIN, i2c_valid);
     display = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
     if (!display->begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println(F("SSD1306 allocation failed"));

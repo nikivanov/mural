@@ -1,48 +1,67 @@
 #include "movement.h"
 #include "display.h"
+#include "shiftregister.h"
 #include <stdexcept>
 
 namespace {
     constexpr const char* PREFS_NAMESPACE = "mural";
     constexpr const char* PULLEY_DIAMETER_KEY = "diameter";
+
+    // Starts a constant-speed move to target. The speed's sign must match the direction of
+    // travel: AccelStepper's FUNCTION interface (MKS DLC32) and stop() both rely on it.
+    void moveAtSpeed(AccelStepper *motor, long target, float speed) {
+        motor->moveTo(target);
+        motor->setSpeed(target >= motor->currentPosition() ? fabs(speed) : -fabs(speed));
+    }
 }
 
 Movement::Movement(Display *display)
 {
     this->display = display;
 
+#if MURAL_HAS_TMC_UART
     tmcSerial = new HardwareSerial(1);
-    tmcSerial->begin(115200, SERIAL_8N1, 16, 17);
+    tmcSerial->begin(115200, SERIAL_8N1, TMC_UART_RX_PIN, TMC_UART_TX_PIN);
     delay(100); // Allow TMC2209 drivers to power-on and UART to settle
 
-    leftDriver = new TMC2209Stepper(tmcSerial, 0.11, LEFT_UART_ADDR);
+    leftDriver = new TMC2209Stepper(tmcSerial, TMC_R_SENSE, LEFT_UART_ADDR);
     leftDriver->begin();
     leftDriver->toff(5);
-    leftDriver->rms_current(707);
-    leftDriver->microsteps(8);
+    leftDriver->rms_current(TMC_RMS_CURRENT_MA);
+    leftDriver->microsteps(MICROSTEPS);
     leftDriver->pwm_autoscale(true);
     Serial.printf("Left driver: conn=%d microsteps=%d rms: %d \n",
                   leftDriver->test_connection(), leftDriver->microsteps(), leftDriver->rms_current());
 
-    rightDriver = new TMC2209Stepper(tmcSerial, 0.11, RIGHT_UART_ADDR);
+    rightDriver = new TMC2209Stepper(tmcSerial, TMC_R_SENSE, RIGHT_UART_ADDR);
     rightDriver->begin();
     rightDriver->toff(5);
-    rightDriver->rms_current(707);
-    rightDriver->microsteps(8);
+    rightDriver->rms_current(TMC_RMS_CURRENT_MA);
+    rightDriver->microsteps(MICROSTEPS);
     rightDriver->pwm_autoscale(true);
     Serial.printf("Right driver: conn=%d microsteps=%d rms: %d \n",
                   rightDriver->test_connection(), rightDriver->microsteps(), rightDriver->rms_current());
+#endif
 
+#if defined(MURAL_BOARD_MKS_DLC32)
+    // Standalone drivers: microsteps come from the DIP switches, current from the Vref pots.
+    ShiftRegister::begin();
+    ShiftRegister::setMotorsEnabled(true);
+
+    leftMotor = new AccelStepper(ShiftRegisterSteps::leftForward, ShiftRegisterSteps::leftBackward);
+    rightMotor = new AccelStepper(ShiftRegisterSteps::rightForward, ShiftRegisterSteps::rightBackward);
+#else
     // enable all motors
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
     digitalWrite(MOTOR_ENABLE_PIN, LOW);
-
     leftMotor = new AccelStepper(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
-    leftMotor->setMaxSpeed(moveSpeedSteps);
-    leftMotor->setPinsInverted(true);
-    leftMotor->disableOutputs();
-
+    leftMotor->setPinsInverted(LEFT_DIR_INVERTED);
     rightMotor = new AccelStepper(AccelStepper::DRIVER, RIGHT_STEP_PIN, RIGHT_DIR_PIN);
+    rightMotor->setPinsInverted(RIGHT_DIR_INVERTED);
+#endif
+
+    leftMotor->setMaxSpeed(moveSpeedSteps);
+    leftMotor->disableOutputs();
     rightMotor->setMaxSpeed(moveSpeedSteps);
     rightMotor->disableOutputs();
 
@@ -92,13 +111,11 @@ void Movement::leftStepper(const int dir)
 {
     if (dir > 0)
     {
-        leftMotor->move(INFINITE_STEPS);
-        leftMotor->setSpeed(printSpeedSteps);
+        moveAtSpeed(leftMotor, leftMotor->currentPosition() + INFINITE_STEPS, printSpeedSteps);
     }
     else if (dir < 0)
     {
-        leftMotor->move(-INFINITE_STEPS);
-        leftMotor->setSpeed(printSpeedSteps);
+        moveAtSpeed(leftMotor, leftMotor->currentPosition() - INFINITE_STEPS, printSpeedSteps);
     }
     else
     {
@@ -113,13 +130,11 @@ void Movement::rightStepper(const int dir)
 {
     if (dir > 0)
     {
-        rightMotor->move(INFINITE_STEPS);
-        rightMotor->setSpeed(printSpeedSteps);
+        moveAtSpeed(rightMotor, rightMotor->currentPosition() + INFINITE_STEPS, printSpeedSteps);
     }
     else if (dir < 0)
     {
-        rightMotor->move(-INFINITE_STEPS);
-        rightMotor->setSpeed(printSpeedSteps);
+        moveAtSpeed(rightMotor, rightMotor->currentPosition() - INFINITE_STEPS, printSpeedSteps);
     }
     else
     {
@@ -408,11 +423,8 @@ float Movement::beginLinearTravel(double x, double y, int speed)
     }
 
     //Serial.printf("Begin movement: X(%s) Y(%s) UnsafeX(%s) UnsafeY(%s) leftLeg(%s) rightLeg(%s) deltaLeft(%s) deltaRight(%s) leftSpeed(%s) rightSpeed(%s) \n", String(x), String(y), String(unsafeX), String(unsafeY), String(leftLeg), String(rightLeg), String(deltaLeft), String(deltaRight), String(leftSpeed), String(rightSpeed));
-    leftMotor->moveTo(leftLegSteps);
-    leftMotor->setSpeed(leftSpeed);
-    
-    rightMotor->moveTo(rightLegSteps);
-    rightMotor->setSpeed(rightSpeed);
+    moveAtSpeed(leftMotor, leftLegSteps, leftSpeed);
+    moveAtSpeed(rightMotor, rightLegSteps, rightSpeed);
 
     //display->displayText(String(X) + ", " + String(Y));
     // delay(sleepDurationAfterMove_ms);
@@ -444,11 +456,9 @@ Movement::Point Movement::getCoordinates() {
 void Movement::extendBelts(int distanceMm) {
     const int steps = int((distanceMm / circumference) * stepsPerRotation);
 
-    leftMotor->move(steps);
-    leftMotor->setSpeed(moveSpeedSteps);
+    moveAtSpeed(leftMotor, leftMotor->currentPosition() + steps, moveSpeedSteps);
 
-    rightMotor->move(steps);
-    rightMotor->setSpeed(moveSpeedSteps);
+    moveAtSpeed(rightMotor, rightMotor->currentPosition() + steps, moveSpeedSteps);
 
     moving = true;
 }
