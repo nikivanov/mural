@@ -22,7 +22,7 @@ Movement::Movement(Display *display)
     leftDriver->toff(5);
     leftDriver->rms_current(707);
     leftDriver->microsteps(8);
-
+    leftDriver->pwm_autoscale(true);
     Serial.printf("Left driver: conn=%d microsteps=%d rms: %d \n",
                   leftDriver->test_connection(), leftDriver->microsteps(), leftDriver->rms_current());
 
@@ -31,7 +31,7 @@ Movement::Movement(Display *display)
     rightDriver->toff(5);
     rightDriver->rms_current(707);
     rightDriver->microsteps(8);
-
+    rightDriver->pwm_autoscale(true);
     Serial.printf("Right driver: conn=%d microsteps=%d rms: %d \n",
                   rightDriver->test_connection(), rightDriver->microsteps(), rightDriver->rms_current());
 #endif
