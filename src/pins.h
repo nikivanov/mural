@@ -27,8 +27,10 @@ constexpr int RIGHT_DIR_BIT = 6;
 // Unused: 3/4 = Z step/dir, 7 = beeper.
 
 // The driver sockets have no UART connection. TMC2209s run standalone: microstepping is set
-// with the jumpers below the sockets (must be 1/8, see stepsPerRotation) and the motor
-// current with the potentiometer on the driver.
+// with the three DIP switches below each socket and the motor current with the potentiometer
+// on the driver. Microstepping must be 1/8 (see stepsPerRotation): all three switches OFF.
+// Any other setting (e.g. 1/16 = ON/ON/OFF) silently scales every move, so drawings come
+// out smaller and slower than expected.
 
 #ifndef PEN_SERVO_PIN
 #define PEN_SERVO_PIN 32                // Laser/TTL PWM output on V2.1 (V2.0: 22)
