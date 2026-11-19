@@ -1,4 +1,5 @@
 #include "pen.h"
+#include "pins.h"
 
 bool shouldStop(int currentDegree, int targetDegree, bool positive) {
     if (positive) {
@@ -46,7 +47,7 @@ void doSlowMove(Pen* pen, int startDegree, int targetDegree, int speedDegPerSec)
 Pen::Pen()
 {
     servo = new Servo();
-    servo->attach(21);
+    servo->attach(PEN_SERVO_PIN);
     servo->write(70);
     currentPosition = 70;
 }

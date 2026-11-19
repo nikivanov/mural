@@ -13,6 +13,7 @@
 #include "pen.h"
 #include "display.h"
 #include "sdcard.h"
+#include "shiftregister.h"
 #include "portalhtml.h"
 #include "phases/phasemanager.h"
 
@@ -47,6 +48,12 @@ RTC_NOINIT_ATTR uint32_t hotspotBootFlag;
 
 void setup()
 {
+#ifdef STEPPERS_VIA_SHIFT_REGISTER
+    // The shift register outputs (motor step/dir/enable) are undefined after power-on, so
+    // put them into a known state before anything else.
+    ShiftRegister::begin();
+#endif
+
     delay(10);
     Serial.begin(9600);
 

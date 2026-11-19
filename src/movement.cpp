@@ -1,5 +1,6 @@
 #include "movement.h"
 #include "display.h"
+#include "shiftregister.h"
 #include <stdexcept>
 
 namespace {
@@ -11,8 +12,9 @@ Movement::Movement(Display *display)
 {
     this->display = display;
 
+#ifdef HAS_TMC_UART
     tmcSerial = new HardwareSerial(1);
-    tmcSerial->begin(115200, SERIAL_8N1, 16, 17);
+    tmcSerial->begin(115200, SERIAL_8N1, TMC_UART_RX_PIN, TMC_UART_TX_PIN);
     delay(100); // Allow TMC2209 drivers to power-on and UART to settle
 
     leftDriver = new TMC2209Stepper(tmcSerial, 0.11, LEFT_UART_ADDR);
@@ -32,17 +34,31 @@ Movement::Movement(Display *display)
     rightDriver->pwm_autoscale(true);
     Serial.printf("Right driver: conn=%d microsteps=%d rms: %d \n",
                   rightDriver->test_connection(), rightDriver->microsteps(), rightDriver->rms_current());
+#endif
 
+#ifdef STEPPERS_VIA_SHIFT_REGISTER
+    // No-op if main already did it; keeps Movement usable on its own.
+    ShiftRegister::begin();
+
+    leftMotor = new ShiftRegisterStepper(LEFT_STEP_BIT, LEFT_DIR_BIT, true);
+    rightMotor = new ShiftRegisterStepper(RIGHT_STEP_BIT, RIGHT_DIR_BIT);
+
+    // enable all motors
+    ShiftRegister::setBit(MOTOR_ENABLE_BIT, LOW);
+#else
     // enable all motors
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
     digitalWrite(MOTOR_ENABLE_PIN, LOW);
 
     leftMotor = new AccelStepper(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
-    leftMotor->setMaxSpeed(moveSpeedSteps);
     leftMotor->setPinsInverted(true);
-    leftMotor->disableOutputs();
 
     rightMotor = new AccelStepper(AccelStepper::DRIVER, RIGHT_STEP_PIN, RIGHT_DIR_PIN);
+#endif
+
+    leftMotor->setMaxSpeed(moveSpeedSteps);
+    leftMotor->disableOutputs();
+
     rightMotor->setMaxSpeed(moveSpeedSteps);
     rightMotor->disableOutputs();
 
