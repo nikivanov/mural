@@ -4,6 +4,7 @@ import { parseSvg, nudge, zoom, getPreviewDataUrl, transformText, type SvgState,
 import { showAlert } from '../components/AlertModal'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
+import { ActionBar } from '../components/ActionBar'
 import { DPad } from '../components/DPad'
 
 interface Props {
@@ -66,7 +67,7 @@ export function SvgUploadScreen({ state, initialState, onPreview, onBack }: Prop
         <img
           src={previewUrl}
           alt="SVG preview"
-          className="w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96"
+          className="w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 short:max-h-36"
         />
       )}
 
@@ -84,12 +85,14 @@ export function SvgUploadScreen({ state, initialState, onPreview, onBack }: Prop
         className="w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600 cursor-pointer"
       />
 
-      <Button
-        onClick={() => svgState && onPreview(svgState)}
-        disabled={!svgState}
-      >
-        Preview drawing
-      </Button>
+      <ActionBar>
+        <Button
+          onClick={() => svgState && onPreview(svgState)}
+          disabled={!svgState}
+        >
+          Preview drawing
+        </Button>
+      </ActionBar>
       <Button variant="secondary" onClick={onBack}>
         Back
       </Button>

@@ -34,7 +34,7 @@ export function Slider({ id, label, min, max, step = 1, value, onChange, classNa
           const next = Math.max(min, Math.min(max, snapped))
           if (next !== value) onChange(next)
         }}
-        className="w-full h-2 sm:h-3 2xl:h-4 rounded-full cursor-pointer accent-cyan-500"
+        className="w-full h-7 2xl:h-8 cursor-pointer accent-cyan-500"
       />
     </div>
   )

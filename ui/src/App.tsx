@@ -222,7 +222,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 short:py-3">
       <div className="w-full max-w-sm sm:max-w-md lg:max-w-xl 2xl:max-w-4xl">
         <StepIndicator phase={uiPhase} />
         {currentScreen}

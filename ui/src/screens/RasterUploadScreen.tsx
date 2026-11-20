@@ -5,6 +5,7 @@ import { nudge, zoom, transformText, type AffineTransform } from '../svgControl'
 import { showAlert } from '../components/AlertModal'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
+import { ActionBar } from '../components/ActionBar'
 import { DPad } from '../components/DPad'
 
 interface Props {
@@ -93,7 +94,7 @@ export function RasterUploadScreen({ state, initialState, onPreview, onBack }: P
         <img
           src={previewDataUrl}
           alt="Image preview"
-          className="w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh]"
+          className="w-full rounded-lg border border-gray-700 object-contain max-h-56 sm:max-h-72 lg:max-h-96 short:max-h-36 2xl:max-h-[60vh]"
         />
       )}
 
@@ -119,9 +120,11 @@ export function RasterUploadScreen({ state, initialState, onPreview, onBack }: P
         className="w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600 cursor-pointer"
       />
 
-      <Button onClick={() => imageState && onPreview(imageState)} disabled={!imageState}>
-        Preview drawing
-      </Button>
+      <ActionBar>
+        <Button onClick={() => imageState && onPreview(imageState)} disabled={!imageState}>
+          Preview drawing
+        </Button>
+      </ActionBar>
       <Button variant="secondary" onClick={onBack}>
         Back
       </Button>

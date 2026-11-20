@@ -18,7 +18,7 @@ export function StepIndicator({ phase }: { phase: UiPhase }) {
   if (current === -1) return null
 
   return (
-    <nav aria-label="Setup progress" className="mb-4 sm:mb-6 space-y-2">
+    <nav aria-label="Setup progress" className="mb-4 sm:mb-6 short:mb-2 space-y-2 short:space-y-1">
       <ol className="flex gap-1.5">
         {STEPS.map((step, i) => (
           <li

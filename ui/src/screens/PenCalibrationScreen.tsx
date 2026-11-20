@@ -3,6 +3,7 @@ import { setServo, setPenDistance, raiseBot, lowerBot } from '../api'
 import type { BackendState } from '../types'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
+import { ActionBar } from '../components/ActionBar'
 import { Slider } from '../components/Slider'
 
 interface Props {
@@ -110,21 +111,23 @@ export function PenCalibrationScreen({ onDone }: Props) {
             onClick={() => handleMove('raise')}
             disabled={moving}
           >
-            ▲ Move Mural up
+            ▲ Up
           </Button>
           <Button
             variant="secondary"
             onClick={() => handleMove('lower')}
             disabled={moving}
           >
-            ▼ Move Mural down
+            ▼ Down
           </Button>
         </div>
       </div>
 
-      <Button onClick={handleConfirm} disabled={busy}>
-        {busy ? 'Saving…' : 'Pen is touching the wall'}
-      </Button>
+      <ActionBar>
+        <Button onClick={handleConfirm} disabled={busy}>
+          {busy ? 'Saving…' : 'Pen is touching the wall'}
+        </Button>
+      </ActionBar>
     </Card>
   )
 }

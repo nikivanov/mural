@@ -3,6 +3,7 @@ import { run, doneWithPhase } from '../api'
 import type { BackendState } from '../types'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
+import { ActionBar } from '../components/ActionBar'
 import { Slider } from '../components/Slider'
 
 interface Props {
@@ -41,9 +42,11 @@ export function BeginDrawingScreen({ onBegin, onReset }: Props) {
       <p style={{ color: 'yellow', margin: '4px 0 8px', fontSize: '0.85em' }}>
         ⚠ Speed control is experimental. Use 650 for best results.
       </p>
-      <Button onClick={handleBegin} disabled={busy}>
-        {busy ? 'Starting…' : 'Begin Drawing'}
-      </Button>
+      <ActionBar>
+        <Button onClick={handleBegin} disabled={busy}>
+          {busy ? 'Starting…' : 'Begin Drawing'}
+        </Button>
+      </ActionBar>
       <Button variant="secondary" onClick={handleReset} disabled={busy}>
         Reset
       </Button>

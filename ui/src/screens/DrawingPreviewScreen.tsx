@@ -9,6 +9,7 @@ import { useWorkerRenderer } from '../hooks/useWorkerRenderer'
 import { Card } from '../components/Card'
 import { Slider } from '../components/Slider'
 import { Button } from '../components/Button'
+import { ActionBar } from '../components/ActionBar'
 
 import { WallLayoutDiagram, hatchStyle } from '../components/WallLayoutDiagram'
 
@@ -56,13 +57,13 @@ function renderLeaf(
   if (param.type === 'checkbox') {
     const disabled = param.disabledWhen ? params[param.disabledWhen.id] === param.disabledWhen.value : false
     return (
-      <label className={`flex items-center gap-2 cursor-pointer ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+      <label className={`flex items-center gap-3 min-h-11 cursor-pointer ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
         <input
           type="checkbox"
           checked={Boolean(params[param.id] ?? param.default)}
           onChange={(e) => onChange(param.id, e.target.checked)}
           disabled={disabled}
-          className="w-4 h-4 rounded accent-cyan-500 shrink-0"
+          className="w-5 h-5 rounded accent-cyan-500 shrink-0"
         />
         <span className="text-sm text-gray-300 leading-tight">{param.label}</span>
       </label>
@@ -173,7 +174,7 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
     <Card title="Drawing Preview">
       {/* Preview area — height is pinned to the drawing's own aspect ratio so toggling context view doesn't cause a scroll jump */}
       <div
-        className="relative w-full max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] overflow-hidden rounded-lg border border-gray-700 bg-gray-900"
+        className="relative w-full max-h-56 sm:max-h-72 lg:max-h-96 2xl:max-h-[60vh] short:max-h-40 overflow-hidden rounded-lg border border-gray-700 bg-gray-900"
         style={{ aspectRatio: `${previewWidth} / ${previewHeight}` }}
       >
         {contextActive ? (
@@ -253,19 +254,19 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
       {/* Canvas context toggle + reset */}
       <div className="flex items-center justify-between">
         {topDist && (
-          <label className="flex items-center gap-2 cursor-pointer">
+          <label className="flex items-center gap-3 min-h-11 cursor-pointer">
             <input
               type="checkbox"
               checked={showContext}
               onChange={(e) => setShowContext(e.target.checked)}
-              className="w-4 h-4 rounded accent-cyan-500 shrink-0"
+              className="w-5 h-5 rounded accent-cyan-500 shrink-0"
             />
             <span className="text-sm text-gray-300">Show in canvas area</span>
           </label>
         )}
         <button
           onClick={handleReset}
-          className="text-sm text-gray-400 hover:text-gray-200 transition-colors ml-auto"
+          className="min-h-11 px-3 -mr-3 text-sm text-gray-400 hover:text-gray-200 transition-colors ml-auto"
         >
           Reset
         </button>
@@ -327,9 +328,11 @@ export function DrawingPreviewScreen({ state, svgState, imageState, renderer, on
         )
       })()}
 
-      <Button onClick={handleAccept} disabled={!commandsText || isRendering}>
-        Accept
-      </Button>
+      <ActionBar>
+        <Button onClick={handleAccept} disabled={!commandsText || isRendering}>
+          Accept
+        </Button>
+      </ActionBar>
       <Button variant="secondary" onClick={onBack}>
         Back
       </Button>
