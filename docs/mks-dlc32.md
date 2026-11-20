@@ -5,7 +5,7 @@ Mural can run on the [MKS DLC32 v2.1](https://github.com/makerbase-mks/MKS-DLC32
 | Part | Qty | Notes |
 |---|---|---|
 | MKS DLC32 v2.1 | 1 | Comes with a WiFi antenna. Attach the antenna: the ESP32-WROOM-32U module has no PCB antenna |
-| TMC2209 StepStick driver module (standalone) | 2 | Goes in the X and Y sockets |
+| TMC2209 StepStick driver module (standalone) | 2 | Goes in the X and Z sockets |
 | DC barrel pigtail or 2-pin XH2.54 lead | 1 | From the USB-C PD trigger (set to 12V or 20V) to the board's power input |
 
 ## Building and flashing
@@ -22,7 +22,7 @@ The FluidNC board is the default env (`fluidnc`).
 
 The DLC32 has no UART link to the drivers, so microstepping and current are set in hardware:
 
-- **Microstepping:** set **all three DIP switches OFF** for both X and Y. On a TMC2209 that gives 1/8 microstepping, which is what the firmware expects (`MICROSTEPS` in `src/board.h`).
+- **Microstepping:** set **all three DIP switches OFF** for both X and Z. On a TMC2209 that gives 1/8 microstepping, which is what the firmware expects (`MICROSTEPS` in `src/board.h`).
 - **Current:** set each driver's **Vref to about 1.0 V**, which gives ~700 mA RMS for the 1A pancake motors (I_rms ≈ 0.71 × Vref on most TMC2209 modules; check your module's datasheet).
 
 ## Wiring
@@ -30,29 +30,29 @@ The DLC32 has no UART link to the drivers, so microstepping and current are set 
 | What | Where on the DLC32 |
 |---|---|
 | Left motor | X motor connector |
-| Right motor | Y motor connector (either of the two) |
+| Right motor | Z motor connector |
 | OLED | I2C header J2: pin 1 = 3V3, 2 = GND, 3 = SDA, 4 = SCL. Most 0.91" OLEDs are pinned GND, VCC, SCL, SDA, so wire each pin with a separate dupont jumper |
-| Servo signal | Laser TTL header J18, pin 3 (5V signal) |
-| Servo 5V and GND | Any endstop/probe header, J9–J12: pin 1 = +5V, pin 2 = GND |
+| Servo signal | Laser TTL header J18 (silkscreen `S-TTL-V`): the **S** pin, IO32 (5V signal). "TTL" is the header's name; the middle pin is GND |
+| Servo 5V and GND | Any endstop/probe header, J9–J12 (Probe/Z/Y/X): square pad = +5V, middle = GND, third = signal |
 | SD card | On-board slot |
 | Power | DC barrel jack, 12–24V |
 
 ### Servo wiring
 
-**The servo can't be plugged straight into any header. Repin its connector or use dupont jumpers.**
+**The servo can't be plugged straight into any header. Repin its connector or use dupont jumpers.** Before connecting, power the board and check with a multimeter: J18's V pin reads 12–24V to GND, and the probe header's square pad reads 5V.
 
-- J18 pin 1 is the raw input voltage (12–24V), not 5V. Never connect the servo's red wire to J18.
+- J18's **V** pin is the raw input voltage (12–24V), not 5V. Never connect the servo's red wire to J18.
 - The endstop/probe headers are ordered `+5V, GND, signal`, while a servo plug is `GND, +5V, signal`. Plugged in as-is, the servo gets 5V on its ground wire and ground on its power wire.
 
 ```
-Servo brown  (GND)    ->  J12 pin 2 (GND)
-Servo red    (+5V)    ->  J12 pin 1 (+5V)
-Servo orange (signal) ->  J18 pin 3 (laser TTL)
+Servo brown  (GND)    ->  Probe header J12, middle pin (GND)
+Servo red    (+5V)    ->  Probe header J12, square-pad pin (5V)
+Servo orange (signal) ->  TTL header J18, S pin (IO32)
 ```
 
 The laser output's red LED flickers along with the servo signal. That's expected. Don't connect anything to the laser/spindle screw terminal (J7).
 
-**Alternative:** to keep the whole servo on the probe header J12, wire the servo signal to J12 pin 3 and build with `build_flags = -DMURAL_BOARD_MKS_DLC32 -DPEN_SERVO_PIN=22`. The probe input has an RC filter and a pull-up on it, so the signal is weaker than on J18. Prefer J18 if the pen jitters.
+**Alternative:** to keep the whole servo on the probe header J12, wire the servo signal to J12's third pin (IO22) and build with `build_flags = -DMURAL_BOARD_MKS_DLC32 -DPEN_SERVO_PIN=22`. The probe input has an RC filter and a pull-up on it, so the signal is weaker than on J18. Prefer J18 if the pen jitters.
 
 ### Power
 

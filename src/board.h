@@ -58,9 +58,9 @@ constexpr int SR_LATCH_PIN = 17;   // RCLK  (I2S_WS)
 constexpr int SR_MOTOR_ENABLE_BIT = 0;   // Shared XYZ_EN, active LOW at the drivers
 constexpr int SR_LEFT_STEP_BIT = 1;      // X
 constexpr int SR_LEFT_DIR_BIT = 2;
-constexpr int SR_RIGHT_STEP_BIT = 5;     // Y
-constexpr int SR_RIGHT_DIR_BIT = 6;
-// Q3/Q4 = Z step/dir (unused), Q7 = beeper (held low).
+constexpr int SR_RIGHT_STEP_BIT = 3;     // Z
+constexpr int SR_RIGHT_DIR_BIT = 4;
+// Q5/Q6 = Y step/dir (unused), Q7 = beeper (held low).
 
 // Same as FluidNC; not yet verified on hardware. Flip one if that motor runs backwards.
 constexpr bool LEFT_DIR_INVERTED = true;
