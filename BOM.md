@@ -13,7 +13,7 @@ All parts can be found on Amazon, AliExpress, Ebay etc.
 | USB-C Power Delivery trigger module | ![pd](/docs/images/bom/usbc-pd-trigger.webp) | 1 | |
 | M3 bolt kit | ![m3](/docs/images/bom/m3-bolt-kit.webp) | | You'll need 6/8/10/12/25 mm bolt lengths |
 | Threaded Heat Set Inserts Kit M3x4x5 | ![inserts](/docs/images/bom/m3-heat-inserts.webp) | | |
-| M3 thumb screw | ![thumbscrew](/docs/images/bom/m3-thumbscrew.webp) | 1 | |
+| M3 thumb screw 12mm | ![thumbscrew](/docs/images/bom/m3-thumbscrew.webp) | 1 | |
 | 100W USB-C power supply | ![power](/docs/images/bom/usbc-100w-power-supply.webp) | 1 | 60W should be OK as well |
 | 10FT USB-C cable | ![cable](/docs/images/bom/usbc-cable-10ft.webp) | 1 | |
 | OLED Display Module | ![oled](/docs/images/bom/oled-display.webp) | 1 | |
