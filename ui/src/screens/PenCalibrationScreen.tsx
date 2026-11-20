@@ -13,6 +13,8 @@ interface Props {
 // When slider = 0 → servo = 70 (full up / retracted)
 // When slider = 70 → servo = 0 (pen touching wall)
 const STEP = 5
+// Must match PEN_CAL_STEP_MM in src/phases/pencalibrationphase.cpp
+const MOVE_STEP_MM = 100
 
 function toServoAngle(sliderVal: number) {
   return Math.max(0, Math.min(70, 70 - sliderVal))
@@ -93,21 +95,31 @@ export function PenCalibrationScreen({ onDone }: Props) {
         </Button>
       </div>
 
-      <div className="flex gap-3">
-        <Button
-          variant="secondary"
-          onClick={() => handleMove('raise')}
-          disabled={moving}
-        >
-          Raise
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => handleMove('lower')}
-          disabled={moving}
-        >
-          Lower
-        </Button>
+      <div className="space-y-2 border-t border-gray-700 pt-4">
+        <div className="flex justify-between items-center">
+          <label className="text-xs sm:text-sm text-gray-400 uppercase tracking-wide">Move Mural on the wall</label>
+          {moving && <span className="text-xs sm:text-sm text-cyan-400">moving…</span>}
+        </div>
+        <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
+          Moves the <span className="text-gray-300">whole device</span> up or down along the belts by {MOVE_STEP_MM / 10} cm,
+          e.g. to reach a spot that's comfortable for adjusting the pen. It does not move the pen.
+        </p>
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => handleMove('raise')}
+            disabled={moving}
+          >
+            ▲ Move Mural up
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => handleMove('lower')}
+            disabled={moving}
+          >
+            ▼ Move Mural down
+          </Button>
+        </div>
       </div>
 
       <Button onClick={handleConfirm} disabled={busy}>
