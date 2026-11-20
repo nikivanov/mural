@@ -20,6 +20,7 @@ import { DrawingPreviewScreen } from './screens/DrawingPreviewScreen'
 import { UploadProgressScreen } from './screens/UploadProgressScreen'
 import { BeginDrawingScreen } from './screens/BeginDrawingScreen'
 import { DrawingBeganScreen } from './screens/DrawingBeganScreen'
+import { StepIndicator } from './components/StepIndicator'
 
 export default function App() {
   const [backendState, setBackendState] = useState<BackendState | null>(null)
@@ -222,7 +223,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-sm sm:max-w-md lg:max-w-xl 2xl:max-w-4xl">{currentScreen}</div>
+      <div className="w-full max-w-sm sm:max-w-md lg:max-w-xl 2xl:max-w-4xl">
+        <StepIndicator phase={uiPhase} />
+        {currentScreen}
+      </div>
       <a
         href="https://github.com/nikivanov/mural"
         className="mt-6 text-xs sm:text-sm text-gray-600 hover:text-gray-400 transition-colors"
