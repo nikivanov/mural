@@ -5,6 +5,23 @@
 namespace {
     constexpr const char* PREFS_NAMESPACE = "mural";
     constexpr const char* PULLEY_DIAMETER_KEY = "diameter";
+
+    constexpr int CURRENT_RAMP_STEP_MS = 5; // Pause between the current steps in powerUpDriver()
+
+    // Switches the driver's output stage on and raises its current to the configured setting in small steps,
+    // so the motor doesn't pull its full current from the supply all at once.
+    void powerUpDriver(TMC2209Stepper *driver) {
+        const uint8_t targetRun = driver->irun();
+        const uint8_t targetHold = driver->ihold();
+        driver->irun(0);
+        driver->ihold(0);
+        driver->toff(5);
+        for (uint8_t run = 1; run <= targetRun; run++) {
+            delay(CURRENT_RAMP_STEP_MS);
+            driver->irun(run);
+            driver->ihold(run * targetHold / targetRun);
+        }
+    }
 }
 
 Movement::Movement(Display *display)
@@ -17,7 +34,7 @@ Movement::Movement(Display *display)
 
     leftDriver = new TMC2209Stepper(tmcSerial, 0.11, LEFT_UART_ADDR);
     leftDriver->begin();
-    leftDriver->toff(5);
+    leftDriver->toff(0); // Output stage stays off until powerUpDriver()
     leftDriver->rms_current(707);
     leftDriver->microsteps(8);
     leftDriver->pwm_autoscale(true);
@@ -26,14 +43,14 @@ Movement::Movement(Display *display)
 
     rightDriver = new TMC2209Stepper(tmcSerial, 0.11, RIGHT_UART_ADDR);
     rightDriver->begin();
-    rightDriver->toff(5);
+    rightDriver->toff(0);
     rightDriver->rms_current(707);
     rightDriver->microsteps(8);
     rightDriver->pwm_autoscale(true);
     Serial.printf("Right driver: conn=%d microsteps=%d rms: %d \n",
                   rightDriver->test_connection(), rightDriver->microsteps(), rightDriver->rms_current());
 
-    // enable all motors
+    // enable both drivers; their output stages stay off until powerUpDriver() below
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
     digitalWrite(MOTOR_ENABLE_PIN, LOW);
 
@@ -45,6 +62,10 @@ Movement::Movement(Display *display)
     rightMotor = new AccelStepper(AccelStepper::DRIVER, RIGHT_STEP_PIN, RIGHT_DIR_PIN);
     rightMotor->setMaxSpeed(moveSpeedSteps);
     rightMotor->disableOutputs();
+
+    // power the motors up one after the other
+    powerUpDriver(leftDriver);
+    powerUpDriver(rightDriver);
 
     topDistance = -1;
     preferences.begin(PREFS_NAMESPACE, false);
