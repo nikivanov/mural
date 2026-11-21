@@ -1,15 +1,17 @@
 import type { UiPhase } from '../types'
 
-// User-facing wizard steps. Several screens can belong to one step (e.g. choosing the
-// input type and uploading the file are both "Image").
+// User-facing wizard steps, in the order the firmware walks through its phases
+// (SetTopDistance → SvgSelect → upload → RetractBelts → ExtendToHome → PenCalibration →
+// BeginDrawing). Several screens can belong to one step (e.g. choosing the input type and
+// uploading the file are both "Image").
 const STEPS: { label: string; phases: UiPhase[] }[] = [
-  { label: 'Retract belts', phases: ['RetractBelts'] },
   { label: 'Hanger distance', phases: ['SetTopDistance'] },
-  { label: 'Extend to home', phases: ['ExtendToHome'] },
-  { label: 'Pen calibration', phases: ['PenCalibration'] },
   { label: 'Image', phases: ['InputSelect', 'SvgSelect', 'RasterSelect'] },
   { label: 'Preview', phases: ['ChooseRenderer', 'DrawingPreview'] },
   { label: 'Upload', phases: ['UploadProgress'] },
+  { label: 'Retract belts', phases: ['RetractBelts'] },
+  { label: 'Extend to home', phases: ['ExtendToHome'] },
+  { label: 'Pen calibration', phases: ['PenCalibration'] },
   { label: 'Draw', phases: ['BeginDrawing', 'DrawingBegan'] },
 ]
 
