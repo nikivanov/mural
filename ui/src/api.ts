@@ -66,6 +66,14 @@ export const estepsCalibration = (distanceMm: number): Promise<void> =>
 export const postMotorCommand = (command: string): Promise<void> =>
   post<void>('/command', { command })
 
+export const setBrake = (enabled: boolean): Promise<BackendState> => {
+  if (_mockMode) {
+    _mockState = { ..._mockState, brake: enabled }
+    return Promise.resolve(_mockState)
+  }
+  return post('/setBrake', { enabled: String(enabled) })
+}
+
 export const run = (speed: number): Promise<void> => post<void>('/run', { speed: String(speed) })
 
 const UPLOAD_CHUNK_SIZE = 32 * 1024

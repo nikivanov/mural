@@ -69,6 +69,31 @@ void PhaseManager::setPhase(PhaseNames name) {
         default:
             throw std::invalid_argument("Invalid Phase");
     }
+
+    // Engage the brake at the latest right before the bot gets hung up
+    if (isBrakeLocked() && !movement->areMotorsEnabled()) {
+        movement->setMotorsEnabled(true);
+    }
+}
+
+bool PhaseManager::isBrakeLocked() {
+    return currentPhase == extendToHomePhase
+        || currentPhase == penCalibrationPhase
+        || currentPhase == beginDrawingPhase;
+}
+
+void PhaseManager::setBrake(AsyncWebServerRequest *request) {
+    if (!request->hasParam("enabled", true)) {
+        request->send(400, "text/plain", "Missing parameter: enabled");
+        return;
+    }
+    const bool enabled = request->getParam("enabled", true)->value() == "true";
+    if (!enabled && isBrakeLocked()) {
+        request->send(409, "text/plain", "The brake can't be released once the belts are extended");
+        return;
+    }
+    movement->setMotorsEnabled(enabled);
+    respondWithState(request);
 }
 
 void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
@@ -94,6 +119,8 @@ void PhaseManager::respondWithState(AsyncWebServerRequest *request) {
     root["homeX"] = homePosition.x;
     root["homeY"] = homePosition.y;
     root["freeKb"] = cachedFreeKb;
+    root["brake"] = movement->areMotorsEnabled();
+    root["brakeLocked"] = isBrakeLocked();
 
     root.printTo(*response);
     request->send(response);

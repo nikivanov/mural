@@ -73,6 +73,8 @@ private:
     double X = -1;              // Location of Pen in x [mm].
     double Y = -1;              // Location of Pen in y [mm].
     bool startedHoming;
+    bool motorsEnabled;         // Drivers powered = motors hold their position ("brake").
+    void ensureMotorsEnabled(); // Called before any move, a released motor can't step.
     AccelStepper *leftMotor;
     AccelStepper *rightMotor;
     HardwareSerial *tmcSerial;
@@ -141,6 +143,12 @@ public:
 
     Point getHomeCoordinates();
     void disableMotors();
+
+    // "Brake": with the drivers enabled the motors hold the belts in place. Released, the
+    // belts can be pulled out by hand. Releasing stops any running motor; any new move
+    // re-engages the brake by itself.
+    void setMotorsEnabled(bool enabled);
+    bool areMotorsEnabled();
 };
 
 #endif

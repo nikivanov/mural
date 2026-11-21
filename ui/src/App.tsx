@@ -21,6 +21,7 @@ import { UploadProgressScreen } from './screens/UploadProgressScreen'
 import { BeginDrawingScreen } from './screens/BeginDrawingScreen'
 import { DrawingBeganScreen } from './screens/DrawingBeganScreen'
 import { StepIndicator } from './components/StepIndicator'
+import { BrakeToggle } from './components/BrakeToggle'
 
 export default function App() {
   const [backendState, setBackendState] = useState<BackendState | null>(null)
@@ -49,7 +50,7 @@ export default function App() {
       })
       .catch(() => {
         if (import.meta.env.DEV) {
-          const mock = { phase: 'SvgSelect' as const, topDistance: 1667, safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25 }
+          const mock = { phase: 'SvgSelect' as const, topDistance: 1667, safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25, brake: true, brakeLocked: false }
           enableMockMode(mock)
           setBackendState(mock)
           setUiPhase('InputSelect')
@@ -226,6 +227,7 @@ export default function App() {
       <div className="w-full max-w-sm sm:max-w-md lg:max-w-xl 2xl:max-w-4xl">
         <StepIndicator phase={uiPhase} />
         {currentScreen}
+        {uiPhase !== 'loading' && <BrakeToggle state={backendState} />}
       </div>
       <a
         href="https://github.com/nikivanov/mural"

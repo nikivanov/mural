@@ -26,5 +26,8 @@ class PhaseManager {
     void respondWithState(AsyncWebServerRequest *request);
     void updateFreeKb();
     void reset();
+    // From extending to home on the bot hangs on its belts, so the brake must stay engaged.
+    bool isBrakeLocked();
+    void setBrake(AsyncWebServerRequest *request);
 };
 #endif
