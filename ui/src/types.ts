@@ -18,6 +18,10 @@ export interface BackendState {
   moving?: boolean
   startedHoming?: boolean
   freeKb?: number
+  /** Motor drivers enabled, the motors hold the belts in place */
+  brake?: boolean
+  /** Brake can't be released any more (belts extended / bot hanging) */
+  brakeLocked?: boolean
 }
 
 /** Internal UI phase — extends backend phases with SVG pipeline sub-states */

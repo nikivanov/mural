@@ -20,6 +20,8 @@ import { DrawingPreviewScreen } from './screens/DrawingPreviewScreen'
 import { UploadProgressScreen } from './screens/UploadProgressScreen'
 import { BeginDrawingScreen } from './screens/BeginDrawingScreen'
 import { DrawingBeganScreen } from './screens/DrawingBeganScreen'
+import { StepIndicator } from './components/StepIndicator'
+import { BrakeToggle } from './components/BrakeToggle'
 
 export default function App() {
   const [backendState, setBackendState] = useState<BackendState | null>(null)
@@ -48,7 +50,7 @@ export default function App() {
       })
       .catch(() => {
         if (import.meta.env.DEV) {
-          const mock = { phase: 'SvgSelect' as const, topDistance: 1667, safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25 }
+          const mock = { phase: 'SvgSelect' as const, topDistance: 1667, safeWidth: 1000, homeX: 500, homeY: 0, safeXFraction: 0.2, safeYFraction: 0.25, brake: true, brakeLocked: false }
           enableMockMode(mock)
           setBackendState(mock)
           setUiPhase('InputSelect')
@@ -137,7 +139,7 @@ export default function App() {
       currentScreen = <RetractBeltsScreen onDone={handleStateUpdate} />
       break
     case 'SetTopDistance':
-      currentScreen = <SetTopDistanceScreen onDone={handleStateUpdate} />
+      currentScreen = <SetTopDistanceScreen state={backendState ?? undefined} onDone={handleStateUpdate} />
       break
     case 'ExtendToHome':
       currentScreen = <ExtendToHomeScreen state={backendState!} onDone={handleStateUpdate} />
@@ -221,8 +223,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-sm sm:max-w-md lg:max-w-xl 2xl:max-w-4xl">{currentScreen}</div>
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 short:py-3">
+      <div className="w-full max-w-sm sm:max-w-md lg:max-w-xl 2xl:max-w-4xl">
+        <StepIndicator phase={uiPhase} />
+        {currentScreen}
+        {uiPhase !== 'loading' && <BrakeToggle state={backendState} />}
+      </div>
       <a
         href="https://github.com/nikivanov/mural"
         className="mt-6 text-xs sm:text-sm text-gray-600 hover:text-gray-400 transition-colors"

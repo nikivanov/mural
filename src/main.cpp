@@ -155,6 +155,9 @@ void setup()
     server.on("/resume", HTTP_POST, [](AsyncWebServerRequest *request)
               { phaseManager->getCurrentPhase()->resumeTopDistance(request); });
 
+    server.on("/setBrake", HTTP_POST, [](AsyncWebServerRequest *request)
+              { phaseManager->setBrake(request); });
+
     server.on("/getState", HTTP_GET, [](AsyncWebServerRequest *request)
               { handleGetState(request); });
 
