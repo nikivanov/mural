@@ -47,6 +47,11 @@ RTC_NOINIT_ATTR uint32_t hotspotBootFlag;
 
 void setup()
 {
+    // Keep the stepper drivers switched off until Movement configures them. Note the enable pin floats until it's
+    // set here, which could let the drivers come up on their power-on default current.
+    pinMode(MOTOR_ENABLE_PIN, OUTPUT);
+    digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+
     delay(10);
     Serial.begin(9600);
 
