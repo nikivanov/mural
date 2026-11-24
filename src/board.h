@@ -63,8 +63,8 @@ constexpr int SR_RIGHT_DIR_BIT = 4;
 // Q5/Q6 = Y step/dir (unused), Q7 = beeper (held low).
 
 // Same as FluidNC; not yet verified on hardware. Flip one if that motor runs backwards.
-constexpr bool LEFT_DIR_INVERTED = true;
-constexpr bool RIGHT_DIR_INVERTED = false;
+constexpr bool LEFT_DIR_INVERTED = false;
+constexpr bool RIGHT_DIR_INVERTED = true;
 
 // Laser TTL output (J18 pin 3): level-shifted to 5V and pulled low at boot.
 // Override with -DPEN_SERVO_PIN=22 to use the probe header (J12) instead.
